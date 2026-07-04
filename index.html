@@ -94,6 +94,10 @@ nav button.on{color:var(--amber);border-top-color:var(--amber)}
 .ex-top{display:flex;align-items:baseline;gap:9px}
 .ex-name{font-family:var(--disp);font-size:17px;font-weight:600;letter-spacing:.01em}
 .ex-scheme{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--amber);white-space:nowrap}
+.mtags{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px}
+.mtag{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+.mtag.pri{font-weight:700}
+.mtag.sec{opacity:.72;font-weight:400}
 .ex-cue{font-size:12.5px;color:var(--muted);margin-top:3px}
 .ex-tech{font-size:12px;color:var(--steel);margin-top:5px;font-style:italic}
 .ctrls{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
@@ -327,7 +331,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.13";
+const BUILD="2026.07.14";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -888,8 +892,15 @@ function renderMuscleMap(w){
 /* ---------------- Generation ---------------- */
 function recFlag(id){ return (STATE.settings.recWeights||{})[id]||0; }
 function recW(id){ const w=recFlag(id); return w===1?3:w===-1?0.34:1; }
+let PICK_WFN=null;
+function exReadinessFactor(e,focusMuscles,r){ const fset=new Set(focusMuscles||[]);
+  const pen=m=>{ if(fset.has(m)) return 1; const rd=r[m]!=null?r[m]:1; return rd<0.4?0.12:rd<0.75?0.5:1; };
+  let factor=1; (e.primary||[]).forEach(m=>{ factor*=pen(m); });
+  (e.secondary||[]).forEach(m=>{ const f=pen(m); factor*=(1-(1-f)*0.5); });
+  return Math.max(0.02,factor); }
 function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filter(e=>!recent.has(e.id)); const pool=fresh.length?fresh:arr;
-  let tot=0; const wts=pool.map(e=>{ const w=recW(e.id); tot+=w; return w; }); if(tot<=0) return pool[Math.floor(Math.random()*pool.length)];
+  const wf=PICK_WFN||(e=>recW(e.id));
+  let tot=0; const wts=pool.map(e=>{ const w=Math.max(0.0001,wf(e)); tot+=w; return w; }); if(tot<=0) return pool[Math.floor(Math.random()*pool.length)];
   let r=Math.random()*tot; for(let i=0;i<pool.length;i++){ r-=wts[i]; if(r<=0) return pool[i]; } return pool[pool.length-1]; }
 function generate(focusKey,duration,mode){
   const f=FOCI[focusKey], owned=ownedCaps();
@@ -911,6 +922,7 @@ function generate(focusKey,duration,mode){
   const sCount=STRENGTH_COUNT[duration];
   const isCore=focusKey==="core";
   const chosen=[]; const add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
+  const rmap=readiness(); PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
   if(!isCore){ for(const pat of f.anchors){ if(chosen.length>=Math.min(2,sCount)) break; add(pickFrom(pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)),recent)); } }
@@ -927,6 +939,7 @@ function generate(focusKey,duration,mode){
   if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)),recent)); } // guaranteed ab work
   guard=0; while(chosen.length<sCount&&guard++<60){ const cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)); const e=pickFrom(cands,recent); if(!e) break; add(e); }
 
+  PICK_WFN=null;
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const conds=[]; // strength/lift sessions add no cardio automatically — add it yourself, or run a Cardio/HIIT session
 
@@ -1170,6 +1183,7 @@ function renderAddExercise(w){
 function renderExercise(ex,idx,editable,w,grouped){
   const pinned=(STATE.settings.pinned||[]).includes(ex.id);
   let h=`<div class="ex"><div class="ex-top"><span class="ex-name">${esc(ex.name)}${ex.unilateral?' <span class="hint">· per side</span>':""}</span><span class="ex-scheme">${esc(ex.scheme)}</span></div>`;
+  { const base=exById(ex.id); if(base){ const r=readiness(); const tag=(m,pri)=>{ const rd=r[m]!=null?r[m]:1; const col=rd<0.4?"var(--cold)":rd<0.75?"var(--mid)":"var(--ready)"; return `<span class="mtag ${pri?"pri":"sec"}" style="color:${col}">${MUSCLE_LABEL[m]||m}</span>`; }; const tags=[...(base.primary||[]).map(m=>tag(m,true)),...(base.secondary||[]).map(m=>tag(m,false))].join(""); if(tags) h+=`<div class="mtags">${tags}</div>`; } }
   if(ex.cue) h+=`<div class="ex-cue">${esc(ex.cue)}</div>`;
   if(ex.tech) h+=`<div class="ex-tech">▲ ${esc(ex.tech)}</div>`;
   if(ex._prev){ const pv=ex._prev.filter(s=>s.w!==""||s.reps!=="").map(s=>`${s.w||"—"}×${s.reps||"—"}`).join("  "); if(pv) h+=`<div class="hint" style="margin-top:5px;font-family:var(--mono)">last time: ${esc(pv)}</div>`; }
