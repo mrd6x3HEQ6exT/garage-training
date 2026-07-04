@@ -16,8 +16,8 @@
 <style>
 :root{
   --bg:#0E1013; --panel:#181B20; --panel2:#20242B; --line:#2C313A; --line2:#3A414C;
-  --ink:#EDEFF2; --muted:#8A929E; --faint:#5C636E;
-  --amber:#F2C14E; --amber-d:#C99A2E; --steel:#5E7A99;
+  --ink:#EDEFF2; --muted:#AEB6C2; --faint:#828A96;
+  --amber:#F2C14E; --amber-d:#C99A2E; --steel:#7C97B4;
   --ready:#6FBF73; --mid:#E0A93B; --cold:#C8554C;
   /* plate colors per user spec */
   --p45:#2F6FB0; --p25:#3A9D5A; --p10:#8B929C; --p5:#2F6FB0; --p25s:#3A9D5A;
@@ -81,6 +81,9 @@ nav button.on{color:var(--amber);border-top-color:var(--amber)}
 .tag.amber{border-color:var(--amber-d);color:var(--amber)}
 .tag.steel{border-color:#3d5168;color:var(--steel)}
 .group{border:1px solid var(--line);border-radius:var(--radius);margin:11px 0;overflow:hidden}
+.group.superset{border:2px solid var(--ready);box-shadow:0 0 0 1px rgba(111,191,115,.12),0 2px 14px rgba(111,191,115,.12)}
+.group.circuit{border:2px solid var(--amber-d);box-shadow:0 0 0 1px rgba(201,154,46,.12),0 2px 14px rgba(242,193,78,.1)}
+.setrow.cuenext{background:rgba(242,193,78,.16);border-radius:7px;box-shadow:0 0 0 2px var(--amber);transition:background .3s}
 .group-h{background:var(--panel2);padding:7px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
 .group-h .gk{font-family:var(--disp);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
 .group-h .gk.superset{background:var(--ready);color:#0d1a0e;padding:4px 11px;border-radius:6px;font-size:15px;letter-spacing:.14em;box-shadow:0 0 0 1px var(--ready),0 2px 8px rgba(111,191,115,.28)}
@@ -94,7 +97,7 @@ nav button.on{color:var(--amber);border-top-color:var(--amber)}
 .ex-cue{font-size:12.5px;color:var(--muted);margin-top:3px}
 .ex-tech{font-size:12px;color:var(--steel);margin-top:5px;font-style:italic}
 .ctrls{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
-.chip{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;min-height:34px;padding:0 9px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted);display:inline-flex;align-items:center;gap:5px;text-transform:uppercase}
+.chip{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;min-height:34px;padding:0 9px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:#CBD2DC;display:inline-flex;align-items:center;gap:5px;text-transform:uppercase}
 .chip svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
 .chip.on{background:var(--amber);border-color:var(--amber);color:#160f00;font-weight:600}
 .chip.on svg{stroke:#160f00}
@@ -118,7 +121,7 @@ a.chip{text-decoration:none}
 .sets{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .setrow{display:grid;grid-template-columns:24px 1fr 1fr 40px;gap:7px;align-items:center}
 .setrow .si{font-family:var(--mono);font-size:12px;color:var(--faint);text-align:center}
-.setrow .hdr{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:center}
+.setrow .hdr{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#C3CAD5;text-align:center;padding-bottom:5px;border-bottom:1px solid var(--line2)}
 .fld{position:relative}
 .fld input{width:100%;min-height:40px;background:var(--bg);border:1px solid var(--line2);border-radius:var(--radius);color:var(--ink);font-family:var(--mono);font-size:15px;text-align:center;padding:0 4px}
 .fld input:focus{outline:none;border-color:var(--amber)}
@@ -216,6 +219,8 @@ select.in{min-width:108px}
 .bp-dot{width:24px;height:24px;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px var(--line2)}
 .bp-dot.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--amber)}
 .bp-dot:active{transform:scale(.9)}
+.ctrls-more{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:9px;border-top:1px dashed var(--line2)}
+.ctrls-more .more-lab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
 .manage:last-child{border-bottom:0}
 .manage .mn{flex:1;font-size:14px}
 
@@ -723,7 +728,7 @@ let STATE={
   settings:{daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true},
   workouts:[], current:null, tab:"today",
 };
-const UI={openSwap:new Set(),openPlates:new Set(),openCondSwap:new Set(),plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",progEx:null,progPeriod:"month"};
+const UI={openSwap:new Set(),openPlates:new Set(),openCondSwap:new Set(),moreOpen:new Set(),plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",progEx:null,progPeriod:"month"};
 
 const SEED_DATA={"v":2,"equipment":[{"id":"db","cat":"Free weights","name":"Adjustable dumbbells (pair)","note":"5–60 lb","caps":["dumbbells"],"on":true,"loads":[5,10,15,20,25,30,35,40,45,55,60]},{"id":"bar","cat":"Free weights","name":"Barbell + plates","note":"45 lb bar · 6×45 4×10 2×25 4×5 2×2.5","caps":["barbell","plates"],"on":true,"bar":45,"plateInv":{"5":4,"10":4,"25":2,"45":6,"2.5":2}},{"id":"trap","cat":"Free weights","name":"Bells of Steel open trap bar","note":"59\" · ~45 lb","caps":["trapbar"],"on":true,"bar":45},{"id":"lm","cat":"Free weights","name":"Landmine + 35 lb landmine bar","note":"rack attachment","caps":["landmine"],"on":true,"bar":35},{"id":"ez","cat":"Free weights","name":"REP multi-grip curl bar","note":"EZ curl · ~25 lb","caps":["ezbar"],"on":true,"bar":25},{"id":"kb1","cat":"Free weights","name":"Adjustable kettlebell 8–16 kg","note":"18–35 lb","caps":["kettlebell"],"on":true,"loads":[18,22,26,31,35]},{"id":"kb2","cat":"Free weights","name":"Adjustable kettlebell 16–24 kg","note":"35–53 lb","caps":["kettlebell"],"on":true,"loads":[35,40,44,49,53]},{"id":"rack","cat":"Rack & bench","name":"REP PR-5000 squat rack","note":"80\" 6-post · J-cups","caps":["rack"],"on":true},{"id":"bench","cat":"Rack & bench","name":"REP BlackWing adjustable bench","note":"flat / incline + leg roller","caps":["bench"],"on":true},{"id":"pull","cat":"Rack & bench","name":"REP globe side-mount pull-up bar","note":"","caps":["pullupbar"],"on":true},{"id":"dip","cat":"Rack & bench","name":"REP dip station","note":"rack-mounted","caps":["dipstation"],"on":true},{"id":"cable","cat":"Cable","name":"Selectorized lat pulldown & low row","note":"200 lb stack · high + low pulley","caps":["cable_high","cable_low"],"on":true},{"id":"atlas","cat":"Cable","name":"REP × Kleva Atlas multi-grip cable","note":"+ landmine attachment","caps":["cable_high","cable_low"],"on":true},{"id":"cuff","cat":"Cable","name":"REP ankle cuffs","note":"kickbacks / abductions","caps":["ankle_cuffs"],"on":true},{"id":"bike","cat":"Conditioning","name":"Rogue Echo Bike","note":"","caps":["echobike"],"on":true},{"id":"ski","cat":"Conditioning","name":"SkiErg","note":"","caps":["skierg"],"on":true},{"id":"sled","cat":"Conditioning","name":"Torque Tank M1 push sled","note":"","caps":["sled"],"on":true},{"id":"rope","cat":"Conditioning","name":"Hyperwear weighted battle rope","note":"20 ft / 15 lb","caps":["battlerope"],"on":true},{"id":"ghr","cat":"Accessories","name":"REP glute-ham roller + leg rollers","note":"nordic / GHR","caps":["ghr"],"on":true},{"id":"vest","cat":"Accessories","name":"MiR weighted vest","note":"30 lb · 3 lb intervals","caps":["vest"],"on":true,"loads":[3,6,9,12,15,18,21,24,27,30]},{"id":"hip","cat":"Accessories","name":"Hip bands (light/med/hard)","note":"glute work","caps":["hipbands"],"on":true},{"id":"band","cat":"Accessories","name":"REP resistance bands","note":"X-light → heavy","caps":["resistancebands"],"on":true},{"id":"wedge","cat":"Accessories","name":"Power Press squat wedge block","note":"heel elevation","caps":["wedge"],"on":true}],"settings":{"daysPerWeek":5,"duration":45,"mode":"strength","experience":"intermediate","units":"lb","blocked":["cable_lat","feet_up_pushup","hollow_rock"],"pinned":[],"restOverrides":{"hollow":15,"ng_pulldown":90,"bb_ohp":90},"keepAwake":true,"_focus":null},"workouts":[
 {"id":"w1782951606850","date":1782955590494,"focus":"push","focusName":"Push","duration":45,"mode":"strength","exercises":[{"id":"bb_bench","name":"Barbell bench press","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Shoulder blades pinned, bar to mid-chest.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":9,"sets":[{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true}]},{"id":"bb_ohp","name":"Barbell overhead press","role":"compound","muscles":["shoulders","triceps"],"scheme":"4 × 6–8","metric":"reps","rest":"1:30","restSec":90,"cue":"Squeeze glutes, bar travels past the chin.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":7,"sets":[{"w":"65","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true}]},{"id":"lat_raise","name":"Dumbbell lateral raise","role":"isolation","muscles":["shoulders"],"scheme":"3 × 12–15","metric":"reps","rest":"1:00","restSec":60,"cue":"Lead with elbows, soft at the top.","tech":"Drop set on the final set — strip ~30% and go to failure.","dropPct":0.3,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":5,"reps":"","done":false,"drop":true}]},{"id":"dips","name":"Chest dips","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Lean forward for chest emphasis.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true}]},{"id":"face_pull","name":"Cable face pull","role":"accessory","muscles":["shoulders","back"],"scheme":"3 × 10–12","metric":"reps","rest":"1:15","restSec":75,"cue":"Pull to forehead, thumbs back.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true}]},{"id":"lm_twist","name":"Landmine rotation","role":"core","muscles":["core","shoulders"],"scheme":"3 × 12–20","metric":"reps","rest":"0:45","restSec":45,"cue":"Pivot the feet, control the arc.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":true,"rpe":7,"sets":[{"w":"45","reps":"5","done":true},{"w":"35","reps":"6","done":true},{"w":"15","reps":"15","done":true},{"w":"15","reps":"15","done":false}]}],"conditioning":[{"id":"kb_metcon","name":"Kettlebell swing finisher","proto":"8 min EMOM — 15 swings","muscles":["cond","glutes"],"weighted":true,"loadCap":"kettlebell","fields":[{"k":"reps","l":"Reps"}],"sets":[{"w":"","vals":{"reps":""},"done":false}]}],"groups":[{"type":"straight","items":["bb_bench"]},{"type":"straight","items":["bb_ohp"]},{"type":"straight","items":["dips"]},{"type":"superset","items":["lat_raise","face_pull"]},{"type":"straight","items":["lm_twist"]}],"note":"","startedAt":1782952031156,"actualSec":3559},
@@ -748,6 +753,7 @@ async function boot(){
   if(!STATE.settings.restOverrides) STATE.settings.restOverrides={};
   if(STATE.settings.keepAwake==null) STATE.settings.keepAwake=true;
   if(STATE.settings.alarmVol==null) STATE.settings.alarmVol=0.9;
+  if(STATE.settings.alarmSound==null) STATE.settings.alarmSound="buzzer";
   if(STATE.settings.goal==null) STATE.settings.goal="general";
   // workouts: merge device-local + account storage so a session logged on another device shows up
   let woAcct=[]; if(hasStore){ try{ const r=await window.storage.get("gym_workouts"); if(r&&r.value) woAcct=JSON.parse(r.value); }catch(e){} }
@@ -778,6 +784,7 @@ function isBarbellEx(e){ return e.requires.includes("barbell")||e.requires.inclu
 const round5=n=>Math.max(0,Math.round((+n||0)/5)*5);
 function mkCondSet(fields){ const vals={}; (fields||[]).forEach(f=>vals[f.k]=""); return {w:"",vals,done:false}; }
 function restFor(ex){ const o=(STATE.settings.restOverrides||{})[ex.id]; return o!=null?o:ex.restSec; }
+function cueNextSet(exId){ try{ const exi=STATE.current.exercises.findIndex(e=>e.id===exId); if(exi<0) return; const ex=STATE.current.exercises[exi]; let ts=ex.sets.findIndex(s=>!s.done&&!s.drop); if(ts<0) ts=ex.sets.findIndex(s=>!s.done); if(ts<0) return; const row=document.querySelector('.setrow[data-ex="'+exi+'"][data-set="'+ts+'"]'); if(row){ row.scrollIntoView({behavior:"smooth",block:"center"}); row.classList.add("cuenext"); setTimeout(()=>row.classList.remove("cuenext"),1600); } }catch(e){} }
 function restForKey(key,def){ const o=(STATE.settings.restOverrides||{})[key]; return o!=null?o:def; }
 function platesSingle(total){
   let rem=Math.max(0,Math.round((parseFloat(total)||0)*4)/4); const inv=plateInv(); const per={}; PLATE_SIZES.forEach(s=>per[s]=inv[s]||0);
@@ -972,7 +979,19 @@ let RT={int:null,left:0,config:0,key:null,up:false};
 let AC=null;
 const rtEl=document.getElementById("rtimer");
 function ensureAudio(){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC&&AC.state==="suspended") AC.resume(); }catch(e){} }
-function beep(){ try{ if(!AC) return; const vol=Math.max(0.15,Math.min(1,(STATE.settings.alarmVol!=null?STATE.settings.alarmVol:0.9))); const t0=AC.currentTime; const notes=[1500,1500,1900,1900,2300]; notes.forEach((f,i)=>{ const off=i*0.26; const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(); o.type="square"; o.frequency.value=f; o2.type="sawtooth"; o2.frequency.value=f/2; o.connect(g); o2.connect(g); g.connect(AC.destination); g.gain.setValueAtTime(0.0001,t0+off); g.gain.exponentialRampToValueAtTime(vol,t0+off+0.015); g.gain.setValueAtTime(vol,t0+off+0.17); g.gain.exponentialRampToValueAtTime(0.0001,t0+off+0.23); o.start(t0+off); o2.start(t0+off); o.stop(t0+off+0.24); o2.stop(t0+off+0.24); }); }catch(e){} }
+const ALARM_SOUNDS=[["buzzer","Buzzer"],["beep","Interval beep"],["triple","Triple tone"],["airhorn","Air horn"],["chime","Chime"],["alarm","Nee-noo alarm"]];
+function playAlarm(kind,vol){ try{ if(!AC) return; vol=vol!=null?vol:Math.max(0.15,Math.min(1,(STATE.settings.alarmVol!=null?STATE.settings.alarmVol:0.9))); const K=kind||STATE.settings.alarmSound||"buzzer"; const now=AC.currentTime;
+  const bz=(f,start,dur)=>{ const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(); o.type="sawtooth"; o.frequency.value=f; o2.type="square"; o2.frequency.value=f/2; o.connect(g);o2.connect(g);g.connect(AC.destination); const t=now+start; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.015); g.gain.setValueAtTime(vol,t+dur-0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t);o2.start(t);o.stop(t+dur+0.02);o2.stop(t+dur+0.02); };
+  const tn=(f,start,dur,type)=>{ const o=AC.createOscillator(),g=AC.createGain(); o.type=type||"square"; o.frequency.value=f; o.connect(g);g.connect(AC.destination); const t=now+start; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.01); g.gain.setValueAtTime(vol,t+dur-0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t);o.stop(t+dur+0.02); };
+  const bell=(f,start)=>{ const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(); o.type="sine";o.frequency.value=f;o2.type="sine";o2.frequency.value=f*2.01;o.connect(g);o2.connect(g);g.connect(AC.destination); const t=now+start; g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+1.1); o.start(t);o2.start(t);o.stop(t+1.2);o2.stop(t+1.2); };
+  if(K==="beep"){ [0,0.28,0.56].forEach(s=>tn(1000,s,0.16,"square")); }
+  else if(K==="triple"){ [0,0.34,0.68].forEach(s=>tn(880,s,0.22,"square")); }
+  else if(K==="airhorn"){ [220,330,440].forEach(f=>{ bz(f,0,0.75); bz(f,0.9,0.55); }); }
+  else if(K==="chime"){ bell(1046,0); bell(1318,0.14); bell(1568,0.28); }
+  else if(K==="alarm"){ for(let i=0;i<4;i++){ tn(760,i*0.5,0.22,"square"); tn(980,i*0.5+0.24,0.22,"square"); } }
+  else { bz(175,0,0.55); bz(175,0.68,0.72); }
+}catch(e){} }
+function beep(){ playAlarm(); }
 function fmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
 function rtRender(){ document.getElementById("rtVal").textContent=fmt(RT.left); }
 function startRest(sec,name,key){
@@ -1098,13 +1117,13 @@ function renderWorkout(w,editable){
     const headEx=exById(g.items[0]);
     const restNote=g.type==="straight"?(headEx&&headEx.role==="compound"?"rest 2:00":"rest as needed"):(g.type==="circuit"?"minimal rest · 3–4 rounds":"rest after the round");
     const multi=g.items.length>1;
-    html+=`<div class="group"><div class="group-h"><span class="gk${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}">${label}</span><span class="gr">${multi?String.fromCharCode(65+gi)+" · ":""}${restNote}</span></div>`;
+    html+=`<div class="group${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}"><div class="group-h"><span class="gk${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}">${label}</span><span class="gr">${multi?String.fromCharCode(65+gi)+" · ":""}${restNote}</span></div>`;
     g.items.forEach(id=>{ const idx=idxById[id]; if(idx!=null) html+=renderExercise(w.exercises[idx],idx,editable,w,multi); });
     if(editable&&multi){ const gkey="g_"+g.type; const gsec=(STATE.settings.restOverrides||{})[gkey]||(g.type==="circuit"?120:90);
       html+=`<div class="ex" style="padding:10px 12px"><button class="chip rest" data-action="grest" data-gi="${gi}" data-sec="${gsec}" data-key="${gkey}" data-name="Rest after round" style="width:100%;justify-content:center"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>Round done → check the set &amp; rest ${fmt(gsec)}</button></div>`; }
     html+=`</div>`;
   });
-  if(w.conditioning&&w.conditioning.length){ w.conditioning.forEach((c,ci)=>{ html+=`<div class="group"><div class="group-h"><span class="gk" style="color:var(--steel)">Conditioning</span></div><div class="cond"><div class="ex-top"><span class="ex-name">${esc(c.name)}</span></div><div class="proto">${esc(c.proto)}</div>${editable?renderCondSets(c,ci):""}${editable?`<div class="ctrls" style="margin-top:9px"><button class="chip ${UI.openCondSwap.has(c.id)?"on":""}" data-action="condswap" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button><button class="chip rest" data-action="workt" data-name="${esc(c.name)}"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l3 2M9 2h6"/></svg>Work timer</button><button class="chip rest" data-action="rest" data-sec="60" data-key="cond_${esc(c.id)}" data-name="${esc(c.name)} rest"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>Rest</button>${ytChip(c.name,c.id)}${ytLink(c.name)}<button class="chip danger" data-action="removecond" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>Remove</button></div>${UI.openCondSwap.has(c.id)?renderCondSwap(c,ci,w):""}`:""}</div></div>`; }); }
+  if(w.conditioning&&w.conditioning.length){ w.conditioning.forEach((c,ci)=>{ html+=`<div class="group"><div class="group-h"><span class="gk" style="color:var(--steel)">Conditioning</span></div><div class="cond"><div class="ex-top"><span class="ex-name">${esc(c.name)}</span></div><div class="proto">${esc(c.proto)}</div>${editable?renderCondSets(c,ci):""}${editable?`<div class="ctrls" style="margin-top:9px"><button class="chip rest" data-action="workt" data-name="${esc(c.name)}"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l3 2M9 2h6"/></svg>Work timer</button><button class="chip rest" data-action="rest" data-sec="60" data-key="cond_${esc(c.id)}" data-name="${esc(c.name)} rest"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>Rest</button>${ytChip(c.name,c.id)}<button class="chip ${UI.openCondSwap.has(c.id)?"on":""}" data-action="condswap" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button><button class="chip ${UI.moreOpen.has("cond_"+c.id)?"on":""}" data-action="more" data-id="cond_${esc(c.id)}" title="More">•••</button></div>${UI.moreOpen.has("cond_"+c.id)?`<div class="ctrls ctrls-more"><span class="more-lab">More</span><button class="chip danger" data-action="removecond" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove cardio</button></div>`:""}${UI.openCondSwap.has(c.id)?renderCondSwap(c,ci,w):""}`:""}</div></div>`; }); }
   if(editable){
     html+=`<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px"><button class="chip ${UI.addExOpen?"on":""}" data-action="addexpanel"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add exercise</button><button class="chip" data-action="addcardio"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add cardio</button></div>`;
     if(UI.addExOpen) html+=renderAddExercise(w);
@@ -1133,14 +1152,13 @@ function renderExercise(ex,idx,editable,w,grouped){
   if(ex._prev){ const pv=ex._prev.filter(s=>s.w!==""||s.reps!=="").map(s=>`${s.w||"—"}×${s.reps||"—"}`).join("  "); if(pv) h+=`<div class="hint" style="margin-top:5px;font-family:var(--mono)">last time: ${esc(pv)}</div>`; }
   if(editable){
     h+=`<div class="ctrls">
-      <button class="chip ${UI.openSwap.has(ex.id)?"on":""}" data-action="swap" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button>
-      <button class="chip pin ${pinned?"on":""}" data-action="pin" data-id="${ex.id}"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 6 6 .5-4.5 4 1.5 6-5.5-3.5L6 19.5 7.5 13.5 3 9.5l6-.5z"/></svg>${pinned?"Pinned":"Pin"}</button>
       ${grouped?"":`<button class="chip rest" data-action="rest" data-sec="${ex.restSec}" data-key="${ex.id}" data-name="${esc(ex.name)}"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M12 2h0M9 2h6"/></svg>${esc(fmt(restFor(ex)))}</button>`}
       ${(ex.barbell||ex.landmine)?`<button class="chip ${UI.openPlates.has(ex.id)?"on":""}" data-action="plates" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M4 8v8M7 6v12M17 6v12M20 8v8M7 12h10"/></svg>Plates</button>`:""}
       ${ytChip(ex.name,ex.id)}
-      ${ytLink(ex.name)}
-      <button class="chip danger" data-action="removeex" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>Remove</button>
-    </div>`;
+      <button class="chip ${UI.openSwap.has(ex.id)?"on":""}" data-action="swap" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button>
+      <button class="chip pin ${pinned?"on":""}" data-action="pin" data-id="${ex.id}"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 6 6 .5-4.5 4 1.5 6-5.5-3.5L6 19.5 7.5 13.5 3 9.5l6-.5z"/></svg>${pinned?"Pinned":"Pin"}</button>
+      <button class="chip ${UI.moreOpen.has(ex.id)?"on":""}" data-action="more" data-id="${ex.id}" title="More">•••</button>
+    </div>${UI.moreOpen.has(ex.id)?`<div class="ctrls ctrls-more"><span class="more-lab">More</span><button class="chip danger" data-action="removeex" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove exercise</button></div>`:""}`;
     if(ex.bandKind){ const set=bandSet(ex.bandKind); const sel=bandById(ex.bandKind,ex.band); h+=`<div class="bandpick"><span class="bp-lab">${ex.bandKind==="hip"?"Hip band":"Band"}${sel?`: <b style="color:${sel.css==="#20242b"?"var(--ink)":sel.css}">${sel.name}</b> <span class="hint">${sel.lbs}</span>`:""}</span><div class="bp-dots">${set.map(b=>`<button class="bp-dot ${ex.band===b.id?"on":""}" data-action="setband" data-ex="${idx}" data-band="${b.id}" title="${b.name} · ${b.lbs}" style="background:${b.css}"></button>`).join("")}</div></div>`; }
     const repHdr=ex.metric==="time"?"Time":ex.metric==="carry"?"Dist":"Reps";
     h+=`<div class="sets"><div class="setrow"><span></span><span class="hdr">Weight</span><span class="hdr">${repHdr}</span><span class="hdr">Done</span></div>`;
@@ -1337,7 +1355,7 @@ function renderSettings(){
     <div class="frow"><label>Default style</label><select class="in" data-set="mode"><option value="strength" ${s.mode==="strength"?"selected":""}>Strength + Cardio</option><option value="circuit" ${s.mode==="circuit"?"selected":""}>Circuit</option></select></div>
     <div class="frow"><label>Experience<small>Sets rep ranges and drop set / tempo cues.</small></label><select class="in" data-set="experience">${["beginner","intermediate","advanced"].map(x=>`<option value="${x}" ${x===s.experience?"selected":""}>${x[0].toUpperCase()+x.slice(1)}</option>`).join("")}</select></div>
     <div class="frow"><label>Keep screen awake<small>Holds the screen on during an active workout (where the device allows it).</small></label><div class="sw ${s.keepAwake?"on":""}" data-action="togglewake"></div></div>
-    <div class="frow"><label>Rest-timer alarm<small>Loud, cutting alarm when a rest period ends. Slide up for a noisy garage, then tap Test. (Your phone's media volume also has to be up.)</small></label></div>
+    <div class="frow"><label>Rest-timer alarm<small>Loud, cutting alarm when a rest period ends. Slide up for a noisy garage, then tap Test. (Your phone's media volume also has to be up.)</small></label><select class="in" data-set="alarmSound">${ALARM_SOUNDS.map(a=>`<option value="${a[0]}" ${a[0]===(s.alarmSound||"buzzer")?"selected":""}>${a[1]}</option>`).join("")}</select></div>
     <div class="row" style="gap:12px;align-items:center;margin-top:-2px"><input type="range" min="15" max="100" step="5" value="${Math.round((s.alarmVol!=null?s.alarmVol:0.9)*100)}" data-range="alarmvol" style="flex:1"><span class="mono" id="alarmVolLbl" style="min-width:42px;text-align:right;color:var(--ink)">${Math.round((s.alarmVol!=null?s.alarmVol:0.9)*100)}%</span><button class="btn sm" data-action="testalarm">Test</button></div></div>`;
   html+=`<div class="panel"><div class="eyebrow">REP band color guide</div><div class="hint" style="margin:6px 0 8px">Your REP Fitness bands by color. On band exercises, tap the matching dot to log which one you used.</div>
     <div class="eq-cat" style="margin:4px 0 6px">Power / pull-up bands</div><div class="bandguide">
@@ -1382,9 +1400,7 @@ function openHowto(id,name){
   m.innerHTML=`<div class="mcard"><div class="mh">${esc(name)}</div>
     <div class="guide">${esc(guide)}</div>
     <div class="divider"></div>
-    <div class="hint" style="margin-bottom:9px">Want to see it on video? Tap <b>Copy link</b>, then paste it into your browser (links can’t open from inside here).</div>
-    <div class="row" style="gap:8px"><button class="btn sm" data-action="copyurl" data-url="${esc(url)}">Copy YouTube link</button><button class="btn ghost sm" data-action="closemodal" style="margin-left:auto">Close</button></div>
-    <div class="murl">${esc(url)}</div></div>`;
+    <div class="row" style="gap:8px"><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener" style="text-decoration:none">▶ Watch on YouTube</a><button class="btn ghost sm" data-action="copyurl" data-url="${esc(url)}">Copy link</button><button class="btn ghost sm" data-action="closemodal" style="margin-left:auto">Close</button></div></div>`;
   m.classList.add("show");
 }
 function openSync(){
@@ -1408,7 +1424,7 @@ function importData(json){
   if(d.settings){
     STATE.settings.pinned=[...new Set([...(STATE.settings.pinned||[]),...(d.settings.pinned||[])])];
     STATE.settings.blocked=[...new Set([...(STATE.settings.blocked||[]),...(d.settings.blocked||[])])];
-    ["daysPerWeek","duration","mode","experience","goal","alarmVol"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
+    ["daysPerWeek","duration","mode","experience","goal","alarmVol","alarmSound"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
   }
   if(Array.isArray(d.equipment)){
     const byId={}; d.equipment.forEach(e=>byId[e.id]=e);
@@ -1433,7 +1449,14 @@ view.addEventListener("click",e=>{
 
   if(a==="generate"){ const focus=STATE.settings._focus||recommendFocus(); UI.openSwap.clear(); UI.openPlates.clear(); STATE.current=generate(focus,STATE.settings.duration,STATE.settings.mode); pCur(); render(); toast("Workout built"); return; }
   if(a==="toggleset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex; const ex=STATE.current.exercises[exi]; const s=ex.sets[+row.dataset.set]; s.done=!s.done; act.classList.toggle("done",s.done); pCur();
-    if(s.done){ const grp=STATE.current.groups.find(g=>g.items.includes(ex.id)); if(!grp||grp.items.length<=1) startRest(restFor(ex),ex.name,ex.id); } return; }
+    if(s.done){ const grp=STATE.current.groups.find(g=>g.items.includes(ex.id));
+      if(!grp||grp.items.length<=1){ startRest(restFor(ex),ex.name,ex.id); }
+      else { const pos=grp.items.indexOf(ex.id);
+        if(pos<grp.items.length-1){ cueNextSet(grp.items[pos+1]); }
+        else { startRest(restForKey("g_"+grp.type,grp.type==="circuit"?120:90),"Rest after round","g_"+grp.type); cueNextSet(grp.items[0]); }
+      }
+    } return; }
+  if(a==="more"){ const id=act.dataset.id; if(UI.moreOpen.has(id)) UI.moreOpen.delete(id); else UI.moreOpen.add(id); renderToday(); return; }
   if(a==="rmset"){ const idx=+act.dataset.ex; const cur=STATE.current.exercises[idx]; const grp=STATE.current.groups.find(g=>g.items.includes(cur.id)); const targets=(grp&&grp.items.length>1)?grp.items.map(id=>STATE.current.exercises.find(e=>e.id===id)).filter(Boolean):[cur];
     targets.forEach(ex=>{ if(ex.sets.filter(s=>!s.drop).length>1){ for(let i=ex.sets.length-1;i>=0;i--){ if(!ex.sets[i].drop){ ex.sets.splice(i,1); break; } } } });
     pCur(); renderToday(); return; }
@@ -1513,7 +1536,7 @@ view.addEventListener("input",e=>{
 view.addEventListener("change",e=>{
   const pe=e.target.closest("[data-prog='ex']"); if(pe){ UI.progEx=pe.value; renderProgress(); return; }
   const sel=e.target.closest("[data-set]");
-  if(sel){ let v=sel.value; if(sel.dataset.set==="daysPerWeek"||sel.dataset.set==="duration") v=+v; STATE.settings[sel.dataset.set]=v; pSet(); renderWeekBadge(); if(sel.dataset.set==="goal"&&STATE.tab==="set") renderSettings(); return; }
+  if(sel){ let v=sel.value; if(sel.dataset.set==="daysPerWeek"||sel.dataset.set==="duration") v=+v; STATE.settings[sel.dataset.set]=v; pSet(); renderWeekBadge(); if(sel.dataset.set==="goal"&&STATE.tab==="set") renderSettings(); if(sel.dataset.set==="alarmSound"){ ensureAudio(); playAlarm(); } return; }
   const pb=e.target.closest("[data-pc='bar']");
   if(pb){ const panel=pb.closest(".pcalc"); const id=panel.dataset.ex; UI.plateBar[id]=+pb.value; renderToday(); return; }
   const ps=e.target.closest("[data-pc='side']");
