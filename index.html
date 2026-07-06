@@ -235,6 +235,16 @@ select.in{min-width:108px}
 .lb.on{background:var(--amber);border-color:var(--amber);color:#160f00}
 .lb.danger{border-color:#5a3a36}
 .sw.sm{width:34px;height:20px}
+.acc-h{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:2px 0;text-align:left}
+.acc-h .eyebrow{margin:0}
+.acc-badge{font-family:var(--mono);font-size:10.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line2);border-radius:20px;padding:2px 9px}
+.acc-chev{margin-left:auto;color:var(--muted);font-size:14px;transition:transform .18s;transform:rotate(-90deg)}
+.acc-chev.open{transform:rotate(0deg)}
+.acc-body{margin-top:10px;animation:accIn .16s ease}
+@keyframes accIn{from{opacity:.4}to{opacity:1}}
+.catrow{padding:11px 0;border-bottom:1px solid var(--line)}
+.catrow .acc-chev{transform:rotate(-90deg)}
+.catrow .acc-chev.open{transform:rotate(0deg)}
 .ctrls-more{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:9px;border-top:1px dashed var(--line2)}
 .ctrls-more .more-lab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
 .tpl-list{display:flex;flex-direction:column;gap:8px}
@@ -343,7 +353,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.15";
+const BUILD="2026.07.16";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -755,7 +765,7 @@ let STATE={
   settings:{daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true},
   workouts:[], current:null, tab:"today",
 };
-const UI={openSwap:new Set(),openPlates:new Set(),openCondSwap:new Set(),moreOpen:new Set(),plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month"};
+const UI={openSwap:new Set(),openPlates:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month"};
 
 const SEED_DATA={"v":2,"equipment":[{"id":"db","cat":"Free weights","name":"Adjustable dumbbells (pair)","note":"5–60 lb","caps":["dumbbells"],"on":true,"loads":[5,10,15,20,25,30,35,40,45,55,60]},{"id":"bar","cat":"Free weights","name":"Barbell + plates","note":"45 lb bar · 6×45 4×10 2×25 4×5 2×2.5","caps":["barbell","plates"],"on":true,"bar":45,"plateInv":{"5":4,"10":4,"25":2,"45":6,"2.5":2}},{"id":"trap","cat":"Free weights","name":"Bells of Steel open trap bar","note":"59\" · ~45 lb","caps":["trapbar"],"on":true,"bar":45},{"id":"lm","cat":"Free weights","name":"Landmine + 35 lb landmine bar","note":"rack attachment","caps":["landmine"],"on":true,"bar":35},{"id":"ez","cat":"Free weights","name":"REP multi-grip curl bar","note":"EZ curl · ~25 lb","caps":["ezbar"],"on":true,"bar":25},{"id":"kb1","cat":"Free weights","name":"Adjustable kettlebell 8–16 kg","note":"18–35 lb","caps":["kettlebell"],"on":true,"loads":[18,22,26,31,35]},{"id":"kb2","cat":"Free weights","name":"Adjustable kettlebell 16–24 kg","note":"35–53 lb","caps":["kettlebell"],"on":true,"loads":[35,40,44,49,53]},{"id":"rack","cat":"Rack & bench","name":"REP PR-5000 squat rack","note":"80\" 6-post · J-cups","caps":["rack"],"on":true},{"id":"bench","cat":"Rack & bench","name":"REP BlackWing adjustable bench","note":"flat / incline + leg roller","caps":["bench"],"on":true},{"id":"pull","cat":"Rack & bench","name":"REP globe side-mount pull-up bar","note":"","caps":["pullupbar"],"on":true},{"id":"dip","cat":"Rack & bench","name":"REP dip station","note":"rack-mounted","caps":["dipstation"],"on":true},{"id":"cable","cat":"Cable","name":"Selectorized lat pulldown & low row","note":"200 lb stack · high + low pulley","caps":["cable_high","cable_low"],"on":true},{"id":"atlas","cat":"Cable","name":"REP × Kleva Atlas multi-grip cable","note":"+ landmine attachment","caps":["cable_high","cable_low"],"on":true},{"id":"cuff","cat":"Cable","name":"REP ankle cuffs","note":"kickbacks / abductions","caps":["ankle_cuffs"],"on":true},{"id":"bike","cat":"Conditioning","name":"Rogue Echo Bike","note":"","caps":["echobike"],"on":true},{"id":"ski","cat":"Conditioning","name":"SkiErg","note":"","caps":["skierg"],"on":true},{"id":"sled","cat":"Conditioning","name":"Torque Tank M1 push sled","note":"","caps":["sled"],"on":true},{"id":"rope","cat":"Conditioning","name":"Hyperwear weighted battle rope","note":"20 ft / 15 lb","caps":["battlerope"],"on":true},{"id":"ghr","cat":"Accessories","name":"REP glute-ham roller + leg rollers","note":"nordic / GHR","caps":["ghr"],"on":true},{"id":"vest","cat":"Accessories","name":"MiR weighted vest","note":"30 lb · 3 lb intervals","caps":["vest"],"on":true,"loads":[3,6,9,12,15,18,21,24,27,30]},{"id":"hip","cat":"Accessories","name":"Hip bands (light/med/hard)","note":"glute work","caps":["hipbands"],"on":true},{"id":"band","cat":"Accessories","name":"REP resistance bands","note":"X-light → heavy","caps":["resistancebands"],"on":true},{"id":"wedge","cat":"Accessories","name":"Power Press squat wedge block","note":"heel elevation","caps":["wedge"],"on":true}],"settings":{"daysPerWeek":5,"duration":45,"mode":"strength","experience":"intermediate","units":"lb","blocked":["cable_lat","feet_up_pushup","hollow_rock"],"pinned":[],"restOverrides":{"hollow":15,"ng_pulldown":90,"bb_ohp":90},"keepAwake":true,"_focus":null},"workouts":[
 {"id":"w1782951606850","date":1782955590494,"focus":"push","focusName":"Push","duration":45,"mode":"strength","exercises":[{"id":"bb_bench","name":"Barbell bench press","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Shoulder blades pinned, bar to mid-chest.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":9,"sets":[{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true}]},{"id":"bb_ohp","name":"Barbell overhead press","role":"compound","muscles":["shoulders","triceps"],"scheme":"4 × 6–8","metric":"reps","rest":"1:30","restSec":90,"cue":"Squeeze glutes, bar travels past the chin.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":7,"sets":[{"w":"65","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true}]},{"id":"lat_raise","name":"Dumbbell lateral raise","role":"isolation","muscles":["shoulders"],"scheme":"3 × 12–15","metric":"reps","rest":"1:00","restSec":60,"cue":"Lead with elbows, soft at the top.","tech":"Drop set on the final set — strip ~30% and go to failure.","dropPct":0.3,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":5,"reps":"","done":false,"drop":true}]},{"id":"dips","name":"Chest dips","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Lean forward for chest emphasis.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true}]},{"id":"face_pull","name":"Cable face pull","role":"accessory","muscles":["shoulders","back"],"scheme":"3 × 10–12","metric":"reps","rest":"1:15","restSec":75,"cue":"Pull to forehead, thumbs back.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true}]},{"id":"lm_twist","name":"Landmine rotation","role":"core","muscles":["core","shoulders"],"scheme":"3 × 12–20","metric":"reps","rest":"0:45","restSec":45,"cue":"Pivot the feet, control the arc.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":true,"rpe":7,"sets":[{"w":"45","reps":"5","done":true},{"w":"35","reps":"6","done":true},{"w":"15","reps":"15","done":true},{"w":"15","reps":"15","done":false}]}],"conditioning":[{"id":"kb_metcon","name":"Kettlebell swing finisher","proto":"8 min EMOM — 15 swings","muscles":["cond","glutes"],"weighted":true,"loadCap":"kettlebell","fields":[{"k":"reps","l":"Reps"}],"sets":[{"w":"","vals":{"reps":""},"done":false}]}],"groups":[{"type":"straight","items":["bb_bench"]},{"type":"straight","items":["bb_ohp"]},{"type":"straight","items":["dips"]},{"type":"superset","items":["lat_raise","face_pull"]},{"type":"straight","items":["lm_twist"]}],"note":"","startedAt":1782952031156,"actualSec":3559},
@@ -1415,7 +1425,10 @@ function capChoices(){ return [{v:"dumbbells",l:"Dumbbells"},{v:"barbell",l:"Bar
 
 function libEquipCat(e){ const r=e.requires||[]; if(e.type==="conditioning") return "Conditioning"; if(r.includes("barbell")) return "Barbell"; if(r.includes("trapbar")) return "Trap bar"; if(r.includes("landmine")) return "Landmine"; if(r.includes("ezbar")) return "EZ bar"; if(r.includes("dumbbells")) return "Dumbbell"; if(r.includes("kettlebell")) return "Kettlebell"; if(r.includes("resistancebands")||r.includes("hipbands")) return "Bands"; if(r.includes("cable_high")||r.includes("cable_low")) return "Cable"; return "Bodyweight"; }
 const LIB_EQUIPS=["All","Barbell","Dumbbell","Kettlebell","Cable","Bands","Trap bar","Landmine","EZ bar","Bodyweight","Conditioning"];
-function renderExerciseLibrary(){
+function accSection(key,title,badge,bodyHtml,intro){ const open=UI.openSections.has(key); return `<div class="panel"><button class="acc-h" data-action="sect" data-sect="${key}"><span class="eyebrow">${title}</span>${badge!=null?`<span class="acc-badge">${badge}</span>`:""}<span class="acc-chev${open?" open":""}">▾</span></button>${open?`<div class="acc-body">${intro||""}${bodyHtml}</div>`:""}</div>`; }
+function libEntryPanel(){ const owned=ownedCaps(); const n=EXERCISES.filter(e=>e.primary&&e.primary.length&&exAvailable(e,owned)).length; const nb=(STATE.settings.blocked||[]).length;
+  return `<div class="panel"><button class="acc-h" data-action="libopen"><span class="eyebrow">Exercise library</span><span class="acc-badge">${n} available${nb?` · ${nb} banned`:""}</span><span class="acc-chev">›</span></button><div class="hint" style="margin-top:6px">Browse the full catalog by muscle, search, and curate — ban, pin, or nudge any lift.</div></div>`; }
+function renderLibraryScreen(){
   const owned=ownedCaps(); const blocked=new Set(STATE.settings.blocked||[]); const pinned=new Set(STATE.settings.pinned||[]);
   const q=(UI.libQuery||"").toLowerCase().trim(); const eq=UI.libEquip||"All"; const showAll=!!UI.libShowAll;
   let list=EXERCISES.filter(e=>e.primary&&e.primary.length);
@@ -1426,19 +1439,23 @@ function renderExerciseLibrary(){
   list.forEach(e=>{ const m=MUSCLE_LABEL[e.primary[0]]||e.primary[0]; (groups[m]=groups[m]||[]).push(e); });
   const order=["Chest","Back","Delts","Triceps","Biceps","Quads","Hams","Glutes","Calves","Core"];
   const keys=[...order.filter(k=>groups[k]),...Object.keys(groups).filter(k=>!order.includes(k))];
-  let h=`<div class="panel"><div class="eyebrow">Exercise library</div><div class="hint" style="margin:6px 0 9px">Browse everything and curate it — ban ones you never want, nudge others up or down, or pin favorites.</div>
+  let h=`<div class="panel"><button class="btn ghost sm" data-action="libclose" style="margin-bottom:10px">← Setup</button>
+    <div class="eyebrow" style="margin-bottom:8px">Exercise library</div>
     <input class="in" id="libSearch" data-libq value="${esc(UI.libQuery||"")}" placeholder="Search exercise or muscle…" autocomplete="off" style="margin-bottom:8px">
-    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><select class="in" data-libequip style="flex:1">${LIB_EQUIPS.map(x=>`<option ${x===eq?"selected":""}>${x}</option>`).join("")}</select>
-      <label class="hint" style="display:flex;align-items:center;gap:6px"><span class="sw sm ${showAll?"on":""}" data-action="libshowall"></span>Show all gear</label></div>`;
-  if(!keys.length){ h+=`<div class="hint">No matches.</div></div>`; return h; }
-  keys.forEach(m=>{ h+=`<div class="eq-cat" style="margin:12px 0 5px">${m} <span class="hint" style="text-transform:none;letter-spacing:0">· ${groups[m].length}</span></div>`;
-    groups[m].sort((a,b)=>a.name.localeCompare(b.name)).forEach(e=>{ const isB=blocked.has(e.id), isP=pinned.has(e.id), rf=recFlag(e.id); const avail=exAvailable(e,owned);
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><select class="in" data-libequip style="flex:1">${LIB_EQUIPS.map(x=>`<option ${x===eq?"selected":""}>${x}</option>`).join("")}</select>
+      <label class="hint" style="display:flex;align-items:center;gap:6px"><span class="sw sm ${showAll?"on":""}" data-action="libshowall"></span>Show all gear</label></div></div>`;
+  if(!keys.length){ return h+`<div class="panel"><div class="hint">No matches.</div></div>`; }
+  h+=`<div class="panel" style="padding-top:6px">`;
+  keys.forEach(m=>{ const isOpen=q?true:UI.libOpenCats.has(m); const items=groups[m].sort((a,b)=>a.name.localeCompare(b.name));
+    h+=`<button class="acc-h catrow" data-action="libcat" data-cat="${esc(m)}"><span class="eq-cat" style="margin:0">${m}</span><span class="acc-badge">${items.length}</span><span class="acc-chev${isOpen?" open":""}">▾</span></button>`;
+    if(isOpen){ h+=`<div class="acc-body">`; items.forEach(e=>{ const isB=blocked.has(e.id), isP=pinned.has(e.id), rf=recFlag(e.id); const avail=exAvailable(e,owned);
       h+=`<div class="librow${isB?" banned":""}"><div class="libnm">${esc(e.name)}${avail?"":' <span class="hint">· gear off</span>'}<small>${libEquipCat(e)} · ${[...(e.primary||[])].map(x=>MUSCLE_LABEL[x]||x).join(", ")}</small></div>
-        <div class="libctl"><button class="lb ${rf===1?"on":""}" data-action="recmore" data-id="${e.id}" title="Recommend more">+</button><button class="lb ${rf===-1?"on":""}" data-action="recless" data-id="${e.id}" title="Recommend less">−</button><button class="lb ${isP?"on":""}" data-action="pin" data-id="${e.id}" title="Pin">★</button><button class="lb ${isB?"danger":""}" data-action="${isB?"unban":"libban"}" data-id="${e.id}" title="${isB?"Unban":"Ban"}">${isB?"↩":"🚫"}</button></div></div>`; });
+        <div class="libctl"><button class="lb ${rf===1?"on":""}" data-action="recmore" data-id="${e.id}" title="Recommend more">+</button><button class="lb ${rf===-1?"on":""}" data-action="recless" data-id="${e.id}" title="Recommend less">−</button><button class="lb ${isP?"on":""}" data-action="pin" data-id="${e.id}" title="Pin">★</button><button class="lb ${isB?"danger":""}" data-action="${isB?"unban":"libban"}" data-id="${e.id}" title="${isB?"Unban":"Ban"}">${isB?"↩":"🚫"}</button></div></div>`; }); h+=`</div>`; }
   });
   return h+`</div>`;
 }
 function renderSettings(){
+  if(UI.libView){ view.innerHTML=renderLibraryScreen(); return; }
   const s=STATE.settings;
   const pinned=(s.pinned||[]).map(id=>exById(id)).filter(Boolean);
   const blocked=(s.blocked||[]).map(id=>exById(id)).filter(Boolean);
@@ -1451,23 +1468,24 @@ function renderSettings(){
     <div class="frow"><label>Keep screen awake<small>Holds the screen on during an active workout (where the device allows it).</small></label><div class="sw ${s.keepAwake?"on":""}" data-action="togglewake"></div></div>
     <div class="frow"><label>Rest-timer alarm<small>Loud, cutting alarm when a rest period ends. Slide up for a noisy garage, then tap Test. (Your phone's media volume also has to be up.)</small></label><select class="in" data-set="alarmSound">${ALARM_SOUNDS.map(a=>`<option value="${a[0]}" ${a[0]===(s.alarmSound||"buzzer")?"selected":""}>${a[1]}</option>`).join("")}</select></div>
     <div class="row" style="gap:12px;align-items:center;margin-top:-2px"><input type="range" min="15" max="100" step="5" value="${Math.round((s.alarmVol!=null?s.alarmVol:0.9)*100)}" data-range="alarmvol" style="flex:1"><span class="mono" id="alarmVolLbl" style="min-width:42px;text-align:right;color:var(--ink)">${Math.round((s.alarmVol!=null?s.alarmVol:0.9)*100)}%</span><button class="btn sm" data-action="testalarm">Test</button></div></div>`;
-  html+=`<div class="panel"><div class="eyebrow">REP band color guide</div><div class="hint" style="margin:6px 0 8px">Your REP Fitness bands by color. On band exercises, tap the matching dot to log which one you used.</div>
-    <div class="eq-cat" style="margin:4px 0 6px">Power / pull-up bands</div><div class="bandguide">
+  html+=accSection("bands","REP band color guide",null,
+    `<div class="eq-cat" style="margin:4px 0 6px">Power / pull-up bands</div><div class="bandguide">
       ${POWER_BANDS.map(b=>`<div class="brow"><span class="bswatch" style="background:${b.css}"></span><span class="mn">${b.name}</span><span class="mono">${b.color} · ${b.lbs}</span></div>`).join("")}
     </div>
     <div class="eq-cat" style="margin:14px 0 6px">Hip / glute bands</div><div class="bandguide">
       ${HIP_BANDS.map(b=>`<div class="brow"><span class="bswatch" style="background:${b.css}"></span><span class="mn">${b.name}</span><span class="mono">${b.color}</span></div>`).join("")}
     </div>
-    <div class="hint" style="margin-top:8px;color:var(--mid)">For band-assisted moves (like the glute-ham raise) a lighter band = less help = harder.</div></div>`;
-  html+=`<div class="panel"><div class="eyebrow">Pinned lifts</div><div class="hint" style="margin:6px 0 4px">Always prioritized on any matching focus. Star a lift in a workout to pin it.</div>`;
-  if(!pinned.length) html+=`<div class="hint">None pinned yet.</div>`;
-  else pinned.forEach(e=>html+=`<div class="manage"><span class="mn">${esc(e.name)}</span><button class="btn ghost sm" data-action="unpin" data-id="${e.id}">Unpin</button></div>`);
-  html+=`</div>`;
-  html+=`<div class="panel"><div class="eyebrow">Never recommend</div><div class="hint" style="margin:6px 0 4px">Hidden from all future workouts.</div>`;
-  if(!blocked.length) html+=`<div class="hint">Nothing blocked.</div>`;
-  else blocked.forEach(e=>html+=`<div class="manage"><span class="mn">${esc(e.name)}</span><button class="btn ghost sm" data-action="unban" data-id="${e.id}">Restore</button></div>`);
-  html+=`</div>`;
-  html+=renderExerciseLibrary();
+    <div class="hint" style="margin-top:8px;color:var(--mid)">For band-assisted moves a lighter band = less help = harder.</div>`,
+    `<div class="hint" style="margin-bottom:8px">Your REP Fitness bands by color.</div>`);
+  { const pbody=pinned.length?pinned.map(e=>`<div class="manage"><span class="mn">${esc(e.name)}</span><button class="btn ghost sm" data-action="unpin" data-id="${e.id}">Unpin</button></div>`).join(""):`<div class="hint">None pinned yet.</div>`;
+    const pintro=`<div class="hint" style="margin:2px 0 6px">Always prioritized on any matching focus. Star a lift in a workout to pin it.</div>`;
+    if(pinned.length>5) html+=accSection("pinned","Pinned lifts",pinned.length,pbody,pintro);
+    else html+=`<div class="panel"><div class="eyebrow">Pinned lifts</div>${pintro}${pbody}</div>`; }
+  { const bbody=blocked.length?blocked.map(e=>`<div class="manage"><span class="mn">${esc(e.name)}</span><button class="btn ghost sm" data-action="unban" data-id="${e.id}">Restore</button></div>`).join(""):`<div class="hint">Nothing blocked.</div>`;
+    const bintro=`<div class="hint" style="margin:2px 0 6px">Hidden from all future workouts.</div>`;
+    if(blocked.length>5) html+=accSection("blocked","Never recommend",blocked.length,bbody,bintro);
+    else html+=`<div class="panel"><div class="eyebrow">Never recommend</div>${bintro}${bbody}</div>`; }
+  html+=libEntryPanel();
   html+=`<div class="panel"><div class="eyebrow">Data</div><div class="hint" style="margin:8px 0 12px">Stored on this device${hasStore?"":" — note: a downloaded copy won’t persist between opens"}.</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-action="sync">Sync / transfer ↔ device</button><button class="btn sm" data-action="export">Save backup file</button><button class="btn sm" data-action="importfile">Import backup file</button><button class="btn ghost sm" data-action="wipe" style="margin-left:auto;color:var(--cold)">Erase all</button></div>
     <div class="hint" style="margin-top:8px">Your training is saved on this device and backed up to your Claude account, so signing into Claude on another device and reopening this app pulls it back — losing your phone won’t lose your log. “Save backup file” writes a <b>.json</b> you can drop in Google Drive; “Import backup file” reads it back on any device. (Live auto-sync to Drive needs the app hosted on its own page — ask and I’ll set that up.)</div></div>
@@ -1587,6 +1605,10 @@ view.addEventListener("click",e=>{
   if(a==="addcardio"){ const owned=ownedCaps(); const blocked=new Set(STATE.settings.blocked||[]); const inWO=new Set((STATE.current.conditioning||[]).map(x=>x.id)); const avail=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id)&&!inWO.has(e.id)); if(!avail.length){ toast("No conditioning available with your gear"); return; } const pick=avail[Math.floor(Math.random()*avail.length)]; if(!STATE.current.conditioning) STATE.current.conditioning=[]; STATE.current.conditioning.push(buildCond(pick,STATE.current.duration)); pCur(); renderToday(); toast("Cardio added — Swap to change it"); return; }
   if(a==="removecond"){ const ci=+act.dataset.ci; if(STATE.current.conditioning) STATE.current.conditioning.splice(ci,1); pCur(); renderToday(); return; }
   if(a==="recmore"||a==="recless"){ const id=act.dataset.id; if(!STATE.settings.recWeights) STATE.settings.recWeights={}; const cur=STATE.settings.recWeights[id]||0; const want=a==="recmore"?1:-1; if(cur===want) delete STATE.settings.recWeights[id]; else STATE.settings.recWeights[id]=want; pSet(); (STATE.tab==="set"?renderSettings:renderToday)(); toast(a==="recmore"?"Will show up more often":"Will show up less often"); return; }
+  if(a==="sect"){ const k=act.dataset.sect; if(UI.openSections.has(k)) UI.openSections.delete(k); else UI.openSections.add(k); renderSettings(); return; }
+  if(a==="libopen"){ UI.libView=true; window.scrollTo(0,0); renderSettings(); return; }
+  if(a==="libclose"){ UI.libView=false; window.scrollTo(0,0); renderSettings(); return; }
+  if(a==="libcat"){ const c=act.dataset.cat; if(UI.libOpenCats.has(c)) UI.libOpenCats.delete(c); else UI.libOpenCats.add(c); renderSettings(); return; }
   if(a==="libshowall"){ UI.libShowAll=!UI.libShowAll; renderSettings(); return; }
   if(a==="setbandset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex, si=+row.dataset.set; const ex=STATE.current.exercises[exi]; const set=bandSet(ex.bandKind); const cur=ex.sets[si].band; let ni=set.findIndex(b=>b.id===cur); ni=(ni+1)%set.length; const nb=set[ni].id; ex.sets[si].band=nb; ex.sets[si]._be=true;
     for(let j=si+1;j<ex.sets.length;j++){ if(ex.sets[j].drop||ex.sets[j]._be) continue; ex.sets[j].band=nb; } pCur(); renderToday(); return; }
