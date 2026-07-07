@@ -357,7 +357,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.18";
+const BUILD="2026.07.19";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1004,9 +1004,9 @@ function buildLoggable(e){
   const dropPct=e._dropPct||null;
   const metric=e.metric||"reps";
   const repLabel=metric==="time"?"30–45s":metric==="carry"?"~40 steps":sc.reps;
-  let sets;
-  if(prev&&prev.sets&&prev.sets.length) sets=prev.sets.filter(s=>!s.drop).map(s=>({w:s.w,reps:s.reps,done:false,band:s.band||null}));
-  else { sets=[]; for(let i=0;i<sc.sets;i++) sets.push({w:"",reps:"",done:false}); }
+  let sets=[];
+  const psets=(prev&&prev.sets&&prev.sets.length)?prev.sets.filter(s=>!s.drop):null;
+  for(let i=0;i<sc.sets;i++){ const src=psets?(psets[i]||psets[psets.length-1]):null; sets.push({w:src?src.w:"",reps:src?src.reps:"",done:false,band:src?(src.band||null):null}); }
   if(dropPct){ const base=Math.max(0,...sets.map(s=>parseFloat(s.w)||0)); sets.push({w:base>0?round5(base*(1-dropPct)):"",reps:"",done:false,drop:true}); }
   const req=e.requires||[]; const bandKind=req.includes("resistancebands")?"power":req.includes("hipbands")?"hip":null;
   const prevBand=(prev&&prev.band)?prev.band:null;
