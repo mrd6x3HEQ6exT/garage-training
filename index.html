@@ -245,6 +245,10 @@ select.in{min-width:108px}
 .catrow{padding:11px 0;border-bottom:1px solid var(--line)}
 .catrow .acc-chev{transform:rotate(-90deg)}
 .catrow .acc-chev.open{transform:rotate(0deg)}
+.backup-nudge{display:flex;align-items:center;gap:12px;border:1px solid var(--amber-d);background:linear-gradient(180deg,rgba(242,193,78,.08),rgba(242,193,78,.03))}
+.backup-nudge b{color:var(--amber);font-size:14px}
+.backup-nudge small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.35}
+.backup-nudge .btn{flex:none;white-space:nowrap}
 .ctrls-more{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:9px;border-top:1px dashed var(--line2)}
 .ctrls-more .more-lab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
 .tpl-list{display:flex;flex-direction:column;gap:8px}
@@ -353,7 +357,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.16";
+const BUILD="2026.07.17";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -750,13 +754,14 @@ const POWER_BANDS=[
   {id:"o",name:"X-Heavy",css:"#E87D1E",color:"orange",lbs:"70–175 lb"},
 ];
 const HIP_BANDS=[
-  {id:"hl",name:"Light",css:"#D93B2B",color:"red",lbs:"light"},
-  {id:"hm",name:"Medium",css:"#20242b",color:"black",lbs:"medium"},
-  {id:"hh",name:"Heavy",css:"#2f6bd8",color:"blue",lbs:"heavy"},
+  {id:"hl",name:"Light",css:"#B9C0CB",color:"light grey",lbs:"light"},
+  {id:"hm",name:"Medium",css:"#565C66",color:"dark grey",lbs:"medium"},
+  {id:"hh",name:"Heavy",css:"#141414",color:"black",lbs:"heavy"},
 ];
 function bandSet(kind){ return kind==="hip"?HIP_BANDS:POWER_BANDS; }
 function bandById(kind,id){ return bandSet(kind).find(b=>b.id===id)||null; }
-function bandSwatch(bandId,kind,exi,si){ const b=bandById(kind,bandId); const bg=b?b.css:"var(--panel2)"; const lbl=b?b.name:"tap"; const tc=(b&&b.css==="#20242b")?"#fff":(b?"#0e0e0e":"var(--muted)"); return `<button class="setband-sw" data-action="setbandset" data-ex="${exi}" data-set="${si}" style="background:${bg};color:${tc}">${lbl}</button>`; }
+function readableOn(hex){ try{ const h=hex.replace("#",""); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return (0.299*r+0.587*g+0.114*b)>150?"#0e0e0e":"#ffffff"; }catch(e){ return "#fff"; } }
+function bandSwatch(bandId,kind,exi,si){ const b=bandById(kind,bandId); const bg=b?b.css:"var(--panel2)"; const lbl=b?b.name:"tap"; const tc=b?readableOn(b.css):"var(--muted)"; return `<button class="setband-sw" data-action="setbandset" data-ex="${exi}" data-set="${si}" style="background:${bg};color:${tc}">${lbl}</button>`; }
 const PLATE_VIS={45:{c:"var(--p45)",h:118,w:17},25:{c:"var(--p25)",h:94,w:15},10:{c:"var(--p10)",h:72,w:13},5:{c:"var(--p5)",h:54,w:11},2.5:{c:"var(--p25s)",h:40,w:10}};
 
 /* ---------------- State ---------------- */
@@ -1150,8 +1155,11 @@ function render(){
 }
 function renderWeekBadge(){ const n=STATE.workouts.filter(w=>w.date>=startOfWeek()).length; document.getElementById("weekBadge").innerHTML=`THIS WEEK<br><b>${n}</b> / ${STATE.settings.daysPerWeek}`; }
 
+function unbackedCount(){ const t=STATE.settings.lastBackupTs||0; return STATE.workouts.filter(w=>!w.ref&&(w.date||0)>t).length; }
 function renderToday(){
   const r=readiness(), rec=recommendFocus(), s=STATE.settings; let html="";
+  const ub=unbackedCount();
+  if(ub>=4) html+=`<div class="panel backup-nudge"><div><b>Back up your training</b><small>${ub} session${ub===1?"":"s"} logged since your last backup. One tap saves a file you can keep in Drive — don’t risk losing your log to a cleared cache.</small></div><button class="btn primary sm" data-action="export">Back up now</button></div>`;
   html+=`<div class="panel"><div class="spread"><span class="eyebrow">Recovery readiness</span><span class="hint">empty = worked recently · full = fresh</span></div><div class="stack-grid">`;
   for(const m of MUSCLE_ORDER){ const v=r[m], lit=Math.round(v*8), col=v>=.75?"var(--ready)":v>=.4?"var(--mid)":"var(--cold)"; let p="";
     for(let i=0;i<8;i++) p+=`<div class="pl ${i<lit?"lit":""}" style="--seg-c:${col}"></div>`;
@@ -1487,7 +1495,8 @@ function renderSettings(){
     else html+=`<div class="panel"><div class="eyebrow">Never recommend</div>${bintro}${bbody}</div>`; }
   html+=libEntryPanel();
   html+=`<div class="panel"><div class="eyebrow">Data</div><div class="hint" style="margin:8px 0 12px">Stored on this device${hasStore?"":" — note: a downloaded copy won’t persist between opens"}.</div>
-    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-action="sync">Sync / transfer ↔ device</button><button class="btn sm" data-action="export">Save backup file</button><button class="btn sm" data-action="importfile">Import backup file</button><button class="btn ghost sm" data-action="wipe" style="margin-left:auto;color:var(--cold)">Erase all</button></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-action="sync">Sync / transfer ↔ device</button><button class="btn sm" data-action="export">Save backup file</button><button class="btn sm" data-action="exportcsv">Export CSV</button><button class="btn sm" data-action="importfile">Import backup file</button><button class="btn ghost sm" data-action="wipe" style="margin-left:auto;color:var(--cold)">Erase all</button></div>
+    <div class="hint" style="margin-top:8px">${s.lastBackupTs?`Last backup: ${new Date(s.lastBackupTs).toLocaleDateString(undefined,{month:"short",day:"numeric"})} · ${unbackedCount()} session${unbackedCount()===1?"":"s"} since.`:"No backup saved yet — save one now to be safe."} <b>CSV</b> exports every set for Sheets or any other app.</div>
     <div class="hint" style="margin-top:8px">Your training is saved on this device and backed up to your Claude account, so signing into Claude on another device and reopening this app pulls it back — losing your phone won’t lose your log. “Save backup file” writes a <b>.json</b> you can drop in Google Drive; “Import backup file” reads it back on any device. (Live auto-sync to Drive needs the app hosted on its own page — ask and I’ll set that up.)</div></div>
     <div class="panel" style="text-align:center"><div class="hint">Rack &amp; Roll · built for the high-desert garage. Not medical advice — train within your limits.</div>
       <div class="row" style="gap:10px;justify-content:center;align-items:center;margin-top:8px"><span class="mono" style="font-size:11px;color:var(--faint)">build ${BUILD}</span><button class="btn ghost sm" data-action="reloadapp">Reload latest</button></div></div>`;
@@ -1644,7 +1653,8 @@ view.addEventListener("click",e=>{
     STATE.equipment.push({id:"c"+Date.now(),cat:document.getElementById("ng_cat").value,name:nm,note:"added by you",caps:[cap],on:true,custom:true,bar:cap==="barbell"||cap==="trapbar"?45:undefined,plateInv:cap==="barbell"?{...DEFAULT_PLATE_INV}:undefined}); pEq(); renderGear(); toast("Added"); return; }
   if(a==="unpin"){ STATE.settings.pinned=STATE.settings.pinned.filter(x=>x!==act.dataset.id); pSet(); renderSettings(); return; }
   if(a==="unban"){ STATE.settings.blocked=STATE.settings.blocked.filter(x=>x!==act.dataset.id); pSet(); renderSettings(); toast("Restored"); return; }
-  if(a==="export"){ const data=JSON.stringify({equipment:STATE.equipment,settings:STATE.settings,workouts:STATE.workouts},null,2); const blob=new Blob([data],{type:"application/json"}); const url=URL.createObjectURL(blob); const link=document.createElement("a"); link.href=url; link.download="rack-and-roll-backup.json"; link.click(); URL.revokeObjectURL(url); toast("Backup downloaded"); return; }
+  if(a==="export"){ const data=JSON.stringify({equipment:STATE.equipment,settings:STATE.settings,workouts:STATE.workouts,templates:STATE.templates},null,2); const blob=new Blob([data],{type:"application/json"}); const url=URL.createObjectURL(blob); const link=document.createElement("a"); const d=new Date(); link.href=url; link.download=`rack-and-roll-backup-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.json`; link.click(); URL.revokeObjectURL(url); STATE.settings.lastBackupTs=Date.now(); pSet(); if(STATE.tab==="set") renderSettings(); if(STATE.tab==="today") renderToday(); toast("Backup downloaded"); return; }
+  if(a==="exportcsv"){ const rows=[["date","session","exercise","set","weight","band","reps","done","rpe"]]; STATE.workouts.filter(w=>!w.ref).forEach(w=>{ const dt=new Date(w.date).toISOString().slice(0,10); (w.exercises||[]).forEach(e=>{ (e.sets||[]).forEach((s,i)=>{ const bnd=s.band?(bandById(e.bandKind,s.band)||{}).name||"":""; rows.push([dt,w.focusName||w.focus||"",e.name,i+1,s.w||"",bnd,s.reps||"",s.done?"yes":"no",e.rpe||""]); }); }); }); const csv=rows.map(r=>r.map(c=>{ c=String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(",")).join("\n"); const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob); const link=document.createElement("a"); link.href=url; link.download="rack-and-roll-log.csv"; link.click(); URL.revokeObjectURL(url); toast("CSV exported"); return; }
   if(a==="togglewake"){ STATE.settings.keepAwake=!STATE.settings.keepAwake; pSet(); if(STATE.settings.keepAwake&&STATE.current&&STATE.current.startedAt) requestWake(); else releaseWake(); renderSettings(); return; }
   if(a==="testalarm"){ ensureAudio(); beep(); if(navigator.vibrate) navigator.vibrate([500,140,500,140,500]); return; }
   if(a==="sync"){ openSync(); return; }
