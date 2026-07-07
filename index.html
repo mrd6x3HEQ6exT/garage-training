@@ -357,7 +357,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.17";
+const BUILD="2026.07.18";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -991,7 +991,7 @@ function normalizeGroupSets(w){
     const exs=g.items.map(id=>w.exercises.find(e=>e.id===id)).filter(Boolean);
     const target=Math.max(...exs.map(e=>e.sets.filter(s=>!s.drop).length));
     exs.forEach(e=>{ const drop=e.sets.filter(s=>s.drop); let work=e.sets.filter(s=>!s.drop);
-      while(work.length<target){ const last=work[work.length-1]||{w:"",reps:""}; work.push({w:last.w,reps:"",done:false}); }
+      while(work.length<target){ const last=work[work.length-1]||{w:"",reps:""}; work.push({w:last.w,reps:"",done:false,band:last.band||null}); }
       while(work.length>target) work.pop();
       e.sets=work.concat(drop);
     });
@@ -1635,7 +1635,7 @@ view.addEventListener("click",e=>{
   if(a==="swap"){ const id=STATE.current.exercises[+act.dataset.ex].id; if(UI.openSwap.has(id)) UI.openSwap.delete(id); else UI.openSwap.add(id); renderToday(); return; }
   if(a==="plates"){ const id=STATE.current.exercises[+act.dataset.ex].id; if(UI.openPlates.has(id)) UI.openPlates.delete(id); else UI.openPlates.add(id); renderToday(); return; }
   if(a==="dospwap"){ const idx=+act.dataset.ex; const ne=exById(act.dataset.id); const old=STATE.current.exercises[idx]; UI.openSwap.delete(old.id);
-    STATE.current.groups.forEach(g=>{ const gi=g.items.indexOf(old.id); if(gi>=0) g.items[gi]=ne.id; }); STATE.current.exercises[idx]=buildLoggable(ne); pCur(); renderToday(); toast("Swapped"); return; }
+    STATE.current.groups.forEach(g=>{ const gi=g.items.indexOf(old.id); if(gi>=0) g.items[gi]=ne.id; }); STATE.current.exercises[idx]=buildLoggable(ne); normalizeGroupSets(STATE.current); pCur(); renderToday(); toast("Swapped"); return; }
   if(a==="ban"){ const id=act.dataset.id; if(!STATE.settings.blocked.includes(id)) STATE.settings.blocked.push(id); pSet();
     UI.openSwap.add(id); renderToday(); toast("Banned — pick a replacement below"); return; }
   if(a==="finish"){ if(!STATE.current) return; const any=STATE.current.exercises.some(e=>e.sets.some(s=>s.done))||(STATE.current.conditioning||[]).some(c=>(c.sets&&c.sets.some(s=>s.done))||c.done); if(!any){ toast("Mark a set or a conditioning drill done first"); return; }
