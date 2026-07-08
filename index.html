@@ -377,7 +377,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.20";
+const BUILD="2026.07.21";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -559,7 +559,28 @@ const EXERCISES=[
   X("hang_oblique","Hanging oblique raise","core","core",["core"],[],["pullupbar"],["pullupbar"],{cue:"Hang and raise the knees up and to one side, alternating. Hits the obliques."}),
   X("plank_saw","Plank saw","core","core",["core"],["shoulders"],[],[],{cue:"Forearm plank; rock the whole body forward and back so the shoulders pass the elbows.",metric:"time"}),
   X("jackknife","Bench jackknife","core","core",["core"],[],["bench"],["bench"],{cue:"Sit on the bench end, lean back, then draw the knees and chest together and extend back out."}),
-  /* ---- conditioning ---- */
+  /* ---- rack & barbell variations (efficiency batch) ---- */
+  X("bb_pause_bench","Barbell pause bench","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Lower to the chest, pause 1–2s dead-stop, then drive. Kills the bounce and builds off-chest power."}),
+  X("bb_spoto","Spoto press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Stop the bar ~1 inch off the chest, hold, then press. Constant tension, no touch."}),
+  X("bb_pin_press","Pin press (chest)","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Set the rack pins at chest height; press from a dead stop off the pins each rep."}),
+  X("bb_floor_press_bb","Barbell floor press","horiz_push","compound",["chest"],["triceps"],["barbell","plates","rack"],["barbell","rack"],{cue:"Lie on the floor, upper arms stop on the deck, press. Triceps and lockout, shoulder-friendly."}),
+  X("bb_larsen","Larsen press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Legs straight out, feet off the floor — no leg drive, all chest and control."}),
+  X("bb_push_press","Barbell push press","vert_push","compound",["shoulders"],["triceps","quads"],["barbell","plates","rack"],["barbell","rack"],{cue:"Short dip in the knees, then drive the bar overhead explosively. Move more weight than strict press."}),
+  X("bb_pin_ohp","Overhead pin press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates","rack"],["barbell","rack"],{cue:"Press from pins set at forehead/eye height — dead-stop overhead power out of the sticking point."}),
+  X("bb_seated_ohp","Seated barbell press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Bench upright in the rack, press strict overhead — no leg drive, pure shoulders."}),
+  X("rack_pull","Rack pull","hinge","compound",["back"],["hams","glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar set at knee height on the pins; pull to lockout. Overload the top of the deadlift, spare the back."}),
+  X("bb_yates_row","Yates row","horiz_pull","compound",["back"],["biceps"],["barbell","plates"],["barbell"],{cue:"Underhand grip, ~45° torso, row to the lower belly. Heavier than a strict Pendlay."}),
+  X("bb_pause_row","Paused barbell row","horiz_pull","accessory",["back"],["biceps"],["barbell","plates"],["barbell"],{cue:"Row to the ribs and pause 1s at the top before lowering. Builds a brutal contraction."}),
+  X("bb_pause_squat","Pause squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Sit to depth, pause 2–3s in the hole, then stand. Kills the bounce, builds bottom-end strength."}),
+  X("bb_pin_squat","Pin squat","squat","compound",["quads"],["glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Squat down onto pins set at depth, settle, then drive up from a dead stop."}),
+  X("bb_tempo_squat","Tempo squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Lower for a 4-count, brief pause, stand normally. Control and time under tension."}),
+  X("bb_pause_front","Pause front squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Front-rack, sit to depth, pause, drive up tall. Punishes any forward lean."}),
+  X("bb_deficit_dl","Deficit deadlift","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Stand on a 1–2 inch plate; longer pull builds off-the-floor strength. Keep the back flat."}),
+  X("bb_block_pull","Block pull","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Bar on blocks just below the knee; overload the top half of the deadlift."}),
+  X("bb_pause_dl","Paused deadlift","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Pause 1–2s just below the knee on the way up. Reinforces position and control."}),
+  X("bb_jm_press","JM press","horiz_push","accessory",["triceps"],["chest"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"A cross between a close-grip and a skullcrusher — bar tracks to the throat, elbows forward. All triceps."}),
+  X("bb_calf_raise","Barbell calf raise","calf","isolation",["calves"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar on the back, balls of the feet on a plate or block, full stretch to full contraction."}),
+  X("bb_bb_shrug","Barbell shrug","hinge","isolation",["back"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Heavy bar in the rack, shrug straight up to the ears, hold, lower slow. Traps."}),
   {id:"bike_int",name:"Echo Bike intervals",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"6 rounds — 20s all-out / 40s easy",45:"8 rounds — 30s hard / 30s easy",60:"10 rounds — 40s hard / 20s easy"}},
   {id:"bike_ss",name:"Echo Bike steady",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"8 min @ conversational pace",45:"12 min steady RPE 6",60:"18 min steady RPE 6"}},
   {id:"ski_int",name:"SkiErg intervals",type:"conditioning",requires:["skierg"],stations:["skierg"],muscles:["cond"],proto:{30:"8 × 100 m, walk back",45:"10 × 150 m / 45s rest",60:"6 × 250 m / 60s rest"}},
@@ -712,6 +733,27 @@ const GUIDES={
   plank_saw:"In a forearm plank, rock your whole body forward and back on your toes so your shoulders travel past and behind your elbows. Small range, big tension on the abs.",
   jackknife:"Sit on the end of the bench gripping the sides, lean your torso back and extend your legs out, then draw your knees and chest together into a tuck. Extend and repeat.",
   dragon_flag:"Grip the bench behind your head; keeping the body straight and rigid, raise it toward vertical, then lower slowly without bending at the hips. Very advanced — scale the range.",
+  bb_pause_bench:"Unrack and lower the bar to your chest under control. Come to a complete dead stop — 1 to 2 seconds, no bounce — then press explosively. Builds power right off the chest where most benches stall.",
+  bb_spoto:"Lower the bar to about an inch above your chest, stop and hold it there without touching, then press back up. Constant tension the whole set; brutal for control and the mid-range.",
+  bb_pin_press:"Set the safety pins in the rack at chest height. Each rep starts from a dead stop resting on the pins — no stretch reflex, so it's pure pressing strength from your weak point.",
+  bb_floor_press_bb:"Lie on the floor inside the rack, lower until your upper arms rest on the deck, pause, then press. The floor limits range and takes the shoulders/legs out — triceps and lockout focus.",
+  bb_larsen:"Bench with your legs straight out and feet off the floor. No leg drive means your chest and shoulders do everything, and you learn to stay tight without pushing through the legs.",
+  bb_push_press:"From the front rack, dip a few inches at the knees, then explosively extend and drive the bar overhead, finishing with a hard lockout. Lets you overload the shoulders past a strict press.",
+  bb_pin_ohp:"Press from pins set around forehead height. Starting overhead from a dead stop trains the exact sticking point of your overhead press.",
+  bb_seated_ohp:"Set an upright bench in the rack. Press the bar strictly overhead with no leg drive — seated removes the cheat and isolates the shoulders.",
+  rack_pull:"Set the bar on pins at about knee height. Pull to lockout with deadlift form. You can handle more than a full deadlift, overloading grip, traps, and the top of the pull while sparing the lower back.",
+  bb_yates_row:"Underhand (supinated) grip, torso around 45 degrees, row the bar to your lower abs. The angle and grip let you move heavier weight than a strict row — great back builder.",
+  bb_pause_row:"Row the bar to your ribcage and hold for a full second at the top, squeezing the back, before lowering under control. The pause kills momentum and builds contraction strength.",
+  bb_pause_squat:"Descend to full depth and pause 2 to 3 seconds in the bottom, staying tight, then drive up. Removes the bounce and builds strength out of the hole.",
+  bb_pin_squat:"Squat down onto pins set at your target depth, settle for a moment, then drive up from a complete stop. Trains raw starting strength with no stretch reflex.",
+  bb_tempo_squat:"Lower for a slow 4-count, brief pause at the bottom, then stand at normal speed. Time under tension and rock-solid control; use lighter weight than a normal squat.",
+  bb_pause_front:"Front-rack the bar, sit to depth, pause, then drive up staying tall. The front load and pause expose and fix any forward lean or weak upper back.",
+  bb_deficit_dl:"Stand on a 1 to 2 inch plate so the bar starts lower. The longer range builds strength off the floor. Keep a flat back — only use a deficit you can hold position through.",
+  bb_block_pull:"Rest the bar on blocks just below the knee and pull to lockout. Overloads the top half of the deadlift and reinforces the lockout without the hardest bottom portion.",
+  bb_pause_dl:"On the way up, pause 1 to 2 seconds just below the knee, staying tight, then finish the lockout. Reinforces bar path and position under load.",
+  bb_jm_press:"A hybrid of close-grip bench and skullcrusher: lower the bar toward your throat with elbows traveling forward, then press. Loads the triceps hard while staying a pressing movement.",
+  bb_calf_raise:"Bar on your upper back, balls of your feet on a plate or block with heels hanging. Drop into a full stretch, then rise all the way onto your toes. Slow and full range.",
+  bb_bb_shrug:"Hold a heavy bar (pull it from the rack), shrug your shoulders straight up toward your ears, hold the squeeze, and lower slowly. Straps help — the traps give out well before the grip.",
 };
 const MUSCLE_LABEL={chest:"Chest",back:"Back",shoulders:"Delts",biceps:"Biceps",triceps:"Triceps",quads:"Quads",hams:"Hams",glutes:"Glutes",calves:"Calves",core:"Core"};
 const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","quads","hams","glutes","calves","core"];
@@ -991,11 +1033,13 @@ function generate(focusKey,duration,mode){
       exercises:[],conditioning:conds.map(c=>buildCond(c,duration)),groups:[],note:""};
   }
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
-  const recent=recentExerciseIds(2);
+  const recent=recentExerciseIds(3);
   const sCount=STRENGTH_COUNT[duration];
   const isCore=focusKey==="core";
   const chosen=[]; const add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
-  const rmap=readiness(); PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap);
+  const rmap=readiness();
+  const barbellBias=e=>{ const r=e.requires||[]; if(r.includes("barbell")||r.includes("trapbar")) return 1.7; if(r.includes("rack")) return 1.4; return 1; };
+  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
   if(!isCore){ for(const pat of f.anchors){ if(chosen.length>=Math.min(2,sCount)) break; add(pickFrom(pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)),recent)); } }
@@ -1025,10 +1069,26 @@ function generate(focusKey,duration,mode){
   else if(g.circuit&&mode==="strength") gmode="circuit";
   let groups=groupExercises(chosen,gmode);
   if(g.straight) groups=chosen.map(e=>({type:"straight",items:[e.id]}));
+  groups=orderGroupsEfficient(groups);
   const wo={id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode,
     exercises:chosen.map(buildLoggable),conditioning:conds.map(c=>buildCond(c,duration)),groups,note:""};
   normalizeGroupSets(wo);
   return wo;
+}
+// Sequence groups so you stay at one station and ramp plates down instead of walking the gym.
+const _roleRank={compound:0,accessory:1,isolation:2,core:3};
+function groupStationRank(g){ let req=new Set(); let core=false; g.items.forEach(id=>{ const e=exById(id); if(!e) return; (e.requires||[]).forEach(x=>req.add(x)); if((e.primary||[]).includes("core")) core=true; });
+  if(core) return 6; // core finisher last
+  if(req.has("barbell")||req.has("trapbar")||req.has("rack")) return 0; // rack/barbell cluster first
+  if(req.has("landmine")) return 1;
+  if(req.has("ezbar")) return 2;
+  if(req.has("cable_high")||req.has("cable_low")||req.has("ankle_cuffs")) return 5; // cable stack together, later
+  return 3; // dumbbell / band / bodyweight
+}
+function orderGroupsEfficient(groups){
+  return groups.map((g,i)=>{ const rank=groupStationRank(g); const roleMin=Math.min(...g.items.map(id=>{ const e=exById(id); return e?(_roleRank[e.role]??2):2; })); return {g,rank,roleMin,i}; })
+    .sort((a,b)=> a.rank-b.rank || a.roleMin-b.roleMin || a.i-b.i)
+    .map(x=>x.g);
 }
 function normalizeGroupSets(w){
   (w.groups||[]).forEach(g=>{ if(g.items.length<2) return;
