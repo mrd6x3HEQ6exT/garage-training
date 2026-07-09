@@ -407,7 +407,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.24";
+const BUILD="2026.07.25";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -505,7 +505,7 @@ const EXERCISES=[
   X("db_rdl","Dumbbell RDL","hinge","accessory",["hams"],["glutes"],["dumbbells"],[],{cue:"Bells close to the legs."}),
   X("lm_rdl","Landmine RDL","hinge","accessory",["hams"],["glutes"],["landmine"],["landmine"],{cue:"Hinge with the bar arcing down."}),
   X("ghr","Glute-ham raise","hinge","accessory",["hams"],["glutes"],["bench","resistancebands"],["bench"],{cue:"Feet anchored under the bench, loop a band for assistance, lower slow and pull yourself back up.",metric:"reps"}),
-  X("nordic","Nordic curl","hinge","accessory",["hams"],[],["ghr"],["ghr"],{cue:"Resist the fall as long as you can."}),
+  X("nordic","Nordic curl","hinge","accessory",["hams"],["glutes"],["bench"],["bench"],{cue:"Ankles pinned under the bench leg roller. Resist the fall as long as you can; a chest band can assist."}),
   X("kb_swing","Kettlebell swing","hinge","accessory",["glutes"],["hams","core"],["kettlebell"],[],{cue:"Hips snap, float to chest height."}),
   X("hip_thrust","Barbell hip thrust","hinge","compound",["glutes"],["hams"],["barbell","plates","bench"],["barbell","bench"],{cue:"Shoulders on bench, ribs down, squeeze."}),
   X("db_thrust","DB hip thrust","hinge","accessory",["glutes"],["hams"],["dumbbells","bench"],["bench"],{cue:"Pause and squeeze at the top."}),
@@ -577,7 +577,6 @@ const EXERCISES=[
   X("hollow_rock","Hollow rock","core","core",["core"],[],[],[],{cue:"Hold the hollow position and rock back and forth keeping the low back glued down."}),
   X("bird_dog","Bird dog","core","core",["core"],["glutes"],[],[],{cue:"On all fours, extend opposite arm and leg, pause, switch. Keep the hips level."}),
   X("renegade_row","Renegade row","core","accessory",["core"],["back"],["dumbbells"],[],{cue:"Top of a push-up on the bells; row one then the other while resisting rotation."}),
-  X("ghr_situp","GHD sit-up","core","core",["core"],[],["ghr"],["ghr"],{cue:"Anchored on the roller, lower the torso back then sit up. Build range slowly."}),
   X("dragon_flag","Dragon flag","core","core",["core"],[],["bench"],["bench"],{cue:"Grip the bench overhead, raise the whole body to vertical, lower slow and straight. Advanced."}),
   /* ---- thrusters (batch) ---- */
   X("bb_thruster","Barbell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Front-rack squat, then ride the drive up into an overhead press in one motion."}),
@@ -589,6 +588,25 @@ const EXERCISES=[
   X("hang_oblique","Hanging oblique raise","core","core",["core"],[],["pullupbar"],["pullupbar"],{cue:"Hang and raise the knees up and to one side, alternating. Hits the obliques."}),
   X("plank_saw","Plank saw","core","core",["core"],["shoulders"],[],[],{cue:"Forearm plank; rock the whole body forward and back so the shoulders pass the elbows.",metric:"time"}),
   X("jackknife","Bench jackknife","core","core",["core"],[],["bench"],["bench"],{cue:"Sit on the bench end, lean back, then draw the knees and chest together and extend back out."}),
+  /* ---- REP glute-ham roller (wheeled roller + foot tray) ---- */
+  X("ghr_curl","GHR supine leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Feet on the tray, hips locked high. Curl the heels in without letting the hips sag."}),
+  X("ghr_curl_sl","GHR single-leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{unilateral:true,cue:"One foot on the tray, other leg lifted. Hips level, curl in."}),
+  X("ghr_curl_cable","Cable-loaded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","cable_low"],["ghr","cable_low"],{cue:"Strap the roller to the low pulley and curl against the stack. Real progressive overload."}),
+  X("ghr_curl_band","Banded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","resistancebands"],["ghr"],{cue:"Band anchored behind the roller. Resistance climbs as the heels come in."}),
+  X("ghr_bridge_curl","GHR bridge + curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Bridge the hips up and hold, then curl the heels in. Glutes stay locked."}),
+  X("ghr_slideout","GHR eccentric slide-out","hinge","accessory",["hams"],["glutes","core"],["ghr"],["ghr"],{cue:"Hips high, extend the legs out slowly, reset. All eccentric — go slower than feels necessary."}),
+  X("ghr_lat_lunge","GHR lateral slide lunge","lunge","accessory",["quads"],["glutes","hams"],["ghr"],["ghr"],{unilateral:true,cue:"Slide one foot out sideways, sit into the standing leg, pull back."}),
+  X("ghr_rev_lunge","GHR reverse slide lunge","lunge","accessory",["quads"],["glutes"],["ghr"],["ghr"],{unilateral:true,cue:"Slide one foot straight back into a lunge, then pull it home. Zero impact."}),
+  X("ghr_curtsy","GHR curtsy slide lunge","lunge","accessory",["glutes"],["quads"],["ghr"],["ghr"],{unilateral:true,cue:"Slide the foot back and across behind you. Hammers the glute medius."}),
+  X("ghr_rollout","GHR kneeling rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Hands on the roller, kneel tall. Roll out only as far as the ribs stay down."}),
+  X("ghr_rollout_stand","GHR standing rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"The kneeling rollout from your feet. Advanced — earn it first."}),
+  X("ghr_rollout_cable","Cable-loaded GHR rollout","core","core",["core"],["shoulders"],["ghr","cable_low"],["ghr","cable_low"],{cue:"Strap to the low pulley so the stack fights the roll-out."}),
+  X("ghr_bodysaw","GHR body saw","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Forearm plank, feet on the tray. Saw back and forth. Hips never drop."}),
+  X("ghr_tuck","GHR knee tuck","core","core",["core"],["quads"],["ghr"],["ghr"],{cue:"Plank, feet on the tray. Tuck the knees in, extend back out slowly."}),
+  X("ghr_pike","GHR pike","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Plank, legs straight, drive the hips up into an inverted V, then lower."}),
+  X("ghr_oblique_tuck","GHR oblique tuck","core","core",["core"],[],["ghr"],["ghr"],{cue:"Plank, tuck the knees diagonally toward one elbow, alternate."}),
+  X("ghr_knee_raise_band","Banded GHR knee raise","core","core",["core"],["quads"],["ghr","resistancebands"],["ghr"],{cue:"Band around the roller and feet. Raise the knees against the band, lower slow."}),
+  X("ghr_climber","GHR mountain climber","core","core",["core"],["quads"],["ghr"],["ghr"],{cue:"Plank, feet on the tray. Drive the knees in fast, hips flat."}),
   /* ---- rack & barbell variations (efficiency batch) ---- */
   X("bb_pause_bench","Barbell pause bench","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Lower to the chest, pause 1–2s dead-stop, then drive. Kills the bounce and builds off-chest power."}),
   X("bb_spoto","Spoto press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Stop the bar ~1 inch off the chest, hold, then press. Constant tension, no touch."}),
@@ -673,7 +691,25 @@ const GUIDES={
   db_rdl:"The same hinge as the RDL but with dumbbells kept close to the legs.",
   lm_rdl:"Hinge while the landmine bar arcs down in front of you, then drive the hips to stand.",
   ghr:"Anchor the feet, body straight from knee to head. Lower slowly using the hamstrings, then pull back up. Very hard — shorten the range to scale.",
-  nordic:"Anchor the ankles, kneel tall, body in a line. Resist falling forward as slowly as possible, push off lightly to reset. Brutal hamstring eccentric.",
+  nordic:"Pin your ankles under the bench leg roller and kneel tall with the body in a straight line. Resist falling forward as slowly as you can, then push off lightly to reset. Loop a band around your chest and anchor it in front to take load off while you build strength. Brutal hamstring eccentric.",
+  ghr_curl:"Lie on your back with your heels on the roller's foot tray. Drive the hips up into a bridge and hold that height, then curl the heels toward your butt. The hips must not sag as the roller comes in — that sag is where the hamstring work gets stolen by the glutes.",
+  ghr_curl_sl:"Same as the supine leg curl but with one foot on the tray and the other leg held off the floor. Keep the hips level and square as you curl. Expect a big drop in reps versus two legs.",
+  ghr_curl_cable:"Attach the included strap and handle to the roller and clip it to the low pulley. Set up for a supine leg curl; now the stack pulls the roller away from you the whole time. This is the version you can progressively overload week to week.",
+  ghr_curl_band:"Anchor a band behind the roller and set up for a supine curl. Resistance builds as the roller travels in, loading the shortened position hardest. Use when the cable stack is tied up.",
+  ghr_bridge_curl:"Bridge the hips up first and hold a hard glute squeeze. From there, curl the heels in and press them back out without ever letting the hips drop. Combines a glute bridge isometric with the hamstring curl.",
+  ghr_slideout:"Start hips-high with the heels on the tray. Let the legs slowly extend out under control, fighting it the whole way, then reset with your hands or a bent-knee return. Purely eccentric — take four or five seconds on the way out.",
+  ghr_lat_lunge:"Stand with one foot on the roller. Slide it out to the side while sitting back and down into the standing leg, then pull it back in. The standing leg does the work; the roller leg just travels.",
+  ghr_rev_lunge:"One foot on the roller, slide it straight back into a lunge, drop the back knee toward the floor, then pull the foot home. Constant tension, zero impact — kind on the knees.",
+  ghr_curtsy:"Slide the roller foot back and diagonally across behind your standing leg, sit into the hip, then return. Targets the glute medius and the hip stability most lunges miss.",
+  ghr_rollout:"Kneel with your hands on the roller, ribs down and glutes squeezed. Roll it out in front of you only as far as you can go without your lower back arching or hips sagging, then pull it back. Range is earned, not forced.",
+  ghr_rollout_stand:"The kneeling rollout performed from your feet. Enormous demand on the abs and lats to keep the spine from extending. Only attempt after you own full-range kneeling rollouts.",
+  ghr_rollout_cable:"Clip the roller's strap to the low pulley so the stack resists the roll-out. It loads the deepest, hardest part of the movement and lets you add weight instead of just chasing range.",
+  ghr_bodysaw:"Get into a forearm plank with your feet on the tray. Push back through the shoulders so the whole body slides away, then pull back to the start. The hips stay level for every inch of travel.",
+  ghr_tuck:"From a push-up plank with feet on the tray, pull the knees in toward the chest, then extend back out slowly. The slow extension is the part that builds the abs.",
+  ghr_pike:"Plank with feet on the tray. Keeping the legs straight, drive the hips up toward the ceiling into an inverted V, then lower back to a flat plank under control.",
+  ghr_oblique_tuck:"Plank with feet on the tray. Tuck the knees diagonally toward one elbow, extend back, then tuck to the other side. Hits the obliques through rotation under load.",
+  ghr_knee_raise_band:"Loop a band around the roller and your feet. From a supported plank or V-sit, raise the knees against the band's pull and lower slowly. Adds resistance to an otherwise bodyweight-only move.",
+  ghr_climber:"Plank with feet on the tray. Drive one knee in at a time as fast as you can while keeping the hips flat and the shoulders stacked over the hands. Core work with a conditioning bite.",
   kb_swing:"Hinge and hike the bell back between the legs, then snap the hips forward to float it to chest height. It's a hip drive, not an arm raise.",
   hip_thrust:"Shoulder blades on the bench, padded bar across the hips. Drive through the heels and squeeze the glutes at the top, ribs down — don't overarch the back.",
   db_thrust:"Same as the barbell hip thrust with a dumbbell across the hips; pause and squeeze at lockout.",
@@ -752,7 +788,6 @@ const GUIDES={
   hollow_rock:"Get into a hollow hold — low back pressed down, arms and legs off the floor — then rock back and forth as one rigid piece.",
   bird_dog:"On all fours, extend the opposite arm and leg until level, pause, then switch. Keep the hips square and the core tight.",
   renegade_row:"In a push-up position gripping the dumbbells, row one bell to the ribs while bracing hard against rotation, then the other. Widen the feet for stability.",
-  ghr_situp:"Anchored on the glute-ham roller, lower your torso back toward the floor, then contract the abs to sit back up. Build the range over time.",
   ghr:"Anchor your feet under the bench pad or a loaded bar. Loop a resistance band from something overhead/in front and hold it for assistance. Keeping the body in a straight line from knees to head, lower yourself toward the floor as slowly as you can, then pull back up — the band takes some of your weight so you can control the movement. Lighter band = harder.",
   bb_thruster:"Take the bar in a front-rack position. Drop into a full front squat, then drive up explosively and let that momentum carry the bar into a full overhead press — squat and press are one continuous movement. Bar finishes locked out overhead.",
   kb_thruster:"Hold two kettlebells in the front rack at the shoulders. Squat to depth, then explode up and press both bells overhead in one motion. Reset to the rack and repeat.",
@@ -905,6 +940,10 @@ async function boot(){
   if(STATE.settings.goal==="fitness") STATE.settings.goal="lean";
   if(!GOALS[STATE.settings.goal]) STATE.settings.goal="general";
   if(STATE.settings.sledLane==null) STATE.settings.sledLane=60;
+  STATE.settings.blocked=(STATE.settings.blocked||[]).filter(x=>x!=="ghr_situp");
+  STATE.settings.pinned=(STATE.settings.pinned||[]).filter(x=>x!=="ghr_situp");
+  if(STATE.settings.recWeights) delete STATE.settings.recWeights.ghr_situp;
+  if(STATE.current&&STATE.current.exercises&&STATE.current.exercises.some(e=>e.id==="ghr_situp")){ STATE.current.exercises=STATE.current.exercises.filter(e=>e.id!=="ghr_situp"); STATE.current.groups=(STATE.current.groups||[]).map(g=>({...g,items:g.items.filter(i=>i!=="ghr_situp")})).filter(g=>g.items.length); }
   const FDEF={heat:1,confetti:1,recap:1,notes:1,bw:1,standards:1,ghost:1,metro:1,deload:1,bigrest:1,budget:1,injury:1,bodymap:0,planner:1,reorder:1,voice:0,wrapped:1};
   if(!STATE.settings.feat) STATE.settings.feat={};
   Object.keys(FDEF).forEach(k=>{ if(STATE.settings.feat[k]==null) STATE.settings.feat[k]=!!FDEF[k]; });
