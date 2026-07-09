@@ -407,7 +407,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.23";
+const BUILD="2026.07.24";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -790,8 +790,8 @@ const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","quads","hams"
 const RECOVERY_DAYS={chest:2.5,back:2.5,shoulders:2,biceps:2,triceps:2,quads:3,hams:3,glutes:2.5,calves:2,core:1.5};
 const COND_STYLE={bike_int:"interval",bike_ss:"steady",ski_int:"interval",ski_ss:"steady",sled_push:"interval",sled_drag:"steady",rope:"interval",kb_metcon:"interval",ruck:"steady",burpee:"interval"};
 const COND_META={
-  bike_int:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (m)"}]},
-  bike_ss:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (m)"}]},
+  bike_int:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}]},
+  bike_ss:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}]},
   ski_int:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (m)"}]},
   ski_ss:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (m)"}]},
   sled_push:{fields:[{k:"level",l:"Level"},{k:"dist",l:"Dist (ft)"}]},
@@ -941,7 +941,7 @@ function startOfWeek(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setHou
 function isBarbellEx(e){ return e.requires.includes("barbell")||e.requires.includes("trapbar"); }
 const round5=n=>Math.max(0,Math.round((+n||0)/5)*5);
 const CARDIO_MACHINES=[
-  {id:"bike",name:"Echo Bike",cap:"echobike",base:"bike_ss",unit:"m",muscles:["cond"],fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (m)"}],modes:["distance","time","calories","intervals","free"]},
+  {id:"bike",name:"Echo Bike",cap:"echobike",base:"bike_ss",unit:"mi",muscles:["cond"],fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}],modes:["distance","time","calories","intervals","free"]},
   {id:"ski",name:"SkiErg",cap:"skierg",base:"ski_ss",unit:"m",muscles:["cond"],fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (m)"}],modes:["distance","time","calories","intervals","free"]},
   {id:"sled",name:"Sled",cap:"sled",base:"sled_push",unit:"ft",muscles:["cond"],fields:[{k:"level",l:"Level"},{k:"dist",l:"Dist (ft)"},{k:"time",l:"Time"}],modes:["distance","time","trips","intervals"]},
   {id:"rope",name:"Battle rope",cap:"battlerope",base:"rope",unit:"s",muscles:["cond"],fields:[{k:"time",l:"Time"}],modes:["time","intervals","free"]},
@@ -980,12 +980,19 @@ function renderCardioBuilder(){
     else if(b.mode==="time") h+=`<div class="cb-row"><label class="cb-in">Duration <input class="in" type="number" inputmode="numeric" data-cbp="v" value="${p.v||""}"> min</label></div>`;
     else if(b.mode==="calories") h+=`<div class="cb-row"><label class="cb-in">Target <input class="in" type="number" inputmode="numeric" data-cbp="v" value="${p.v||""}"> cals</label></div>`;
     else if(b.mode==="trips") h+=`<div class="cb-row"><label class="cb-in">Trips <input class="in" type="number" inputmode="numeric" data-cbp="rounds" value="${p.rounds||6}"></label><label class="cb-in">Lane <input class="in" type="number" inputmode="numeric" data-cbp="lane" value="${p.lane||STATE.settings.sledLane||60}"> ft</label></div>`;
-    else if(b.mode==="intervals") h+=`<div class="cb-row"><label class="cb-in">Rounds <input class="in" type="number" inputmode="numeric" data-cbp="rounds" value="${p.rounds||8}"></label><label class="cb-in">Work <input class="in" type="number" inputmode="numeric" data-cbp="work" value="${p.work||(m.unit==="m"?150:m.unit==="ft"?(STATE.settings.sledLane||60):30)}"></label><span class="cb-units">${["m","ft","s"].filter(u=>u===m.unit||u==="s").map(u=>`<button class="chip sm ${(p.wu||m.unit)===u?"on":""}" data-action="cbwu" data-u="${u}">${u}</button>`).join("")}</span><label class="cb-in">Rest <input class="in" type="number" inputmode="numeric" data-cbp="rest" value="${p.rest||45}"> s</label></div>`;
+    else if(b.mode==="intervals") h+=`<div class="cb-row"><label class="cb-in">Rounds <input class="in" type="number" inputmode="numeric" data-cbp="rounds" value="${p.rounds||8}"></label><label class="cb-in">Work <input class="in" type="number" inputmode="numeric" data-cbp="work" value="${p.work||(m.unit==="m"?150:m.unit==="mi"?0.25:m.unit==="ft"?(STATE.settings.sledLane||60):30)}"></label><span class="cb-units">${["m","mi","ft","s"].filter(u=>u===m.unit||u==="s").map(u=>`<button class="chip sm ${(p.wu||m.unit)===u?"on":""}" data-action="cbwu" data-u="${u}">${u}</button>`).join("")}</span><label class="cb-in">Rest <input class="in" type="number" inputmode="numeric" data-cbp="rest" value="${p.rest||45}"> s</label></div>`;
     else h+=`<div class="hint" style="margin:4px 0 6px">One open line — log time, distance, or cals as you go.</div>`;
     h+=`<div class="row" style="gap:8px;margin-top:9px"><button class="btn primary sm" data-action="cbadd">Add to workout</button><button class="btn ghost sm" data-action="cbclose">Cancel</button></div>`;
   }
   return h+`</div>`;
 }
+function parseSmartTime(str){ let s=String(str||"").trim(); if(!s) return null;
+  let tot=null;
+  if(s.includes(":")){ const parts=s.split(":").map(x=>parseInt(x,10)||0); if(parts.length===3) tot=parts[0]*3600+parts[1]*60+parts[2]; else if(parts.length===2) tot=parts[0]*60+parts[1]; else tot=parts[0]; }
+  else if(/^\d+$/.test(s)){ const d=s; const sec=parseInt(d.slice(-2),10)||0; const min=d.length>2?(parseInt(d.slice(-4,-2),10)||0):0; const hr=d.length>4?(parseInt(d.slice(0,-4),10)||0):0; tot=(d.length<=2)?parseInt(d,10):hr*3600+min*60+sec; }
+  else return null;
+  if(tot==null||isNaN(tot)||tot<0) return null; return tot; }
+function fmtSmartTime(tot){ const h=Math.floor(tot/3600), m=Math.floor((tot%3600)/60), s=tot%60; return h?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`; }
 function mkCondSet(fields){ const vals={}; (fields||[]).forEach(f=>vals[f.k]=""); return {w:"",vals,done:false}; }
 function restFor(ex){ const o=(STATE.settings.restOverrides||{})[ex.id]; return o!=null?o:ex.restSec; }
 function cueNextSet(exId){ try{ const exi=STATE.current.exercises.findIndex(e=>e.id===exId); if(exi<0) return; const ex=STATE.current.exercises[exi]; let ts=ex.sets.findIndex(s=>!s.done&&!s.drop); if(ts<0) ts=ex.sets.findIndex(s=>!s.done); if(ts<0) return; const row=document.querySelector('.setrow[data-ex="'+exi+'"][data-set="'+ts+'"]'); if(row){ row.scrollIntoView({behavior:"smooth",block:"center"}); row.classList.add("cuenext"); setTimeout(()=>row.classList.remove("cuenext"),1600); } }catch(e){} }
@@ -1903,7 +1910,7 @@ view.addEventListener("click",e=>{
   if(a==="addcardio"){ UI.cardioB={open:!UI.cardioB.open,machine:UI.cardioB.machine,movement:UI.cardioB.movement,mode:UI.cardioB.mode,p:UI.cardioB.p||{}}; renderToday(); return; }
   if(a==="cbmachine"){ UI.cardioB.machine=act.dataset.m; UI.cardioB.mode=null; UI.cardioB.p={}; renderToday(); return; }
   if(a==="cbmove"){ UI.cardioB.movement=act.dataset.mv; renderToday(); return; }
-  if(a==="cbmode"){ UI.cardioB.mode=act.dataset.md; const m=cbMachine(UI.cardioB.machine); const md=act.dataset.md; const p={}; if(md==="distance") p.v=m.unit==="m"?2000:(STATE.settings.sledLane||60); if(md==="time") p.v=12; if(md==="calories") p.v=30; if(md==="trips"){ p.rounds=6; p.lane=STATE.settings.sledLane||60; } if(md==="intervals"){ p.rounds=8; p.work=m.unit==="m"?150:m.unit==="ft"?(STATE.settings.sledLane||60):30; p.wu=m.unit; p.rest=45; } UI.cardioB.p=p; renderToday(); return; }
+  if(a==="cbmode"){ UI.cardioB.mode=act.dataset.md; const m=cbMachine(UI.cardioB.machine); const md=act.dataset.md; const p={}; if(md==="distance") p.v=m.unit==="m"?2000:m.unit==="mi"?5:(STATE.settings.sledLane||60); if(md==="time") p.v=12; if(md==="calories") p.v=30; if(md==="trips"){ p.rounds=6; p.lane=STATE.settings.sledLane||60; } if(md==="intervals"){ p.rounds=8; p.work=m.unit==="m"?150:m.unit==="mi"?0.25:m.unit==="ft"?(STATE.settings.sledLane||60):30; p.wu=m.unit; p.rest=45; } UI.cardioB.p=p; renderToday(); return; }
   if(a==="cbwu"){ UI.cardioB.p.wu=act.dataset.u; renderToday(); return; }
   if(a==="cbclose"){ UI.cardioB.open=false; renderToday(); return; }
   if(a==="cbadd"){ const c=buildCustomCond(); if(!c){ toast("Pick a machine and a mode first"); return; } if(!STATE.current.conditioning) STATE.current.conditioning=[]; STATE.current.conditioning.push(c); UI.cardioB.open=false; UI.cardioB.mode=null; pCur(); renderToday(); toast(c.name+" added"); return; }
@@ -1994,6 +2001,8 @@ view.addEventListener("change",e=>{
   if(sel){ let v=sel.value; if(sel.dataset.set==="daysPerWeek"||sel.dataset.set==="duration") v=+v; STATE.settings[sel.dataset.set]=v; pSet(); renderWeekBadge(); if(sel.dataset.set==="goal"&&STATE.tab==="set") renderSettings(); if(sel.dataset.set==="alarmSound"){ ensureAudio(); playAlarm(); } return; }
   const pb=e.target.closest("[data-pc='bar']");
   if(pb){ const panel=pb.closest(".pcalc"); const id=panel.dataset.ex; UI.plateBar[id]=+pb.value; renderToday(); return; }
+  const tf=e.target.closest("input[data-cf='time']");
+  if(tf&&STATE.current){ const tot=parseSmartTime(tf.value); if(tot!=null&&tf.value!==""){ const txt=fmtSmartTime(tot); tf.value=txt; const row=tf.closest(".setrow"); const c=STATE.current.conditioning[+row.dataset.ci]; if(c){ const s=c.sets[+row.dataset.cset]; if(s){ if(!s.vals) s.vals={}; s.vals.time=txt; pCur(); } } } return; }
   const pl=e.target.closest("[data-plan]");
   if(pl){ if(!STATE.settings.plan) STATE.settings.plan={}; STATE.settings.plan[+pl.dataset.plan]=pl.value; pSet(); return; }
   const le=e.target.closest("[data-libequip]");
