@@ -295,6 +295,9 @@ select.in{min-width:108px}
 .rounddone{width:100%;min-height:54px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--amber);color:#160f00;border:none;border-radius:10px;font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:.09em;box-shadow:0 0 0 1px var(--amber),0 3px 12px rgba(245,176,66,.3);cursor:pointer}
 .rounddone svg{width:22px;height:22px;stroke:#160f00;stroke-width:3;fill:none}
 .rounddone:active{transform:scale(.985)}
+.btn.danger{background:#3a1512;border-color:#7a2e26;color:#ff9d8f}
+.dz.panel{border-color:#7a2e26}
+.dz .acc-h .eyebrow{color:#ff9d8f}
 .stdrow{display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid var(--line)}
 .stdrow .sn{flex:0 0 62px;font-size:13px;color:var(--ink)}
 .stdrow .sv{font-family:var(--mono);font-size:12px;color:var(--amber);flex:0 0 auto}
@@ -410,7 +413,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.30";
+const BUILD="2026.07.31";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1896,9 +1899,12 @@ function renderSettings(){
     <div class="frow" style="margin-top:10px"><label>Auto-backup on finish<small>${canShareFiles()?"“Send to Drive” opens the share sheet when you finish — tap Drive and it’s saved.":"Writes a backup file automatically when you finish a workout."}</small></label>
       <select class="in" data-set="autoBackup" style="width:130px">${[["off","Off"],["download","Download"],["share","Send to Drive"]].map(([v,l])=>`<option value="${v}" ${(s.autoBackup||"off")===v?"selected":""}>${l}</option>`).join("")}</select></div>
     ${hasFolderPicker()?`<div class="frow"><label>Backup folder<small>${s.backupFolder?`Saving into <b style="color:var(--ink)">${esc(s.backupFolder)}</b> — auto-backup writes here silently.`:"Pick a folder once (e.g. your Google Drive folder) and backups save straight into it."}</small></label><span class="row" style="gap:6px"><button class="btn sm" data-action="pickfolder">${s.backupFolder?"Change":"Choose folder…"}</button>${s.backupFolder?`<button class="btn ghost sm" data-action="clearfolder">Clear</button>`:""}</span></div>`:`<div class="hint" style="margin-top:6px;color:var(--faint)">Choosing a permanent backup folder isn’t supported by this browser yet — the app will offer it automatically once Chrome adds it on Android.</div>`}
-    <div class="hint" style="margin-top:8px">Your training is saved on this device and backed up to your Claude account, so signing into Claude on another device and reopening this app pulls it back — losing your phone won’t lose your log. “Save backup file” writes a <b>.json</b> you can drop in Google Drive; “Import backup file” reads it back on any device. (Live auto-sync to Drive needs the app hosted on its own page — ask and I’ll set that up.)</div></div>
+    <div class="hint" style="margin-top:8px">Your training lives on <b>this device only</b> — there is no cloud account behind it. Losing the phone without a backup loses the log. “Save backup file” writes a <b>.json</b> you can drop in Google Drive; “Import backup file” reads it back on any device. (Live auto-sync to Drive needs the app hosted on its own page — ask and I’ll set that up.)</div></div>
     <div class="panel" style="text-align:center"><div class="hint">Rack &amp; Roll · built for the high-desert garage. Not medical advice — train within your limits.</div>
       <div class="row" style="gap:10px;justify-content:center;align-items:center;margin-top:8px"><span class="mono" style="font-size:11px;color:var(--faint)">build ${BUILD}</span><button class="btn ghost sm" data-action="reloadapp">Reload latest</button></div></div>`;
+  { const dzBody=`<div class="hint" style="margin-bottom:10px">Erases <b style="color:var(--ink)">everything on this device</b>: all workouts, PRs, templates, gear setup, settings, bodyweight log, and the backup-folder link. There is no undo. Restore is only possible from a backup file.</div>
+    <button class="btn danger" data-action="resetapp">☢ Reset app — erase all data</button>`;
+    html+=accSection("danger","Danger zone",null,dzBody).replace('class="panel"','class="panel dz"'); }
   view.innerHTML=html;
 }
 
@@ -2044,6 +2050,19 @@ view.addEventListener("click",e=>{
   if(a==="feat"){ const k=act.dataset.k; STATE.settings.feat[k]=!feat(k); pSet(); renderSettings(); return; }
   if(a==="injury"){ const k=act.dataset.a; const arr=STATE.settings.injuries; const i=arr.indexOf(k); if(i>=0) arr.splice(i,1); else arr.push(k); pSet(); renderSettings(); return; }
   if(a==="bwsave"){ const el=document.getElementById("bwIn"); const v=parseFloat(el&&el.value); if(!v||v<50||v>1000){ toast("Enter a weight in lb"); return; } if(!STATE.bw) STATE.bw=[]; STATE.bw.unshift({t:Date.now(),w:v}); STATE.bw=STATE.bw.slice(0,730); pBW(); renderProgress(); toast("Logged "+v+" lb"); return; }
+  if(a==="resetapp"){
+    const days=STATE.settings.lastBackupTs?Math.round((Date.now()-STATE.settings.lastBackupTs)/86400000):null;
+    if(!confirm("RESET APP\n\nThis permanently erases:\n\u2022 every workout and PR\n\u2022 all templates\n\u2022 gear, settings, features, bodyweight log\n\nContinue?")) return;
+    if(confirm(days==null?"You have NEVER backed up.\n\nBack up first? (recommended)":"Last backup: "+(days===0?"today":days+" day"+(days===1?"":"s")+" ago")+".\n\nBack up first? (recommended)")){ doBackup({}); toast("Backed up \u2014 hit reset again to finish the job"); return; }
+    const v=prompt("You're one word away from being the dumbest person in your garage. Type YES to confirm.");
+    if(v!=="YES"){ toast("Smart choice."); return; }
+    toast("Your funeral.");
+    setTimeout(async()=>{ try{ localStorage.clear(); }catch(e){}
+      try{ indexedDB.deleteDatabase("rr_fs"); }catch(e){}
+      try{ if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations){ const rs=await navigator.serviceWorker.getRegistrations(); for(const r of rs) await r.unregister(); } }catch(e){}
+      try{ if(window.caches){ const ks=await caches.keys(); for(const k of ks) await caches.delete(k); } }catch(e){}
+      location.reload(); },600);
+    return; }
   if(a==="rdcycle"){ rdCycle(act.dataset.m); renderToday(); return; }
   if(a==="recapdone"){ STATE.settings.lastRecapTs=Date.now(); pSet(); renderToday(); return; }
   if(a==="exnote"){ const id=act.dataset.id; const cur=STATE.settings.exNotes[id]||""; const v=prompt("Setup note (pins, seat, grip…):",cur); if(v==null) return; const t=String(v).trim(); if(t) STATE.settings.exNotes[id]=t; else delete STATE.settings.exNotes[id]; pSet(); renderToday(); return; }
