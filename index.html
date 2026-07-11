@@ -410,7 +410,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.29";
+const BUILD="2026.07.30";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -974,6 +974,7 @@ async function boot(){
   if(!GOALS[STATE.settings.goal]) STATE.settings.goal="general";
   if(STATE.settings.sledLane==null) STATE.settings.sledLane=60;
   if(STATE.settings.autoBackup==null) STATE.settings.autoBackup="off";
+  if(!STATE.settings.rdOverride) STATE.settings.rdOverride={};
   if(Array.isArray(STATE.equipment)&&!STATE.equipment.some(g=>(g.caps||[]).includes("hangbar"))){ const hadPull=STATE.equipment.some(g=>(g.caps||[]).includes("pullupbar")&&g.on); STATE.equipment.push({id:"hangbar",cat:"Rack & bench",name:"Hanging bar (in rack)",note:"hanging core \u2014 blocks the bench",caps:["hangbar"],on:hadPull}); pEq(); }
   STATE.settings.blocked=(STATE.settings.blocked||[]).filter(x=>x!=="ghr_situp");
   STATE.settings.pinned=(STATE.settings.pinned||[]).filter(x=>x!=="ghr_situp");
@@ -1104,6 +1105,12 @@ function platesPerSide(total,bar){
 }
 
 /* recovery readiness with RPE weighting */
+const RD_CAP={sore:0.12,worn:0.5};
+function rdOv(){ const o=STATE.settings.rdOverride||{}; const now=Date.now(); let changed=false;
+  Object.keys(o).forEach(m=>{ if(now-(o[m].ts||0)>48*3600000){ delete o[m]; changed=true; } });
+  if(changed) pSet(); return o; }
+function rdCycle(m){ if(!STATE.settings.rdOverride) STATE.settings.rdOverride={}; const o=STATE.settings.rdOverride; const cur=o[m]&&(Date.now()-o[m].ts<=48*3600000)?o[m].lvl:null;
+  if(cur==null) o[m]={lvl:"worn",ts:Date.now()}; else if(cur==="worn") o[m]={lvl:"sore",ts:Date.now()}; else delete o[m]; pSet(); }
 function readiness(){
   const now=Date.now(); const last={}, lastRpe={};
   for(const w of STATE.workouts){ // newest first
@@ -1122,7 +1129,7 @@ function readiness(){
     const days=(now-last[m])/86400000;
     out[m]=Math.max(0,Math.min(1, days/((RECOVERY_DAYS[m]||2)*mult)));
   }
-  return out;
+  const _ov=rdOv(); Object.keys(_ov).forEach(k=>{ if(out[k]!=null) out[k]=Math.min(out[k],RD_CAP[_ov[k].lvl]); else out[k]=RD_CAP[_ov[k].lvl]; }); return out;
 }
 function lastFocus(){ return STATE.workouts.length?STATE.workouts[0].focus:null; }
 function recommendFocus(){
@@ -1477,11 +1484,12 @@ function renderToday(){
     html+=`<div class="panel backup-nudge" style="border-color:var(--line2)"><div><b style="color:var(--ink)">Last 7 days</b><small>${wk.length} session${wk.length===1?"":"s"} · ${vol.toLocaleString()} lb moved${prc?` · 🏆 ${prc} PR${prc>1?"s":""}`:""}${top?` · most: ${esc(top)}`:""}</small></div><button class="btn ghost sm" data-action="recapdone">✕</button></div>`; } } }
   if(feat("deload")){ const dl=deloadCheck(); if(dl) html+=`<div class="panel backup-nudge" style="border-color:#5a4a36"><div><b style="color:var(--mid)">Deload hint</b><small>${esc(dl)}</small></div></div>`; }
   if(ub>=4) html+=`<div class="panel backup-nudge"><div><b>Back up your training</b><small>${ub} session${ub===1?"":"s"} logged since your last backup. One tap saves a file you can keep in Drive — don’t risk losing your log to a cleared cache.</small></div><button class="btn primary sm" data-action="export">Back up now</button></div>`;
-  html+=`<div class="panel"><div class="spread"><span class="eyebrow">Recovery readiness</span><span class="hint">empty = worked recently · full = fresh</span></div><div class="stack-grid">`;
+  { const ov=rdOv();
+  html+=`<div class="panel"><div class="spread"><span class="eyebrow">Recovery readiness</span><span class="hint">tap a muscle: ✋ worn → sore → clear</span></div><div class="stack-grid">`;
   for(const m of MUSCLE_ORDER){ const v=r[m], lit=Math.round(v*8), col=v>=.75?"var(--ready)":v>=.4?"var(--mid)":"var(--cold)"; let p="";
     for(let i=0;i<8;i++) p+=`<div class="pl ${i<lit?"lit":""}" style="--seg-c:${col}"></div>`;
-    html+=`<div class="mstack"><div class="plates">${p}</div><div class="mlabel">${MUSCLE_LABEL[m]}</div><div class="mval">${Math.round(v*100)}</div></div>`; }
-  html+=`</div></div>`;
+    const o=ov[m]; html+=`<div class="mstack" data-action="rdcycle" data-m="${m}" style="cursor:pointer"><div class="plates">${p}</div><div class="mlabel">${o?"✋ ":""}${MUSCLE_LABEL[m]}</div><div class="mval" ${o?`style="color:${o.lvl==="sore"?"var(--cold)":"var(--mid)"}"`:""}>${o?o.lvl:Math.round(v*100)}</div></div>`; }
+  html+=`</div>${Object.keys(ov).length?`<div class="hint" style="margin-top:7px">✋ manual — the generator steers around these; auto-clears after 48 h.</div>`:""}</div>`; }
 
   html+=`<div class="panel"><div class="eyebrow" style="margin-bottom:9px">Today’s session</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Recommended next: <b style="color:var(--amber)">${FOCI[rec].name}</b> — based on what’s recovered.</div>
@@ -2036,6 +2044,7 @@ view.addEventListener("click",e=>{
   if(a==="feat"){ const k=act.dataset.k; STATE.settings.feat[k]=!feat(k); pSet(); renderSettings(); return; }
   if(a==="injury"){ const k=act.dataset.a; const arr=STATE.settings.injuries; const i=arr.indexOf(k); if(i>=0) arr.splice(i,1); else arr.push(k); pSet(); renderSettings(); return; }
   if(a==="bwsave"){ const el=document.getElementById("bwIn"); const v=parseFloat(el&&el.value); if(!v||v<50||v>1000){ toast("Enter a weight in lb"); return; } if(!STATE.bw) STATE.bw=[]; STATE.bw.unshift({t:Date.now(),w:v}); STATE.bw=STATE.bw.slice(0,730); pBW(); renderProgress(); toast("Logged "+v+" lb"); return; }
+  if(a==="rdcycle"){ rdCycle(act.dataset.m); renderToday(); return; }
   if(a==="recapdone"){ STATE.settings.lastRecapTs=Date.now(); pSet(); renderToday(); return; }
   if(a==="exnote"){ const id=act.dataset.id; const cur=STATE.settings.exNotes[id]||""; const v=prompt("Setup note (pins, seat, grip…):",cur); if(v==null) return; const t=String(v).trim(); if(t) STATE.settings.exNotes[id]=t; else delete STATE.settings.exNotes[id]; pSet(); renderToday(); return; }
   if(a==="metro"){ ensureAudio(); if(METRO.ex===act.dataset.id){ metroStop(); } else { metroStop(); METRO.ex=act.dataset.id; METRO.beat=0; METRO.int=setInterval(metroTick,1000); setTimeout(()=>{ if(METRO.ex===act.dataset.id) metroStop(); },120000); } renderToday(); return; }
