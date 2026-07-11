@@ -292,6 +292,9 @@ select.in{min-width:108px}
 .confetti span{position:absolute;top:-14px;width:9px;height:13px;opacity:.95;animation:cfall linear forwards}
 @keyframes cfall{to{transform:translateY(105vh) rotate(720deg);opacity:.7}}
 .gmove{margin-left:6px;min-height:26px;padding:0 7px}
+.rounddone{width:100%;min-height:54px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--amber);color:#160f00;border:none;border-radius:10px;font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:.09em;box-shadow:0 0 0 1px var(--amber),0 3px 12px rgba(245,176,66,.3);cursor:pointer}
+.rounddone svg{width:22px;height:22px;stroke:#160f00;stroke-width:3;fill:none}
+.rounddone:active{transform:scale(.985)}
 .stdrow{display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid var(--line)}
 .stdrow .sn{flex:0 0 62px;font-size:13px;color:var(--ink)}
 .stdrow .sv{font-family:var(--mono);font-size:12px;color:var(--amber);flex:0 0 auto}
@@ -407,7 +410,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.27";
+const BUILD="2026.07.29";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -863,7 +866,7 @@ const COND_META={
   sled_drag:{fields:[{k:"level",l:"Level"},{k:"dist",l:"Dist (ft)"}]},
   rope:{fields:[{k:"time",l:"Time"}]},
   kb_metcon:{weighted:true,loadCap:"kettlebell",fields:[{k:"reps",l:"Reps"}]},
-  ruck:{weighted:true,loadCap:"vest",fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (ft)"}]},
+  ruck:{weighted:true,loadCap:"vest",fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (mi)"}]},
   burpee:{fields:[{k:"reps",l:"Reps"}]},
 };
 const FOCI={
@@ -1018,7 +1021,7 @@ const CARDIO_MACHINES=[
   {id:"rope",name:"Battle rope",cap:"battlerope",base:"rope",unit:"s",muscles:["cond"],fields:[{k:"time",l:"Time"}],modes:["time","intervals","free"]},
   {id:"burpee",name:"Burpees",cap:null,base:"burpee",unit:"s",muscles:["cond"],fields:[{k:"reps",l:"Reps"}],modes:["time","intervals","free"]},
   {id:"kb",name:"KB metcon",cap:"kettlebell",base:"kb_metcon",unit:"s",muscles:["cond"],weighted:true,fields:[{k:"reps",l:"Reps"}],modes:["intervals","free"]},
-  {id:"ruck",name:"Vest ruck",cap:"vest",base:"ruck",unit:"ft",muscles:["cond"],weighted:true,fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (ft)"}],modes:["time","distance","free"]},
+  {id:"ruck",name:"Vest ruck",cap:"vest",base:"ruck",unit:"mi",muscles:["cond"],weighted:true,fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (mi)"}],modes:["time","distance","free"]},
 ];
 const SLED_MOVES=[["push","Push",["quads","glutes"]],["fdrag","Forward drag",["hams","glutes"]],["rdrag","Reverse drag",["quads"]],["row","Row",["back","biceps"]],["press","Press",["chest","shoulders"]],["lat","Lateral drag",["glutes"]]];
 const CB_MODE_LABEL={distance:"Distance",time:"Time",calories:"Calories",intervals:"Intervals",trips:"Trips",free:"Free"};
@@ -1402,14 +1405,15 @@ async function connectHR(){
     const svc=await server.getPrimaryService("heart_rate");
     const ch=await svc.getCharacteristic("heart_rate_measurement");
     await ch.startNotifications();
-    ch.addEventListener("characteristicvaluechanged",e=>{ const v=e.target.value; const f=v.getUint8(0); const bpm=(f&1)?v.getUint16(1,true):v.getUint8(1); if(bpm>0){ HR.bpm=bpm; HR.readings.push(bpm); } updateHRChip(); });
-    dev.addEventListener("gattserverdisconnected",()=>{ HR.connected=false; HR.bpm=null; updateHRChip(); });
+    ch.addEventListener("characteristicvaluechanged",e=>{ const v=e.target.value; const f=v.getUint8(0); const bpm=(f&1)?v.getUint16(1,true):v.getUint8(1); if(bpm>0){ HR.bpm=bpm; HR.readings.push(bpm);
+      if(STATE.current){ const hs=STATE.current.hrStats||(STATE.current.hrStats={n:0,sum:0,max:0}); hs.n++; hs.sum+=bpm; if(bpm>hs.max) hs.max=bpm; const now=Date.now(); if(!HR._lastP||now-HR._lastP>30000){ HR._lastP=now; pCur(); } } } updateHRChip(); });
+    dev.addEventListener("gattserverdisconnected",()=>{ HR.connected=false; HR.bpm=null; HR.wasConnected=true; updateHRChip(); toast("HR strap disconnected — tap Reconnect HR"); });
     HR.device=dev; HR.char=ch; HR.connected=true; updateHRChip(); toast("HR monitor connected");
   }catch(err){ if(err&&(err.name==="NotFoundError"||err.name==="AbortError")) return; toast("Couldn’t connect — check the watch is broadcasting heart rate"); }
 }
 function updateHRChip(){ const el=document.getElementById("hrChip"); if(!el) return;
   el.classList.toggle("on2",!!HR.connected);
-  el.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>`+(HR.connected?(HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:"reading…"):"Connect HR");
+  el.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>`+(HR.connected?(HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:"reading…"):(HR.wasConnected?`<b style="color:var(--amber)">Reconnect HR</b>`:"Connect HR"));
 }
 
 /* keep the screen awake during an active workout (where the platform allows it) */
@@ -1442,7 +1446,7 @@ function render(){
 function renderWeekBadge(){ const n=STATE.workouts.filter(w=>w.date>=startOfWeek()).length; document.getElementById("weekBadge").innerHTML=`THIS WEEK<br><b>${n}</b> / ${STATE.settings.daysPerWeek}`; }
 
 function backupJSON(){ return JSON.stringify({equipment:STATE.equipment,settings:STATE.settings,workouts:STATE.workouts,templates:STATE.templates},null,2); }
-function backupName(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `rack-and-roll-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.json`; }
+function backupName(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `rack-and-roll-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}.json`; }
 function hasFolderPicker(){ return typeof window!=="undefined" && typeof window.showDirectoryPicker==="function"; }
 function canShareFiles(){ try{ return !!(navigator.canShare && navigator.share && navigator.canShare({files:[new File(["x"],"a.json",{type:"application/json"})]})); }catch(e){ return false; } }
 // folder handle persisted in IndexedDB (only usable where showDirectoryPicker exists)
@@ -1508,7 +1512,7 @@ function renderWorkout(w,editable){
     html+=`<div class="row" style="margin:8px 0 2px;gap:8px;flex-wrap:wrap">${w.startedAt
       ? `<span class="chip rest" style="font-size:13px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Elapsed&nbsp;<b id="woElapsed" class="mono" style="color:var(--ink)">${fmt((Date.now()-w.startedAt)/1000)}</b></span>`
       : `<button class="btn primary block" data-action="startwo" style="flex:1"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><path d="M7 5l12 7-12 7z"/></svg>Start workout</button>`}
-      <button class="chip ${HR.connected?"on2":""}" id="hrChip" data-action="connecthr"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>${HR.connected&&HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:"Connect HR"}</button></div>`;
+      <button class="chip ${HR.connected?"on2":""}" id="hrChip" data-action="connecthr"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>${HR.connected&&HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:(HR.wasConnected&&!HR.connected?`<b style="color:var(--amber)">Reconnect HR</b>`:"Connect HR")}</button></div>`;
   }
   html+=renderMuscleMap(w);
   w.groups.forEach((g,gi)=>{
@@ -1519,7 +1523,7 @@ function renderWorkout(w,editable){
     html+=`<div class="group${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}"><div class="group-h"><span class="gk${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}">${label}</span><span class="gr">${multi?String.fromCharCode(65+gi)+" · ":""}${restNote}</span>${editable&&multi?`<button class="chip sm ungroup-btn" data-action="ungroup" data-gi="${gi}">Ungroup</button>`:""}${editable&&feat("reorder")&&w.groups.length>1?`<button class="chip sm gmove" data-action="gmove" data-gi="${gi}" data-dir="-1">▲</button><button class="chip sm gmove" data-action="gmove" data-gi="${gi}" data-dir="1">▼</button>`:""}</div>`;
     g.items.forEach(id=>{ const idx=idxById[id]; if(idx!=null) html+=renderExercise(w.exercises[idx],idx,editable,w,multi); });
     if(editable&&multi){ const gkey="g_"+g.type; const gsec=(STATE.settings.restOverrides||{})[gkey]||(g.type==="circuit"?120:90);
-      html+=`<div class="ex" style="padding:10px 12px"><button class="chip rest" data-action="grest" data-gi="${gi}" data-sec="${gsec}" data-key="${gkey}" data-name="Rest after round" style="width:100%;justify-content:center"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>Round done → check the set &amp; rest ${fmt(gsec)}</button></div>`; }
+      html+=`<div class="ex" style="padding:10px 12px"><button class="rounddone" data-action="grest" data-gi="${gi}" data-sec="${gsec}" data-key="${gkey}" data-name="Rest after round"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>ALL DONE — REST ${fmt(gsec)}</button></div>`; }
     html+=`</div>`;
   });
   if(w.conditioning&&w.conditioning.length){ w.conditioning.forEach((c,ci)=>{ html+=`<div class="group"><div class="group-h"><span class="gk" style="color:var(--steel)">Conditioning</span></div><div class="cond"><div class="ex-top"><span class="ex-name">${esc(c.name)}</span></div><div class="proto">${esc(c.proto)}</div>${editable?renderCondSets(c,ci):""}${editable?`<div class="ctrls" style="margin-top:9px"><button class="chip ${c._running?"on2":""}" data-action="condstart" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/></svg>${c._running?"Lap running":"Start"}</button><button class="chip rest" data-action="rest" data-sec="60" data-key="cond_${esc(c.id)}" data-name="${esc(c.name)} rest"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>Rest</button>${ytChip(c.name,c.base||c.id)}<button class="chip ${UI.openCondSwap.has(c.id)?"on":""}" data-action="condswap" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button><button class="chip ${UI.moreOpen.has("cond_"+c.id)?"on":""}" data-action="more" data-id="cond_${esc(c.id)}" title="More">•••</button></div>${UI.openCondSwap.has(c.id)?renderCondSwap(c,ci,w):""}${UI.moreOpen.has("cond_"+c.id)?`<div class="ctrls ctrls-more"><span class="more-lab">More</span><button class="chip danger" data-action="removecond" data-ci="${ci}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove cardio</button></div>`:""}`:""}</div></div>`; }); }
@@ -2001,7 +2005,7 @@ view.addEventListener("click",e=>{
   if(a==="addcardio"){ UI.cardioB={open:!UI.cardioB.open,machine:UI.cardioB.machine,movement:UI.cardioB.movement,mode:UI.cardioB.mode,p:UI.cardioB.p||{}}; renderToday(); return; }
   if(a==="cbmachine"){ UI.cardioB.machine=act.dataset.m; UI.cardioB.mode=null; UI.cardioB.p={}; renderToday(); return; }
   if(a==="cbmove"){ UI.cardioB.movement=act.dataset.mv; renderToday(); return; }
-  if(a==="cbmode"){ UI.cardioB.mode=act.dataset.md; const m=cbMachine(UI.cardioB.machine); const md=act.dataset.md; const p={}; if(md==="distance") p.v=m.unit==="m"?2000:m.unit==="mi"?5:(STATE.settings.sledLane||60); if(md==="time") p.v=12; if(md==="calories") p.v=30; if(md==="trips"){ p.rounds=6; p.lane=STATE.settings.sledLane||60; } if(md==="intervals"){ p.rounds=8; p.work=m.unit==="m"?150:m.unit==="mi"?0.25:m.unit==="ft"?(STATE.settings.sledLane||60):30; p.wu=m.unit; p.rest=45; } UI.cardioB.p=p; renderToday(); return; }
+  if(a==="cbmode"){ UI.cardioB.mode=act.dataset.md; const m=cbMachine(UI.cardioB.machine); const md=act.dataset.md; const p={}; if(md==="distance") p.v=m.id==="ruck"?2:m.unit==="m"?2000:m.unit==="mi"?5:(STATE.settings.sledLane||60); if(md==="time") p.v=12; if(md==="calories") p.v=30; if(md==="trips"){ p.rounds=6; p.lane=STATE.settings.sledLane||60; } if(md==="intervals"){ p.rounds=8; p.work=m.unit==="m"?150:m.unit==="mi"?0.25:m.unit==="ft"?(STATE.settings.sledLane||60):30; p.wu=m.unit; p.rest=45; } UI.cardioB.p=p; renderToday(); return; }
   if(a==="cbwu"){ UI.cardioB.p.wu=act.dataset.u; renderToday(); return; }
   if(a==="cbclose"){ UI.cardioB.open=false; renderToday(); return; }
   if(a==="cbadd"){ const c=buildCustomCond(); if(!c){ toast("Pick a machine and a mode first"); return; } if(!STATE.current.conditioning) STATE.current.conditioning=[]; STATE.current.conditioning.push(c); UI.cardioB.open=false; UI.cardioB.mode=null; pCur(); renderToday(); toast(c.name+" added"); return; }
@@ -2048,7 +2052,7 @@ view.addEventListener("click",e=>{
     UI.openSwap.add(id); renderToday(); toast("Banned — pick a replacement below"); return; }
   if(a==="finish"){ if(!STATE.current) return; const any=STATE.current.exercises.some(e=>e.sets.some(s=>s.done))||(STATE.current.conditioning||[]).some(c=>(c.sets&&c.sets.some(s=>s.done))||c.done); if(!any){ toast("Mark a set or a conditioning drill done first"); return; }
     if(STATE.current.startedAt) STATE.current.actualSec=Math.round((Date.now()-STATE.current.startedAt)/1000);
-    if(HR.readings.length){ STATE.current.hrAvg=Math.round(HR.readings.reduce((a,b)=>a+b,0)/HR.readings.length); STATE.current.hrMax=Math.max(...HR.readings); } HR.readings=[];
+    { const hs=STATE.current.hrStats; if(hs&&hs.n){ STATE.current.hrAvg=Math.round(hs.sum/hs.n); STATE.current.hrMax=hs.max; } else if(HR.readings.length){ STATE.current.hrAvg=Math.round(HR.readings.reduce((a,b)=>a+b,0)/HR.readings.length); STATE.current.hrMax=Math.max(...HR.readings); } delete STATE.current.hrStats; } HR.readings=[]; HR._lastP=0;
     STATE.current.date=Date.now(); const prs=detectPRs(STATE.current); if(prs.length) STATE.current.prs=prs; STATE.current.exercises.forEach(e=>{ delete e._prev; delete e._dropManual; }); STATE.workouts.unshift(STATE.current); STATE.current=null; STATE.settings._focus=null; UI.openSwap.clear(); UI.openPlates.clear(); UI.openWarmup.clear();
     pWo(); pCur(); pSet(); stopRest(); stopWoTimer(); releaseWake(); STATE.tab="log"; render(); toast(prs.length?`🏆 ${prs.length} PR${prs.length>1?"s":""}! ${prs[0].name} ${prs[0].w}×${prs[0].reps}`:"Logged — nice work"); if(prs.length&&feat("confetti")) fireConfetti();
     { const ab=STATE.settings.autoBackup||"off"; if(ab!=="off") doBackup({mode:ab==="download"?"download":undefined,silent:true}); }
