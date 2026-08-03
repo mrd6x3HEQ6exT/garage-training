@@ -295,6 +295,15 @@ select.in{min-width:108px}
 .rounddone{width:100%;min-height:54px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--amber);color:#160f00;border:none;border-radius:10px;font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:.09em;box-shadow:0 0 0 1px var(--amber),0 3px 12px rgba(245,176,66,.3);cursor:pointer}
 .rounddone svg{width:22px;height:22px;stroke:#160f00;stroke-width:3;fill:none}
 .rounddone:active{transform:scale(.985)}
+.chip.hr{min-height:40px;padding:0 13px;font-size:12.5px;border-radius:8px}
+.chip.hr svg{width:18px;height:18px}
+.chip.hr.off{background:rgba(224,106,92,.1);border:1.5px solid var(--cold);color:var(--cold);box-shadow:0 0 0 1px rgba(224,106,92,.15)}
+.chip.hr.off svg{stroke:var(--cold)}
+.chip.hr.live{background:rgba(224,106,92,.16);border:1.5px solid var(--cold);color:var(--ink)}
+.chip.hr.live svg{stroke:var(--cold);animation:hrbeat 1.1s ease-in-out infinite}
+.chip.hr.reconn{background:rgba(245,176,66,.12);border:1.5px solid var(--amber)}
+.chip.hr.reconn svg{stroke:var(--amber)}
+@keyframes hrbeat{0%,100%{transform:scale(1)}25%{transform:scale(1.22)}40%{transform:scale(1)}55%{transform:scale(1.15)}}
 .btn.danger{background:#3a1512;border-color:#7a2e26;color:#ff9d8f}
 .dz.panel{border-color:#7a2e26}
 .dz .acc-h .eyebrow{color:#ff9d8f}
@@ -413,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.07.31";
+const BUILD="2026.08.03";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -872,6 +881,12 @@ const COND_META={
   ruck:{weighted:true,loadCap:"vest",fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (mi)"}]},
   burpee:{fields:[{k:"reps",l:"Reps"}]},
 };
+const MACHINE_FOCI={
+  bike:{name:"Bike",machineSess:"bike",muscles:["cond"],anchors:[],cardio:true},
+  ski:{name:"SkiErg",machineSess:"ski",muscles:["cond"],anchors:[],cardio:true},
+  sledS:{name:"Sled",machineSess:"sledS",muscles:["cond"],anchors:[],cardio:true},
+  ruck:{name:"Ruck",machineSess:"ruck",muscles:["cond"],anchors:[],cardio:true},
+};
 const FOCI={
   push:{name:"Push",muscles:["chest","shoulders","triceps"],anchors:["horiz_push","vert_push"]},
   pull:{name:"Pull",muscles:["back","biceps"],anchors:["vert_pull","horiz_pull"]},
@@ -882,6 +897,7 @@ const FOCI={
   cardio:{name:"Cardio",muscles:["cond"],anchors:[],cardio:true,style:"steady"},
   hiit:{name:"HIIT",muscles:["cond"],anchors:[],cardio:true,style:"interval"},
 };
+Object.assign(FOCI,MACHINE_FOCI);
 const STRENGTH_COUNT={30:4,45:6,60:7};
 const COND_COUNT={30:1,45:1,60:2};
 const SCHEME={
@@ -892,18 +908,24 @@ const SCHEME={
 };
 // Training goals shape the rep ranges, rest, conditioning volume, and grouping.
 const GOALS={
-  general:{name:"General fitness",blurb:"Balanced all-round lifting."},
+  general:{name:"General fitness",blurb:"Balanced all-round lifting — moderate reps, moderate rest.",
+    scheme:{compound:["8–12",90],accessory:["10–12",70],isolation:["12–15",50],core:["12–20",45]}},
   muscle:{name:"Build muscle",blurb:"Hypertrophy — moderate reps, more volume, shorter rest.",
     scheme:{compound:["8–10",120],accessory:["10–12",75],isolation:["12–15",60],core:["12–20",45]}},
   strong:{name:"Get stronger",blurb:"Heavy, low reps, long rest, straight sets.",straight:true,
     scheme:{compound:["3–5",180],accessory:["6–8",120],isolation:["8–10",75],core:["10–15",60]}},
-  lean:{name:"Get lean",blurb:"Density lifting — circuits, short rest. Run cardio as its own session.",circuit:true,
-    scheme:{compound:["6–8",90],accessory:["10–12",60],isolation:["12–15",45],core:["15–20",40]}},
-  weight:{name:"Reduce bodyweight",blurb:"High reps, short rest, circuits — pairs with your morning cardio.",circuit:true,
-    scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["15–20",40],core:["15–25",35]}},
+  lean:{name:"Get lean",blurb:"Moderate reps, short rest, circuits — keeps muscle while you lean out.",circuit:true,cond:{30:0,45:1,60:1},
+    scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["12–15",45],core:["15–20",40]}},
+  weight:{name:"Reduce bodyweight",blurb:"Higher reps, short rest, circuits + a finisher — pairs with your morning cardio.",circuit:true,cond:{30:1,45:1,60:2},
+    scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["15–20",40],core:["15–25",35]}},
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
 function feat(k){ return !!(STATE.settings.feat&&STATE.settings.feat[k]); }
+function hrMax(){ return +(STATE.settings.hrMax||144); }
+function hrRest(){ return +(STATE.settings.hrRest||43); }
+function hrZone(z){ const mx=hrMax(), rs=hrRest(), r=mx-rs; const B={1:[.50,.60],2:[.60,.70],3:[.70,.80],4:[.80,.90],5:[.90,1]}[z]||[.60,.70];
+  return [Math.round(rs+r*B[0]),Math.round(rs+r*B[1])]; }
+function zTxt(z){ const [a,b]=hrZone(z); return "Z"+z+" "+a+"\u2013"+b+" bpm"; }
 const INJ_AREAS=[["shoulder","Shoulder"],["elbow","Elbow"],["wrist","Wrist"],["lowback","Low back"],["hip","Hip"],["knee","Knee"]];
 function exInjuryHits(e){ const inj=STATE.settings.injuries||[]; if(!inj.length) return []; const out=[]; const pat=e.pattern, pri=e.primary||[], req=e.requires||[];
   if(inj.includes("shoulder")&&(pat==="vert_push"||pat==="horiz_push"||pri.includes("shoulders"))) out.push("shoulder");
@@ -942,7 +964,7 @@ let STATE={
   settings:{daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true},
   workouts:[], current:null, tab:"today",
 };
-const UI={cardioB:{open:false,machine:null,movement:null,mode:null,p:{}},openSwap:new Set(),openPlates:new Set(),openWarmup:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month"};
+const UI={hardDay:false,cardioB:{open:false,machine:null,movement:null,mode:null,p:{}},openSwap:new Set(),openPlates:new Set(),openWarmup:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month"};
 
 const SEED_DATA={"v":2,"equipment":[{"id":"db","cat":"Free weights","name":"Adjustable dumbbells (pair)","note":"5–60 lb","caps":["dumbbells"],"on":true,"loads":[5,10,15,20,25,30,35,40,45,55,60]},{"id":"bar","cat":"Free weights","name":"Barbell + plates","note":"45 lb bar · 6×45 4×10 2×25 4×5 2×2.5","caps":["barbell","plates"],"on":true,"bar":45,"plateInv":{"5":4,"10":4,"25":2,"45":6,"2.5":2}},{"id":"trap","cat":"Free weights","name":"Bells of Steel open trap bar","note":"59\" · ~45 lb","caps":["trapbar"],"on":true,"bar":45},{"id":"lm","cat":"Free weights","name":"Landmine + 35 lb landmine bar","note":"rack attachment","caps":["landmine"],"on":true,"bar":35},{"id":"ez","cat":"Free weights","name":"REP multi-grip curl bar","note":"EZ curl · ~25 lb","caps":["ezbar"],"on":true,"bar":25},{"id":"kb1","cat":"Free weights","name":"Adjustable kettlebell 8–16 kg","note":"18–35 lb","caps":["kettlebell"],"on":true,"loads":[18,22,26,31,35]},{"id":"kb2","cat":"Free weights","name":"Adjustable kettlebell 16–24 kg","note":"35–53 lb","caps":["kettlebell"],"on":true,"loads":[35,40,44,49,53]},{"id":"rack","cat":"Rack & bench","name":"REP PR-5000 squat rack","note":"80\" 6-post · J-cups","caps":["rack"],"on":true},{"id":"bench","cat":"Rack & bench","name":"REP BlackWing adjustable bench","note":"flat / incline + leg roller","caps":["bench"],"on":true},{"id":"pull","cat":"Rack & bench","name":"REP globe side-mount pull-up bar","note":"outside the rack","caps":["pullupbar"],"on":true},{"id":"hangbar","cat":"Rack & bench","name":"Hanging bar (in rack)","note":"hanging core","caps":["hangbar"],"on":true},{"id":"dip","cat":"Rack & bench","name":"REP dip station","note":"rack-mounted","caps":["dipstation"],"on":true},{"id":"cable","cat":"Cable","name":"Selectorized lat pulldown & low row","note":"200 lb stack · high + low pulley","caps":["cable_high","cable_low"],"on":true},{"id":"atlas","cat":"Cable","name":"REP × Kleva Atlas multi-grip cable","note":"+ landmine attachment","caps":["cable_high","cable_low"],"on":true},{"id":"cuff","cat":"Cable","name":"REP ankle cuffs","note":"kickbacks / abductions","caps":["ankle_cuffs"],"on":true},{"id":"bike","cat":"Conditioning","name":"Rogue Echo Bike","note":"","caps":["echobike"],"on":true},{"id":"ski","cat":"Conditioning","name":"SkiErg","note":"","caps":["skierg"],"on":true},{"id":"sled","cat":"Conditioning","name":"Torque Tank M1 push sled","note":"","caps":["sled"],"on":true},{"id":"rope","cat":"Conditioning","name":"Hyperwear weighted battle rope","note":"20 ft / 15 lb","caps":["battlerope"],"on":true},{"id":"ghr","cat":"Accessories","name":"REP glute-ham roller + leg rollers","note":"nordic / GHR","caps":["ghr"],"on":true},{"id":"vest","cat":"Accessories","name":"MiR weighted vest","note":"30 lb · 3 lb intervals","caps":["vest"],"on":true,"loads":[3,6,9,12,15,18,21,24,27,30]},{"id":"hip","cat":"Accessories","name":"Hip bands (light/med/hard)","note":"glute work","caps":["hipbands"],"on":true},{"id":"band","cat":"Accessories","name":"REP resistance bands","note":"X-light → heavy","caps":["resistancebands"],"on":true},{"id":"wedge","cat":"Accessories","name":"Power Press squat wedge block","note":"heel elevation","caps":["wedge"],"on":true}],"settings":{"daysPerWeek":5,"duration":45,"mode":"strength","experience":"intermediate","units":"lb","blocked":["cable_lat","feet_up_pushup","hollow_rock"],"pinned":[],"restOverrides":{"hollow":15,"ng_pulldown":90,"bb_ohp":90},"keepAwake":true,"_focus":null},"workouts":[
 {"id":"w1782951606850","date":1782955590494,"focus":"push","focusName":"Push","duration":45,"mode":"strength","exercises":[{"id":"bb_bench","name":"Barbell bench press","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Shoulder blades pinned, bar to mid-chest.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":9,"sets":[{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true}]},{"id":"bb_ohp","name":"Barbell overhead press","role":"compound","muscles":["shoulders","triceps"],"scheme":"4 × 6–8","metric":"reps","rest":"1:30","restSec":90,"cue":"Squeeze glutes, bar travels past the chin.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":7,"sets":[{"w":"65","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true}]},{"id":"lat_raise","name":"Dumbbell lateral raise","role":"isolation","muscles":["shoulders"],"scheme":"3 × 12–15","metric":"reps","rest":"1:00","restSec":60,"cue":"Lead with elbows, soft at the top.","tech":"Drop set on the final set — strip ~30% and go to failure.","dropPct":0.3,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":5,"reps":"","done":false,"drop":true}]},{"id":"dips","name":"Chest dips","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Lean forward for chest emphasis.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true}]},{"id":"face_pull","name":"Cable face pull","role":"accessory","muscles":["shoulders","back"],"scheme":"3 × 10–12","metric":"reps","rest":"1:15","restSec":75,"cue":"Pull to forehead, thumbs back.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true}]},{"id":"lm_twist","name":"Landmine rotation","role":"core","muscles":["core","shoulders"],"scheme":"3 × 12–20","metric":"reps","rest":"0:45","restSec":45,"cue":"Pivot the feet, control the arc.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":true,"rpe":7,"sets":[{"w":"45","reps":"5","done":true},{"w":"35","reps":"6","done":true},{"w":"15","reps":"15","done":true},{"w":"15","reps":"15","done":false}]}],"conditioning":[{"id":"kb_metcon","name":"Kettlebell swing finisher","proto":"8 min EMOM — 15 swings","muscles":["cond","glutes"],"weighted":true,"loadCap":"kettlebell","fields":[{"k":"reps","l":"Reps"}],"sets":[{"w":"","vals":{"reps":""},"done":false}]}],"groups":[{"type":"straight","items":["bb_bench"]},{"type":"straight","items":["bb_ohp"]},{"type":"straight","items":["dips"]},{"type":"superset","items":["lat_raise","face_pull"]},{"type":"straight","items":["lm_twist"]}],"note":"","startedAt":1782952031156,"actualSec":3559},
@@ -978,6 +1000,10 @@ async function boot(){
   if(STATE.settings.sledLane==null) STATE.settings.sledLane=60;
   if(STATE.settings.autoBackup==null) STATE.settings.autoBackup="off";
   if(!STATE.settings.rdOverride) STATE.settings.rdOverride={};
+  if(STATE.settings.hrMax==null) STATE.settings.hrMax=144;
+  if(STATE.settings.hrRest==null) STATE.settings.hrRest=43;
+  // planner: migrate single-focus days to {am,pm}
+  if(STATE.settings.plan){ let mig=false; Object.keys(STATE.settings.plan).forEach(k=>{ const v=STATE.settings.plan[k]; if(typeof v==="string"){ STATE.settings.plan[k]=v?{pm:v}:{}; mig=true; } }); if(mig) pSet(); }
   if(Array.isArray(STATE.equipment)&&!STATE.equipment.some(g=>(g.caps||[]).includes("hangbar"))){ const hadPull=STATE.equipment.some(g=>(g.caps||[]).includes("pullupbar")&&g.on); STATE.equipment.push({id:"hangbar",cat:"Rack & bench",name:"Hanging bar (in rack)",note:"hanging core \u2014 blocks the bench",caps:["hangbar"],on:hadPull}); pEq(); }
   STATE.settings.blocked=(STATE.settings.blocked||[]).filter(x=>x!=="ghr_situp");
   STATE.settings.pinned=(STATE.settings.pinned||[]).filter(x=>x!=="ghr_situp");
@@ -1028,6 +1054,54 @@ const CARDIO_MACHINES=[
   {id:"ruck",name:"Vest ruck",cap:"vest",base:"ruck",unit:"mi",muscles:["cond"],weighted:true,fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (mi)"}],modes:["time","distance","free"]},
 ];
 const SLED_MOVES=[["push","Push",["quads","glutes"]],["fdrag","Forward drag",["hams","glutes"]],["rdrag","Reverse drag",["quads"]],["row","Row",["back","biceps"]],["press","Press",["chest","shoulders"]],["lat","Lateral drag",["glutes"]]];
+const MACHINE_SESSIONS={
+  bike:{machine:"bike",name:"Bike"},
+  ski:{machine:"ski",name:"SkiErg"},
+  sledS:{machine:"sled",name:"Sled"},
+  ruck:{machine:"ruck",name:"Ruck"},
+};
+function mkSessBlock(mId,name,proto,muscles){ const m=cbMachine(mId); const n=condRounds(proto); const sets=[]; const fields=m.fields;
+  for(let i=0;i<n;i++) sets.push(mkCondSet(fields));
+  return {id:"cc_"+Date.now()+"_"+Math.floor(Math.random()*99999),base:m.base,custom:true,name,proto,muscles:muscles||m.muscles,weighted:!!m.weighted,loadCap:m.weighted?(m.id==="kb"?"kettlebell":"vest"):null,fields,sets}; }
+function buildMachineSession(key,duration,hard){
+  const S=MACHINE_SESSIONS[key]; if(!S) return [];
+  const m=S.machine, z2=zTxt(2), z4=zTxt(4), z1=zTxt(1), out=[];
+  const lane=STATE.settings.sledLane||60;
+  if(m==="sled"){ const trips={30:10,45:16,60:20}[duration]||12;
+    out.push(mkSessBlock("sled","Sled warm-up","3 trips \u00d7 "+lane+" ft easy"));
+    out.push(mkSessBlock("sled","Sled work",trips+" trips \u00d7 "+lane+" ft \u2014 rotate push / drag \u00b7 walk back = rest"));
+    return out; }
+  if(m==="ruck"){ const mi={30:1.5,45:2.5,60:3.5}[duration]||2;
+    out.push(mkSessBlock("ruck","Vest ruck",mi+" mi steady \u00b7 "+z2));
+    return out; }
+  if(m==="bike"){
+    if(!hard){ const main={30:20,45:33,60:46}[duration];
+      out.push(mkSessBlock("bike","Warm-up",{30:4,45:5,60:6}[duration]+" min easy \u00b7 "+z1));
+      out.push(mkSessBlock("bike","Steady",main+" min conversational \u00b7 "+z2));
+      out.push(mkSessBlock("bike","Cool-down",{30:4,45:5,60:6}[duration]+" min easy"));
+    } else {
+      out.push(mkSessBlock("bike","Warm-up",{30:5,45:6,60:6}[duration]+" min easy \u00b7 "+z1));
+      if(duration===30) out.push(mkSessBlock("bike","Intervals","8 \u00d7 40s hard / 80s easy \u00b7 hard = "+z4));
+      else if(duration===45) out.push(mkSessBlock("bike","Intervals","10 \u00d7 60s hard / 90s easy \u00b7 hard = "+z4));
+      else { out.push(mkSessBlock("bike","Intervals","6 \u00d7 2 min hard / 2 min easy \u00b7 hard = "+z4)); out.push(mkSessBlock("bike","Steady","18 min easy \u00b7 "+z2)); }
+      out.push(mkSessBlock("bike","Cool-down",{30:5,45:6,60:6}[duration]+" min easy"));
+    }
+    return out; }
+  if(m==="ski"){
+    if(!hard){ const main={30:2500,45:4000,60:5500}[duration];
+      out.push(mkSessBlock("ski","Warm-up",{30:400,45:500,60:600}[duration]+" m easy \u00b7 "+z1));
+      out.push(mkSessBlock("ski","Steady",main+" m conversational \u00b7 "+z2));
+      out.push(mkSessBlock("ski","Cool-down",{30:400,45:500,60:600}[duration]+" m easy"));
+    } else {
+      out.push(mkSessBlock("ski","Warm-up",{30:500,45:600,60:700}[duration]+" m easy \u00b7 "+z1));
+      if(duration===30) out.push(mkSessBlock("ski","Intervals","8 \u00d7 250 m / 60s rest \u00b7 hard = "+z4));
+      else if(duration===45) out.push(mkSessBlock("ski","Intervals","12 \u00d7 250 m / 60s rest \u00b7 hard = "+z4));
+      else { out.push(mkSessBlock("ski","Intervals","10 \u00d7 300 m / 75s rest \u00b7 hard = "+z4)); out.push(mkSessBlock("ski","Steady","1500 m easy \u00b7 "+z2)); }
+      out.push(mkSessBlock("ski","Cool-down",{30:500,45:600,60:700}[duration]+" m easy"));
+    }
+    return out; }
+  return out;
+}
 const CB_MODE_LABEL={distance:"Distance",time:"Time",calories:"Calories",intervals:"Intervals",trips:"Trips",free:"Free"};
 function cbMachine(id){ return CARDIO_MACHINES.find(m=>m.id===id); }
 function buildCustomCond(){
@@ -1146,6 +1220,7 @@ function recommendFocus(){
   }
   return best;
 }
+function recentPatterns(n){ const c={}; STATE.workouts.filter(w=>!w.ref).slice(0,n).forEach(w=>w.exercises.forEach(e=>{ const x=EXERCISES.find(y=>y.id===e.id); if(x&&x.pattern) c[x.pattern]=(c[x.pattern]||0)+1; })); return c; }
 function recentExerciseIds(n){ const s=new Set(); STATE.workouts.slice(0,n).forEach(w=>w.exercises.forEach(e=>s.add(e.id))); return s; }
 function lastSession(exId){ for(const w of STATE.workouts){ const e=w.exercises.find(x=>x.id===exId); if(e&&e.sets&&e.sets.length) return e; } return null; }
 function lastRealSession(exId){ for(const w of STATE.workouts){ if(w.ref) continue; const e=w.exercises.find(x=>x.id===exId); if(e&&e.sets&&e.sets.length) return e; } return null; }
@@ -1169,7 +1244,7 @@ function warmupRamp(ex){
   return out.length?out:null;
 }
 function focusRecency(){ const out={}; for(const w of STATE.workouts){ if(w.ref) continue; if(w.focus&&out[w.focus]==null) out[w.focus]=Math.max(0,Math.floor((Date.now()-w.date)/86400000)); } return out; }
-function est1RM(w,r){ return w*(1+r/30); }
+function est1RM(w,r){ w=parseFloat(w); r=parseFloat(r); if(!isFinite(w)||w<=0||!isFinite(r)||r<1) return 0; if(r===1) return w; return w*(1+r/30); }
 function bestEst1RM(exId,exclId){ let best=0; for(const w of STATE.workouts){ if(w.ref||w.id===exclId) continue; const e=w.exercises.find(x=>x.id===exId); if(!e) continue; e.sets.filter(s=>s.done&&!s.drop).forEach(s=>{ const wt=parseFloat(s.w),r=parseFloat(s.reps); if(wt>0&&r>0) best=Math.max(best,est1RM(wt,r)); }); } return best; }
 function detectPRs(wo){ const prs=[]; wo.exercises.forEach(e=>{ const done=e.sets.filter(s=>s.done&&!s.drop&&parseFloat(s.w)>0&&parseFloat(s.reps)>0); if(!done.length) return; const prevBest=bestEst1RM(e.id,wo.id); if(prevBest<=0) return; let topSet=null,topE=0; done.forEach(s=>{ const v=est1RM(parseFloat(s.w),parseFloat(s.reps)); if(v>topE){topE=v;topSet=s;} }); if(topE>prevBest*1.005) prs.push({name:e.name,w:topSet.w,reps:topSet.reps}); }); return prs; }
 function weeklyVolume(days){ const since=Date.now()-days*86400000; const vol={}; for(const w of STATE.workouts){ if(w.ref||w.date<since) continue; w.exercises.forEach(e=>{ const base=exById(e.id); if(!base) return; const n=e.sets.filter(s=>s.done&&!s.drop).length; if(!n) return; (base.primary||[]).forEach(m=>vol[m]=(vol[m]||0)+n); (base.secondary||[]).forEach(m=>vol[m]=(vol[m]||0)+n*0.5); }); } return vol; }
@@ -1210,6 +1285,9 @@ function generate(focusKey,duration,mode){
   const blocked=new Set(STATE.settings.blocked||[]);
   const pinned=new Set(STATE.settings.pinned||[]);
   if(f.custom){ return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode,exercises:[],conditioning:[],groups:[],note:"",custom:true}; }
+  if(f.machineSess){ const conds=buildMachineSession(f.machineSess,duration,!!UI.hardDay);
+    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,hardDay:!!UI.hardDay,
+      exercises:[],conditioning:conds,groups:[],note:""}; }
   if(f.cardio){
     const want=f.style;
     let condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id)&&COND_STYLE[e.id]===want);
@@ -1222,15 +1300,33 @@ function generate(focusKey,duration,mode){
   }
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const recent=recentExerciseIds(3);
-  const sCount=STRENGTH_COUNT[duration];
+  const sCount=(()=>{ const base=STRENGTH_COUNT[duration]; const g=goalDef(); const sc=g.scheme||{};
+    // average seconds per set for this goal (work + rest), weighted toward accessories
+    const cRest=(sc.compound&&sc.compound[1])||90, aRest=(sc.accessory&&sc.accessory[1])||70;
+    const perSet=40+(cRest*0.35+aRest*0.65);
+    const grouped=!!g.circuit&&!g.straight;             // circuits overlap rest
+    const eff=grouped?perSet*0.62:perSet;
+    const setsPerEx=3.15;
+    const budget=duration*60*0.99;
+    let n=Math.round(budget/(eff*setsPerEx));
+    const condMin=((g.cond&&g.cond[duration])||0)*6*60; // finishers eat time too
+    if(condMin) n=Math.round((budget-condMin)/(eff*setsPerEx));
+    return Math.max(3,Math.min(12,n)); })();
   const isCore=focusKey==="core";
   const chosen=[]; const add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
   const rmap=readiness();
-  const barbellBias=e=>{ const r=e.requires||[]; if(r.includes("barbell")||r.includes("trapbar")) return 1.7; if(r.includes("rack")) return 1.4; return 1; };
-  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*injFactor(e);
+  const barbellBias=e=>{ const r=e.requires||[]; if(r.includes("barbell")||r.includes("trapbar")) return 1.2; if(r.includes("rack")) return 1.1; return 1; };
+  const recentPats=recentPatterns(2);
+  const patVariety=e=>{ const n=recentPats[e.pattern]||0; return n>=2?0.35:n===1?0.7:1; };
+  const compCap=duration>=45?2:1;
+  const compCount=()=>chosen.filter(x=>x.role==="compound").length;
+  const patCount=p=>chosen.filter(x=>x.pattern===p).length;
+  const patLimit=sCount>=8?3:2;
+  const patOK=e=>e.role==="core"||e.pattern==="core"||patCount(e.pattern)<patLimit;
+  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*injFactor(e)*patVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
-  if(!isCore){ for(const pat of f.anchors){ if(chosen.length>=Math.min(2,sCount)) break; add(pickFrom(pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)),recent)); } }
+  if(!isCore){ for(const pat of f.anchors){ if(compCount()>=compCap||chosen.length>=Math.min(2,sCount)) break; add(pickFrom(pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)),recent)); } }
   // pinned first
   pool.filter(e=>pinned.has(e.id)&&hitsFocus(e)&&!chosen.includes(e)).forEach(e=>{ if(chosen.length<sCount) add(e); });
   // fill
@@ -1238,15 +1334,19 @@ function generate(focusKey,duration,mode){
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
     let cands;
     if(isCore){ cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")); if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
-    else cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
+    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)); if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&(compCount()<compCap||e.role!=="compound")); }
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
   if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)),recent)); } // guaranteed ab work
-  guard=0; while(chosen.length<sCount&&guard++<60){ const cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)); const e=pickFrom(cands,recent); if(!e) break; add(e); }
+  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)); if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound"); const e=pickFrom(cands,recent); if(!e) break; add(e); }
 
   PICK_WFN=null;
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
-  const conds=[]; // strength/lift sessions add no cardio automatically — add it yourself, or run a Cardio/HIIT session
+  const conds=[];
+  { const gg=goalDef(); const want=(gg.cond&&gg.cond[duration])||0;
+    if(want>0&&!isCore){ let cp=condPool.filter(e=>COND_STYLE[e.id]!=="interval"); if(!cp.length) cp=[...condPool];
+      for(let i=0;i<want&&cp.length;i++){ const pick=cp.splice(Math.floor(Math.random()*cp.length),1)[0]; conds.push(pick); } } }
 
   if(STATE.settings.experience!=="beginner"){
     const iso=chosen.filter(e=>e.role==="isolation"); if(iso.length){ iso[iso.length-1]._tech="Drop set on the final set — strip ~30% and go to failure."; iso[iso.length-1]._dropPct=0.30; }
@@ -1364,6 +1464,14 @@ function playAlarm(kind,vol){ try{ vol=vol!=null?vol:Math.max(0.15,Math.min(1,(S
     seq(0); seq(0.62); }
 }catch(e){} }
 function beep(){ playAlarm(); }
+function playWarnBeep(vol){ try{ ensureAudio(); if(!AC) return; vol=vol!=null?vol:Math.max(0.15,Math.min(1,(STATE.settings.alarmVol!=null?STATE.settings.alarmVol:0.9))); const now=AC.currentTime;
+  const note=(f,start,dur,opt)=>{ opt=opt||{}; const t=now+start; const o=AC.createOscillator(),g=AC.createGain(),lp=AC.createBiquadFilter();
+    lp.type="lowpass"; lp.frequency.value=opt.filter||2600; o.type="sine"; o.frequency.setValueAtTime(f,t);
+    o.connect(g); g.connect(lp); lp.connect(AC.destination);
+    const pk=vol*(opt.gain!=null?opt.gain:0.9);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(pk,t+0.008); g.gain.setValueAtTime(pk,t+dur*0.55); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur+0.03); };
+  note(1400,0,0.14,{filter:3200}); note(700,0.16,0.22,{filter:2200}); }catch(e){} }
 function fmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
 function rtRender(){ document.getElementById("rtVal").textContent=fmt(RT.left); }
 const brEl=document.getElementById("bigrest");
@@ -1371,12 +1479,12 @@ function brShow(urgent){ if(!brEl) return; brEl.classList.add("show"); brEl.clas
 function brHide(){ if(brEl) brEl.classList.remove("show","urgent"); }
 function brUpdate(){ if(!brEl) return; brEl.querySelector(".br-time").textContent=fmt(Math.max(0,RT.left)); }
 if(brEl) brEl.addEventListener("click",brHide);
-function startRest(sec,name,key){
+function startRest(sec,name,key){ RT._warned=false;
   ensureAudio(); hideRtEdit();
   RT.up=false; RT.config=+sec||0; RT.left=+sec||0; RT.key=key||null; document.getElementById("rtName").textContent=(name||"Rest");
   rtEl.classList.add("show"); if(feat("bigrest")){ const nEl=brEl&&brEl.querySelector(".br-name"); if(nEl) nEl.textContent=name||"Rest"; brShow(false); brUpdate(); }; rtEl.classList.remove("done"); document.getElementById("rtVal").classList.remove("done"); rtRender();
   clearInterval(RT.int);
-  RT.int=setInterval(()=>{ RT.left--; if(feat("bigrest")){ brUpdate(); if(RT.left===10&&!brEl.classList.contains("show")) brShow(true); if(RT.left<=10) brEl.classList.add("urgent"); }; rtRender();
+  RT.int=setInterval(()=>{ RT.left--; if(RT.left>10) RT._warned=false; if(RT.left===10&&!RT._warned){ RT._warned=true; playWarnBeep(); if(navigator.vibrate) navigator.vibrate([90,60,160]); } if(feat("bigrest")){ brUpdate(); if(RT.left===10&&!brEl.classList.contains("show")) brShow(true); if(RT.left<=10) brEl.classList.add("urgent"); }; rtRender();
     if(RT.left<=0){ clearInterval(RT.int); rtEl.classList.add("done"); document.getElementById("rtVal").classList.add("done");
       beep(); if(navigator.vibrate) navigator.vibrate([500,140,500,140,500]); setTimeout(()=>rtEl.classList.remove("show"),4500); } },1000);
 }
@@ -1422,8 +1530,10 @@ async function connectHR(){
   }catch(err){ if(err&&(err.name==="NotFoundError"||err.name==="AbortError")) return; toast("Couldn’t connect — check the watch is broadcasting heart rate"); }
 }
 function updateHRChip(){ const el=document.getElementById("hrChip"); if(!el) return;
+  const st=HR.connected&&HR.bpm?"live":(HR.wasConnected&&!HR.connected?"reconn":"off");
+  el.classList.remove("live","reconn","off"); el.classList.add(st);
   el.classList.toggle("on2",!!HR.connected);
-  el.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>`+(HR.connected?(HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:"reading…"):(HR.wasConnected?`<b style="color:var(--amber)">Reconnect HR</b>`:"Connect HR"));
+  el.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>`+(HR.connected?(HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:"reading…"):(HR.wasConnected?`<b style="color:var(--amber)">Reconnect HR</b>`:`<b style="color:var(--cold)">Connect HR</b>`));
 }
 
 /* keep the screen awake during an active workout (where the platform allows it) */
@@ -1455,7 +1565,8 @@ function render(){
 }
 function renderWeekBadge(){ const n=STATE.workouts.filter(w=>w.date>=startOfWeek()).length; document.getElementById("weekBadge").innerHTML=`THIS WEEK<br><b>${n}</b> / ${STATE.settings.daysPerWeek}`; }
 
-function backupJSON(){ return JSON.stringify({equipment:STATE.equipment,settings:STATE.settings,workouts:STATE.workouts,templates:STATE.templates},null,2); }
+function backupJSON(){ return JSON.stringify({v:2,app:"rack-and-roll",exported:new Date().toISOString(),build:BUILD,
+  equipment:STATE.equipment,settings:STATE.settings,workouts:STATE.workouts,templates:STATE.templates,bw:STATE.bw||[]},null,2); }
 function backupName(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `rack-and-roll-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}.json`; }
 function hasFolderPicker(){ return typeof window!=="undefined" && typeof window.showDirectoryPicker==="function"; }
 function canShareFiles(){ try{ return !!(navigator.canShare && navigator.share && navigator.canShare({files:[new File(["x"],"a.json",{type:"application/json"})]})); }catch(e){ return false; } }
@@ -1473,7 +1584,17 @@ async function doBackup(opts){ opts=opts||{}; const h=hasFolderPicker()?await ge
   if(canShareFiles()) return await shareBackup();
   downloadBackup(); toast("Backup downloaded"); return true; }
 function unbackedCount(){ const t=STATE.settings.lastBackupTs||0; return STATE.workouts.filter(w=>!w.ref&&(w.date||0)>t).length; }
+function condMinutes(w){ let m=0; (w.conditioning||[]).forEach(c=>{ const done=(c.sets||[]).filter(s=>s.done);
+    done.forEach(s=>{ const t=s.vals&&s.vals.time?parseSmartTime(s.vals.time):null; m+=t?t/60:3; }); }); return Math.round(m); }
+function weekCondMin(offsetWeeks){ const end=Date.now()-offsetWeeks*7*86400000, start=end-7*86400000; let v=0;
+  STATE.workouts.forEach(w=>{ if(w.ref||w.date<start||w.date>=end) return; v+=condMinutes(w); }); return v; }
 function weekTon(offsetWeeks){ const end=Date.now()-offsetWeeks*7*86400000, start=end-7*86400000; let v=0; STATE.workouts.forEach(w=>{ if(w.ref||w.date<start||w.date>=end) return; w.exercises.forEach(e=>(e.sets||[]).forEach(s=>{ if(s.done) v+=(parseFloat(s.w)||0)*(parseFloat(s.reps)||0); })); }); return v; }
+function lastHardSession(){ const cut=Date.now()-30*3600000;
+  for(const w of STATE.workouts){ if(w.ref||w.date<cut) continue;
+    const rpes=w.exercises.map(e=>e.rpe).filter(Boolean); const avg=rpes.length?rpes.reduce((a,b)=>a+b,0)/rpes.length:0;
+    const hardCond=(w.conditioning||[]).some(c=>/interval|hard|sprint|\u00d7/i.test(c.proto||""));
+    if(avg>=8||w.hardDay||(hardCond&&w.cardio)) return w; }
+  return null; }
 function deloadCheck(){ const w0=weekTon(0),w1=weekTon(1),w2=weekTon(2); if(!(w0>w1&&w1>w2&&w2>0)) return null; const real=STATE.workouts.filter(w=>!w.ref).slice(0,6); const rpes=[]; real.forEach(w=>w.exercises.forEach(e=>{ if(e.rpe) rpes.push(e.rpe); })); const avg=rpes.length?rpes.reduce((a,b)=>a+b,0)/rpes.length:0; if(avg<8.3||rpes.length<6) return null; return "Three rising weeks and RPE averaging "+avg.toFixed(1)+" — a lighter week now beats a forced one later."; }
 function fireConfetti(){ try{ const c=document.createElement("div"); c.className="confetti"; const cols=["#F2C14E","#6FBF73","#E06A5C","#9FB6CE","#7B3FE4","#E87D1E"]; let h=""; for(let i=0;i<80;i++){ h+=`<span style="left:${Math.random()*100}%;background:${cols[i%cols.length]};animation-duration:${(1.4+Math.random()*1.4).toFixed(2)}s;animation-delay:${(Math.random()*0.5).toFixed(2)}s"></span>`; } c.innerHTML=h; document.body.appendChild(c); setTimeout(()=>{ try{ c.remove(); }catch(e){} },3200); }catch(e){} }
 const METRO={int:null,ex:null,beat:0};
@@ -1483,8 +1604,9 @@ function parseVoiceSet(txt){ const m=String(txt).toLowerCase().replace(/,/g,"").
 function renderToday(){
   const r=readiness(), rec=recommendFocus(), s=STATE.settings; let html="";
   const ub=unbackedCount();
-  if(feat("recap")){ const now=Date.now(); const last=s.lastRecapTs||0; if(now-last>6*86400000){ const wk=STATE.workouts.filter(w=>!w.ref&&w.date>now-7*86400000); if(wk.length){ const vol=Math.round(wk.reduce((a,w)=>a+w.exercises.reduce((x,e)=>x+(e.sets||[]).filter(st=>st.done).reduce((y,st)=>y+(parseFloat(st.w)||0)*(parseFloat(st.reps)||0),0),0),0)); const prc=wk.reduce((a,w)=>a+((w.prs||[]).length),0); const focs={}; wk.forEach(w=>focs[w.focusName]=(focs[w.focusName]||0)+1); const top=Object.keys(focs).sort((a,b)=>focs[b]-focs[a])[0];
-    html+=`<div class="panel backup-nudge" style="border-color:var(--line2)"><div><b style="color:var(--ink)">Last 7 days</b><small>${wk.length} session${wk.length===1?"":"s"} · ${vol.toLocaleString()} lb moved${prc?` · 🏆 ${prc} PR${prc>1?"s":""}`:""}${top?` · most: ${esc(top)}`:""}</small></div><button class="btn ghost sm" data-action="recapdone">✕</button></div>`; } } }
+  if(feat("recap")){ const now=Date.now(); const last=s.lastRecapTs||0; if(now-last>6*86400000){ const wk=STATE.workouts.filter(w=>!w.ref&&w.date>now-7*86400000); if(wk.length){ const vol=Math.round(wk.reduce((a,w)=>a+w.exercises.reduce((x,e)=>x+(e.sets||[]).filter(st=>st.done).reduce((y,st)=>y+(parseFloat(st.w)||0)*(parseFloat(st.reps)||0),0),0),0)); const prc=wk.reduce((a,w)=>a+((w.prs||[]).length),0); const cmin=wk.reduce((a,w)=>a+condMinutes(w),0); const focs={}; wk.forEach(w=>focs[w.focusName]=(focs[w.focusName]||0)+1); const top=Object.keys(focs).sort((a,b)=>focs[b]-focs[a])[0];
+    html+=`<div class="panel backup-nudge" style="border-color:var(--line2)"><div><b style="color:var(--ink)">Last 7 days</b><small>${wk.length} session${wk.length===1?"":"s"}${vol?` · ${vol.toLocaleString()} lb moved`:""}${cmin?` · ${cmin} min cardio`:""}${prc?` · 🏆 ${prc} PR${prc>1?"s":""}`:""}${top?` · most: ${esc(top)}`:""}</small></div><button class="btn ghost sm" data-action="recapdone">✕</button></div>`; } } }
+  if(feat("deload")){ const lh=lastHardSession(); if(lh) html+=`<div class="panel backup-nudge" style="border-color:#5a4a36"><div><b style="color:var(--mid)">Yesterday was hard</b><small>${esc(lh.focusName||"That session")} was a hard one. Keep today easy \u2014 ${zTxt(2)} \u2014 unless you feel genuinely fresh.</small></div></div>`; }
   if(feat("deload")){ const dl=deloadCheck(); if(dl) html+=`<div class="panel backup-nudge" style="border-color:#5a4a36"><div><b style="color:var(--mid)">Deload hint</b><small>${esc(dl)}</small></div></div>`; }
   if(ub>=4) html+=`<div class="panel backup-nudge"><div><b>Back up your training</b><small>${ub} session${ub===1?"":"s"} logged since your last backup. One tap saves a file you can keep in Drive — don’t risk losing your log to a cleared cache.</small></div><button class="btn primary sm" data-action="export">Back up now</button></div>`;
   { const ov=rdOv();
@@ -1497,8 +1619,9 @@ function renderToday(){
   html+=`<div class="panel"><div class="eyebrow" style="margin-bottom:9px">Today’s session</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Recommended next: <b style="color:var(--amber)">${FOCI[rec].name}</b> — based on what’s recovered.</div>
     <div class="hint" style="margin-bottom:10px">Tap any focus to override. Core, Cardio, and HIIT are always available.</div>
-    ${(()=>{ if(!feat("planner")) return ""; const p=(STATE.settings.plan||{})[new Date().getDay()]; return (p&&FOCI[p])?`<div class="hint" style="margin-bottom:6px">📅 Today's plan: <b style="color:var(--ink)">${FOCI[p].name}</b></div>`:""; })()}
-    <div class="seg" id="focusSeg" style="margin-bottom:8px">${(()=>{ const p=feat("planner")?(STATE.settings.plan||{})[new Date().getDay()]:null; const sel=s._focus||((p&&FOCI[p])?p:rec); return Object.keys(FOCI).map(k=>`<button data-focus="${k}" class="${k===sel?"on":""}">${k===rec?"★ ":""}${FOCI[k].name}</button>`).join(""); })()}</div>
+    ${(()=>{ if(!feat("planner")) return ""; const p=(STATE.settings.plan||{})[new Date().getDay()]||{}; const bits=[]; if(p.am&&FOCI[p.am]) bits.push("AM "+FOCI[p.am].name); if(p.pm&&FOCI[p.pm]) bits.push("PM "+FOCI[p.pm].name); return bits.length?`<div class="hint" style="margin-bottom:6px">📅 Today: <b style="color:var(--ink)">${bits.join(" · ")}</b></div>`:""; })()}
+    ${(()=>{ const cur=s._focus||""; const F=FOCI[cur]; if(!F||!F.machineSess||F.machineSess==="sledS"||F.machineSess==="ruck") return ""; return `<div class="row" style="gap:7px;margin-bottom:8px;align-items:center"><span class="hint">Intensity</span><button class="chip ${!UI.hardDay?"on":""}" data-action="hardday" data-v="0">Easy · ${zTxt(2)}</button><button class="chip ${UI.hardDay?"on":""}" data-action="hardday" data-v="1">Hard intervals</button></div>`; })()}
+    <div class="seg" id="focusSeg" style="margin-bottom:8px">${(()=>{ const pl2=feat("planner")?((STATE.settings.plan||{})[new Date().getDay()]||{}):{}; const slot=new Date().getHours()<12?"am":"pm"; const p=(pl2[slot]&&FOCI[pl2[slot]])?pl2[slot]:((pl2.am&&FOCI[pl2.am])?pl2.am:((pl2.pm&&FOCI[pl2.pm])?pl2.pm:null)); const sel=s._focus||(p?p:rec); return Object.keys(FOCI).map(k=>`<button data-focus="${k}" class="${k===sel?"on":""}">${k===rec?"★ ":""}${FOCI[k].name}</button>`).join(""); })()}</div>
     ${(()=>{ const rc=focusRecency(); const keys=["push","pull","legs_quad","legs_post","core","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
     <div class="eyebrow" style="margin:4px 0 6px">Time</div>
     <div class="seg" id="durSeg" style="margin-bottom:12px">${[30,45,60].map(d=>`<button data-dur="${d}" class="${d===s.duration?"on":""}">${d} min</button>`).join("")}</div>
@@ -1523,7 +1646,7 @@ function renderWorkout(w,editable){
     html+=`<div class="row" style="margin:8px 0 2px;gap:8px;flex-wrap:wrap">${w.startedAt
       ? `<span class="chip rest" style="font-size:13px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Elapsed&nbsp;<b id="woElapsed" class="mono" style="color:var(--ink)">${fmt((Date.now()-w.startedAt)/1000)}</b></span>`
       : `<button class="btn primary block" data-action="startwo" style="flex:1"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><path d="M7 5l12 7-12 7z"/></svg>Start workout</button>`}
-      <button class="chip ${HR.connected?"on2":""}" id="hrChip" data-action="connecthr"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>${HR.connected&&HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:(HR.wasConnected&&!HR.connected?`<b style="color:var(--amber)">Reconnect HR</b>`:"Connect HR")}</button></div>`;
+      <button class="chip hr ${HR.connected&&HR.bpm?"live":(HR.wasConnected&&!HR.connected?"reconn":"off")}" id="hrChip" data-action="connecthr"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.35-7-9a4 4 0 017-2.65A4 4 0 0119 11c0 4.65-7 9-7 9z"/></svg>${HR.connected&&HR.bpm?`<b class="mono" style="color:var(--ink)">${HR.bpm}</b>&nbsp;bpm`:(HR.wasConnected&&!HR.connected?`<b style="color:var(--amber)">Reconnect HR</b>`:`<b style="color:var(--cold)">Connect HR</b>`)}</button></div>`;
   }
   html+=renderMuscleMap(w);
   w.groups.forEach((g,gi)=>{
@@ -1761,7 +1884,8 @@ function renderWrapped(){
   if(ws.length<3) return "";
   let ton=0,prc=0; const freq={}; ws.forEach(w=>{ prc+=((w.prs||[]).length); w.exercises.forEach(e=>{ let any=false; (e.sets||[]).forEach(s=>{ if(s.done){ any=true; ton+=(parseFloat(s.w)||0)*(parseFloat(s.reps)||0); } }); if(any) freq[e.name]=(freq[e.name]||0)+1; }); });
   const top=Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
-  return `<div class="panel"><div class="eyebrow" style="margin-bottom:8px">${y} so far</div><div class="hint" style="line-height:1.7">🏋️ <b style="color:var(--ink)">${ws.length}</b> sessions · <b style="color:var(--ink)">${Math.round(ton).toLocaleString()}</b> lb moved${prc?` · 🏆 <b style="color:var(--ink)">${prc}</b> PRs`:""}${top?` · most-trained: <b style="color:var(--ink)">${esc(top)}</b>`:""}</div></div>`;
+  const cmin=ws.reduce((a,w)=>a+condMinutes(w),0); const ch=Math.floor(cmin/60);
+  return `<div class="panel"><div class="eyebrow" style="margin-bottom:8px">${y} so far</div><div class="hint" style="line-height:1.7">🏋️ <b style="color:var(--ink)">${ws.length}</b> sessions · <b style="color:var(--ink)">${Math.round(ton).toLocaleString()}</b> lb moved${cmin?` · ❤️ <b style="color:var(--ink)">${ch?ch+" h "+(cmin%60)+" min":cmin+" min"}</b> cardio`:""}${prc?` · 🏆 <b style="color:var(--ink)">${prc}</b> PRs`:""}${top?` · most-trained: <b style="color:var(--ink)">${esc(top)}</b>`:""}</div></div>`;
 }
 function renderProgress(){
   const logged=[]; const seen=new Set();
@@ -1865,6 +1989,7 @@ function renderSettings(){
     <div class="frow"><label>Default session length</label><select class="in" data-set="duration">${[30,45,60].map(d=>`<option value="${d}" ${d===s.duration?"selected":""}>${d} min</option>`).join("")}</select></div>
     <div class="frow"><label>Default style</label><select class="in" data-set="mode"><option value="strength" ${s.mode==="strength"?"selected":""}>Strength</option><option value="circuit" ${s.mode==="circuit"?"selected":""}>Circuit</option></select></div>
     <div class="frow"><label>Experience<small>Sets rep ranges and drop set / tempo cues.</small></label><select class="in" data-set="experience">${["beginner","intermediate","advanced"].map(x=>`<option value="${x}" ${x===s.experience?"selected":""}>${x[0].toUpperCase()+x.slice(1)}</option>`).join("")}</select></div>
+    <div class="frow"><label>Heart-rate zones<small>Max HR and resting HR — zones use heart-rate reserve. Z2 (easy) is currently ${zTxt(2)}.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="hrMax" value="${s.hrMax||144}" style="width:64px"><span class="hint">max</span><input class="in" type="number" inputmode="numeric" data-set="hrRest" value="${s.hrRest||43}" style="width:64px"><span class="hint">rest</span></span></div>
     <div class="frow"><label>Sled lane length<small>Your one-way push distance — the sled builder's default.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="sledLane" value="${s.sledLane||60}" style="width:76px"><span class="hint">ft</span></span></div>
     <div class="frow"><label>Keep screen awake<small>Holds the screen on during an active workout (where the device allows it).</small></label><div class="sw ${s.keepAwake?"on":""}" data-action="togglewake"></div></div>
     <div class="frow"><label>Rest-timer alarm<small>Loud, cutting alarm when a rest period ends. Slide up for a noisy garage, then tap Test. (Your phone's media volume also has to be up.)</small></label><select class="in" data-set="alarmSound">${ALARM_SOUNDS.map(a=>`<option value="${a[0]}" ${a[0]===(s.alarmSound||"buzzer")?"selected":""}>${a[1]}</option>`).join("")}</select></div>
@@ -1889,8 +2014,10 @@ function renderSettings(){
   { const F=[["heat","Training heatmap","26-week activity grid + streaks on Progress"],["confetti","PR confetti","Celebrate new records when you finish"],["recap","Weekly recap","Last-7-days summary card on the Train tab"],["notes","Setup notes","📌 per-exercise notes (pin heights, seat position) via •••"],["bw","Bodyweight log","Quick weigh-ins + 7-day average on Progress"],["standards","Strength standards","Est. 1RM vs bodyweight levels on Progress"],["ghost","Ghost pace","Live sets/time vs your last same-focus session"],["metro","Tempo metronome","Audible tick on tempo-cued lifts via •••"],["deload","Deload hints","Flags 3 rising weeks + high RPE"],["bigrest","Full-screen rest timer","Giant countdown; tap to shrink; returns for the last 10s"],["budget","Time budget","⏱ button trims remaining sets to fit your minutes"],["injury","Injury flags","Mark sore joints; the generator steers around them"],["planner","Weekly planner","Assign a focus to each weekday"],["reorder","Reorder groups","▲▼ arrows to resequence a session"],["voice","Voice logging (experimental)","🎤 say “185 for 8” — needs internet, can mishear"],["wrapped","Year so far","Annual totals card on Progress"]];
     let fb=F.map(([k,n,d])=>`<div class="frow"><label>${n}<small>${d}</small></label><div class="sw ${feat(k)?"on":""}" data-action="feat" data-k="${k}"></div></div>`).join("");
     if(feat("injury")) fb+=`<div class="eq-cat" style="margin:14px 0 6px">Sore / protect right now</div><div class="cb-row">${INJ_AREAS.map(([k,n])=>`<button class="chip ${STATE.settings.injuries.includes(k)?"on":""}" data-action="injury" data-a="${k}">${n}</button>`).join("")}</div><div class="hint">Flagged areas get strongly avoided by the generator (not banned) and marked ⚠ on cards. Unflag when healed.</div>`;
-    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","legs_quad","legs_post","core","cardio","hiit","custom"];
-      fb+=`<div class="eq-cat" style="margin:14px 0 6px">Weekly plan</div>`+DN.map((d,i)=>`<div class="planrow"><span class="pd">${d}</span><select class="in" data-plan="${i}">${opts.map(o=>`<option value="${o}" ${String((STATE.settings.plan||{})[i]||"")===o?"selected":""}>${o===""?"Auto":FOCI[o]?FOCI[o].name:o}</option>`).join("")}</select></div>`).join("")+`<div class="hint" style="margin-top:4px">The Train tab pre-selects today's plan; ★ still shows the recovery pick.</div>`; }
+    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","legs_quad","legs_post","core","bike","ski","sledS","ruck","cardio","hiit","custom"];
+      fb+=`<div class="eq-cat" style="margin:14px 0 6px">Weekly plan</div><div class="planrow"><span class="pd"></span><span class="hint" style="flex:1">AM</span><span class="hint" style="flex:1">PM</span></div>`+DN.map((d,i)=>{ const p=(STATE.settings.plan||{})[i]||{};
+        const sel=(slot)=>`<select class="in" data-plan="${i}" data-slot="${slot}" style="flex:1">${opts.map(o=>`<option value="${o}" ${String(p[slot]||"")===o?"selected":""}>${o===""?"—":FOCI[o]?FOCI[o].name:o}</option>`).join("")}</select>`;
+        return `<div class="planrow"><span class="pd">${d}</span>${sel("am")}${sel("pm")}</div>`; }).join("")+`<div class="hint" style="margin-top:4px">Two slots a day — morning cardio, afternoon lift. The Train tab pre-selects whichever fits the time of day.</div>`; }
     html+=accSection("features","Features",Object.keys(STATE.settings.feat).filter(k=>feat(k)).length+" on",fb,`<div class="hint" style="margin-bottom:8px">Flip any of these on or off — they're all optional.</div>`); }
   html+=libEntryPanel();
   html+=`<div class="panel"><div class="eyebrow">Data</div><div class="hint" style="margin:8px 0 12px">Stored on this device${hasStore?"":" — note: a downloaded copy won’t persist between opens"}.</div>
@@ -1952,9 +2079,16 @@ function importData(json){
   if(d.settings){
     STATE.settings.pinned=[...new Set([...(STATE.settings.pinned||[]),...(d.settings.pinned||[])])];
     STATE.settings.blocked=[...new Set([...(STATE.settings.blocked||[]),...(d.settings.blocked||[])])];
-    ["daysPerWeek","duration","mode","experience","goal","alarmVol","alarmSound"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
+    ["daysPerWeek","duration","mode","experience","goal","alarmVol","alarmSound","sledLane","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
     if(d.settings.recWeights) STATE.settings.recWeights=Object.assign(STATE.settings.recWeights||{},d.settings.recWeights);
+    if(d.settings.exNotes) STATE.settings.exNotes=Object.assign(STATE.settings.exNotes||{},d.settings.exNotes);
+    if(d.settings.restOverrides) STATE.settings.restOverrides=Object.assign(STATE.settings.restOverrides||{},d.settings.restOverrides);
+    if(d.settings.feat) STATE.settings.feat=Object.assign(STATE.settings.feat||{},d.settings.feat);
+    if(d.settings.plan){ STATE.settings.plan=STATE.settings.plan||{}; Object.keys(d.settings.plan).forEach(k=>{ let v=d.settings.plan[k]; if(typeof v==="string") v=v?{pm:v}:{}; STATE.settings.plan[k]=v; }); }
+    if(Array.isArray(d.settings.injuries)) STATE.settings.injuries=[...new Set([...(STATE.settings.injuries||[]),...d.settings.injuries])];
   }
+  if(Array.isArray(d.templates)&&d.templates.length){ const have=new Set((STATE.templates||[]).map(t=>t.id)); d.templates.forEach(t=>{ if(t&&t.id&&!have.has(t.id)) STATE.templates.push(t); }); pTpl(); }
+  if(Array.isArray(d.bw)&&d.bw.length){ const seen=new Set((STATE.bw||[]).map(x=>x.t)); STATE.bw=[...(STATE.bw||[]),...d.bw.filter(x=>x&&x.t&&!seen.has(x.t))].sort((a,b)=>b.t-a.t); pBW(); }
   if(Array.isArray(d.equipment)){
     const byId={}; d.equipment.forEach(e=>byId[e.id]=e);
     STATE.equipment.forEach(e=>{ if(byId[e.id]) e.on=byId[e.id].on; });
@@ -1983,7 +2117,7 @@ view.addEventListener("click",e=>{
         if(ex.sets.filter(x=>!x.drop).every(x=>x.done)){ const nx=nextExerciseId(ex.id); if(nx) cueNextSet(nx); else cueFinish(); } }
       else { const pos=grp.items.indexOf(ex.id);
         if(pos<grp.items.length-1){ cueNextSet(grp.items[pos+1]); }
-        else { const gd=goalDef(); const base=(gd.scheme&&gd.scheme.accessory)?gd.scheme.accessory[1]:(grp.type==="circuit"?120:90); startRest(restForKey("g_"+grp.type,base),"Rest after round","g_"+grp.type); cueNextSet(grp.items[0]); }
+        else { const gd=goalDef(); const base=(gd.scheme&&gd.scheme.accessory)?gd.scheme.accessory[1]:(grp.type==="circuit"?120:90); const gkey2="g_"+grp.type+"_"+grp.items.join("+"); startRest(restForKey(gkey2,base),"Rest after round",gkey2); cueNextSet(grp.items[0]); }
       }
     } return; }
   if(a==="more"){ const id=act.dataset.id; if(UI.moreOpen.has(id)) UI.moreOpen.delete(id); else UI.moreOpen.add(id); renderToday(); return; }
@@ -2063,6 +2197,7 @@ view.addEventListener("click",e=>{
       try{ if(window.caches){ const ks=await caches.keys(); for(const k of ks) await caches.delete(k); } }catch(e){}
       location.reload(); },600);
     return; }
+  if(a==="hardday"){ UI.hardDay=act.dataset.v==="1"; renderToday(); return; }
   if(a==="rdcycle"){ rdCycle(act.dataset.m); renderToday(); return; }
   if(a==="recapdone"){ STATE.settings.lastRecapTs=Date.now(); pSet(); renderToday(); return; }
   if(a==="exnote"){ const id=act.dataset.id; const cur=STATE.settings.exNotes[id]||""; const v=prompt("Setup note (pins, seat, grip…):",cur); if(v==null) return; const t=String(v).trim(); if(t) STATE.settings.exNotes[id]=t; else delete STATE.settings.exNotes[id]; pSet(); renderToday(); return; }
@@ -2117,6 +2252,8 @@ view.addEventListener("input",e=>{
   if(inp.dataset.addexq!=null&&STATE.current){ UI.addExQuery=inp.value; renderToday(); const s=document.getElementById("addExSearch"); if(s){ s.focus(); const v=s.value; s.value=""; s.value=v; } return; }
   if(inp.dataset.libq!=null){ UI.libQuery=inp.value; renderSettings(); const s=document.getElementById("libSearch"); if(s){ s.focus(); const v=s.value; s.value=""; s.value=v; } return; }
   if(inp.dataset.cbp!=null){ if(!UI.cardioB.p) UI.cardioB.p={}; UI.cardioB.p[inp.dataset.cbp]=inp.value; return; }
+  if(inp.dataset.set==="hrMax"){ STATE.settings.hrMax=Math.max(90,Math.min(230,+inp.value||144)); pSet(); renderSettings(); return; }
+  if(inp.dataset.set==="hrRest"){ STATE.settings.hrRest=Math.max(30,Math.min(110,+inp.value||43)); pSet(); renderSettings(); return; }
   if(inp.dataset.set==="autoBackup"){ STATE.settings.autoBackup=inp.value; pSet(); renderSettings(); return; }
   if(inp.dataset.set==="sledLane"){ STATE.settings.sledLane=Math.max(5,Math.min(2000,+inp.value||60)); pSet(); return; }
   if((inp.dataset.ck||inp.dataset.cf)&&STATE.current){ const row=inp.closest(".setrow"); const c=STATE.current.conditioning[+row.dataset.ci]; if(!c.sets) c.sets=[mkCondSet(c.fields)]; const s=c.sets[+row.dataset.cset]; if(inp.dataset.ck==="w"){ s.w=inp.value; } else { if(!s.vals) s.vals={}; s.vals[inp.dataset.cf]=inp.value; } pCur(); return; }
@@ -2133,7 +2270,7 @@ view.addEventListener("change",e=>{
   const tf=e.target.closest("input[data-cf='time']");
   if(tf&&STATE.current){ const tot=parseSmartTime(tf.value); if(tot!=null&&tf.value!==""){ const txt=fmtSmartTime(tot); tf.value=txt; const row=tf.closest(".setrow"); const c=STATE.current.conditioning[+row.dataset.ci]; if(c){ const s=c.sets[+row.dataset.cset]; if(s){ if(!s.vals) s.vals={}; s.vals.time=txt; pCur(); } } } return; }
   const pl=e.target.closest("[data-plan]");
-  if(pl){ if(!STATE.settings.plan) STATE.settings.plan={}; STATE.settings.plan[+pl.dataset.plan]=pl.value; pSet(); return; }
+  if(pl){ if(!STATE.settings.plan) STATE.settings.plan={}; const d=+pl.dataset.plan, slot=pl.dataset.slot||"pm"; if(!STATE.settings.plan[d]||typeof STATE.settings.plan[d]==="string") STATE.settings.plan[d]={}; if(pl.value) STATE.settings.plan[d][slot]=pl.value; else delete STATE.settings.plan[d][slot]; pSet(); return; }
   const le=e.target.closest("[data-libequip]");
   if(le){ UI.libEquip=le.value; renderSettings(); return; }
   const ps=e.target.closest("[data-pc='side']");
