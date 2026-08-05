@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.05";
+const BUILD="2026.08.06";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1367,12 +1367,25 @@ function generate(focusKey,duration,mode){
   let gmode=mode; const g=goalDef();
   if(g.straight) gmode="strength";
   else if(g.circuit&&mode==="strength") gmode="circuit";
-  let groups=groupExercises(chosen,gmode);
-  if(g.straight) groups=chosen.map(e=>({type:"straight",items:[e.id]}));
-  groups=orderGroupsEfficient(groups);
-  const wo={id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode,
-    exercises:chosen.map(buildLoggable),conditioning:conds.map(c=>buildCond(c,duration)),groups,note:""};
-  normalizeGroupSets(wo);
+  const assemble=(list)=>{ let groups=groupExercises(list,gmode);
+    if(g.straight) groups=list.map(e=>({type:"straight",items:[e.id]}));
+    groups=orderGroupsEfficient(groups);
+    const w={id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode,
+      exercises:list.map(buildLoggable),conditioning:conds.map(c=>buildCond(c,duration)),groups,note:""};
+    normalizeGroupSets(w); return w; };
+  // grow toward the target while candidates remain
+  const target=duration*60;
+  let wo=assemble(chosen); let grow=0;
+  while(estimateSessionSec(wo)<target*0.92&&chosen.length<14&&grow++<14){
+    let cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e));
+    if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
+    if(!cands.length) break;
+    const pick=pickFrom(cands,recent); if(!pick) break;
+    const test=[...chosen,pick]; const w2=assemble(test);
+    if(estimateSessionSec(w2)>target*1.08) break;
+    chosen.push(pick); wo=w2;
+  }
+  fitToDuration(wo,duration);
   return wo;
 }
 // Sequence groups so you stay at one station and ramp plates down instead of walking the gym.
@@ -1616,6 +1629,42 @@ async function doBackup(opts){ opts=opts||{}; const h=hasFolderPicker()?await ge
   if(canShareFiles()) return await shareBackup();
   downloadBackup(); toast("Backup downloaded"); return true; }
 function unbackedCount(){ const t=STATE.settings.lastBackupTs||0; return STATE.workouts.filter(w=>!w.ref&&(w.date||0)>t).length; }
+function fitToDuration(w,duration){
+  const target=duration*60, hi=target*1.08, floor=3;
+  let guard=0;
+  const regroup=()=>{ const ids=w.exercises.map(e=>e.id); w.groups=(w.groups||[]).map(g=>({...g,items:g.items.filter(x=>ids.includes(x))})).filter(g=>g.items.length); };
+  while(estimateSessionSec(w)>hi&&w.exercises.length>floor&&guard++<30){
+    // drop the least important: last isolation, else last accessory, else last non-compound
+    let idx=-1;
+    for(const role of ["isolation","accessory","core"]){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role===role){ idx=i; break; } } if(idx>=0) break; }
+    if(idx<0){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role!=="compound"){ idx=i; break; } } }
+    if(idx<0) break;
+    w.exercises.splice(idx,1); regroup();
+  }
+  // still over and only compounds left → shave a set from the biggest block
+  guard=0;
+  while(estimateSessionSec(w)>hi&&guard++<20){
+    const cand=w.exercises.filter(e=>e.sets.filter(s=>!s.drop).length>2).sort((a,b)=>b.sets.length-a.sets.length)[0];
+    if(!cand) break;
+    const grp=(w.groups||[]).find(g=>g.items.includes(cand.id));
+    const mem=grp?grp.items.map(id=>w.exercises.find(e=>e.id===id)).filter(Boolean):[cand];
+    mem.forEach(e=>{ const work=e.sets.filter(s=>!s.drop); if(work.length>2) e.sets.splice(e.sets.indexOf(work[work.length-1]),1); });
+  }
+  normalizeGroupSets(w);
+  w.estSec=estimateSessionSec(w);
+  return w; }
+function condProtoMin(c){ const p=String(c.proto||""); let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
+  m=p.match(/(\d+)\s*(?:\u00d7|x)\s*(\d+)\s*s\b/i); if(m) return Math.round((+m[1]*+m[2]*2)/60);
+  const r=condRounds(p); return Math.max(3,Math.round(r*1.2)); }
+function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id===id);
+  (w.groups||[]).forEach(g=>{ const mem=(g.items||[]).map(exOf).filter(Boolean); if(!mem.length) return;
+    const rounds=Math.max(...mem.map(e=>(e.sets||[]).filter(s=>!s.drop).length),0);
+    const work=mem.reduce((a,e)=>a+((e.metric==="time")?50:40),0);
+    const trans=mem.length>1?(mem.length-1)*15:0;
+    const rest=Math.max(...mem.map(e=>e.restSec||60));
+    t+=rounds*(work+trans+rest); });
+  (w.conditioning||[]).forEach(c=>{ t+=condProtoMin(c)*60; });
+  return t; }
 function condMinutes(w){ let m=0; (w.conditioning||[]).forEach(c=>{ const done=(c.sets||[]).filter(s=>s.done);
     done.forEach(s=>{ const t=s.vals&&s.vals.time?parseSmartTime(s.vals.time):null; m+=t?t/60:3; }); }); return Math.round(m); }
 function weekCondMin(offsetWeeks){ const end=Date.now()-offsetWeeks*7*86400000, start=end-7*86400000; let v=0;
@@ -2070,13 +2119,22 @@ function renderSettings(){
 
 /* ---------------- Print ---------------- */
 function buildPrint(w){
-  const exMap={}; w.exercises.forEach(e=>exMap[e.id]=e); let g="";
-  w.groups.forEach((grp,gi)=>{ const label=grp.type==="superset"?"Superset "+String.fromCharCode(65+gi):grp.type==="circuit"?"Circuit "+String.fromCharCode(65+gi):"";
-    g+=`<div class="p-g">${label?`<div class="gh">${label}</div>`:""}<table><tr><th>Exercise</th><th>Target</th><th class="c">Set 1</th><th class="c">Set 2</th><th class="c">Set 3</th><th class="c">Set 4</th></tr>`;
-    grp.items.forEach(id=>{ const e=exMap[id]; if(!e) return; const cells=[0,1,2,3].map(i=>`<td class="c">${i<(e.sets?e.sets.length:0)?"______":""}</td>`).join("");
+  const exMap={}; w.exercises.forEach(e=>exMap[e.id]=e); let g=""; let gi=0;
+  w.groups.forEach(grp=>{ const mem=grp.items.map(id=>exMap[id]).filter(Boolean); if(!mem.length) return;
+    const grouped=mem.length>1;
+    const label=grouped?((grp.type==="superset"?"Superset ":"Circuit ")+String.fromCharCode(65+(gi++))):"Straight set";
+    const maxSets=Math.max(...mem.map(e=>(e.sets||[]).filter(s=>!s.drop).length),1);
+    const cols=Math.min(Math.max(maxSets,1),8);
+    let head=""; for(let i=0;i<cols;i++) head+=`<th class="c">Set ${i+1}</th>`;
+    g+=`<div class="p-g"><div class="gh">${label}</div><table><tr><th>Exercise</th><th>Target</th>${head}</tr>`;
+    mem.forEach(e=>{ const n=(e.sets||[]).filter(s=>!s.drop).length;
+      let cells=""; for(let i=0;i<cols;i++) cells+=`<td class="c">${i<n?"______":""}</td>`;
       g+=`<tr><td><strong>${esc(e.name)}</strong>${e.unilateral?" (per side)":""}</td><td>${esc(e.scheme)} · rest ${esc(e.rest)}</td>${cells}</tr>`; });
     g+=`</table></div>`; });
   let cond=""; if(w.conditioning&&w.conditioning.length) cond=`<div class="p-cond"><h3>Conditioning</h3>${w.conditioning.map(c=>`<div><strong>${esc(c.name)}</strong> — ${esc(c.proto)}</div>`).join("")}</div>`;
+  const totSets=w.exercises.reduce((a,e)=>a+(e.sets||[]).filter(s=>!s.drop).length,0);
+  const estM=Math.round((w.estSec||estimateSessionSec(w))/60);
+  cond+=`<div class="p-cond" style="border:0;padding-top:4px"><div>${w.exercises.length} exercises · ${totSets} working sets · about ${estM} min including rest</div></div>`;
   return `<div class="p-h"><h1>${esc(w.focusName)}</h1><div class="pm">${new Date(w.date).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}<br>${w.duration} min · ${w.mode==="circuit"?"Circuit":"Strength"}</div></div>${g}${cond}<div class="p-foot"><span>Rack &amp; Roll — Garage Training</span><span>Notes: ____________________________</span></div>`;
 }
 function doPrint(w){ document.getElementById("printArea").innerHTML=buildPrint(w); window.print(); }

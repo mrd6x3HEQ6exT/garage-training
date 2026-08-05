@@ -65,6 +65,21 @@ STATE.settings.exNotes["bb_bench"]='<img src=x onerror=1>';
 STATE.current=generate("push",45,"strength");
 if(!STATE.current.exercises.some(e=>e.id==="bb_bench")){ STATE.current.exercises.unshift(buildLoggable(ob("bb_bench"))); STATE.current.groups.unshift({type:"straight",items:["bb_bench"]}); }
 T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); delete STATE.settings.exNotes["bb_bench"];
+// session length honesty (build → measure → trim/grow)
+{ let worst=0,what="";
+  for(const g of Object.keys(GOALS)){ STATE.settings.goal=g;
+    for(const f of ["push","pull","legs_quad","legs_post","core"]) for(const dd of [30,45,60]) for(const md of ["strength","circuit"]){
+      const w=generate(f,dd,md); const mins=estimateSessionSec(w)/60; const err=Math.abs(mins-dd)/dd;
+      if(err>worst){ worst=err; what=g+"/"+f+"/"+dd+"/"+md+"="+Math.round(mins)+"min"; } } }
+  STATE.settings.goal="general";
+  T("no session overshoots its time budget", worst<=0.30, what+" ("+Math.round(worst*100)+"% off)"); }
+// print sheet integrity
+{ STATE.settings.goal="lean"; const w=generate("push",45,"circuit"); const p=buildPrint(w);
+  const labels=[...p.matchAll(/<div class="gh">([^<]+)<\/div>/g)].map(m=>m[1]);
+  const circ=labels.filter(l=>/^(Circuit|Superset) /.test(l)).map(l=>l.split(" ")[1]);
+  T("print: group letters sequential", circ.every((c,i)=>c===String.fromCharCode(65+i)), circ.join(","));
+  T("print: no unlabeled tables", !p.includes('<div class="p-g"><table'));
+  T("print: footer has totals+estimate", /working sets · about \d+ min/.test(p)); }
 // big regression
 STATE.workouts=[];
 const EXCL=new Set(["bench","barbell","rack","trapbar","landmine","cable_high","cable_low","dipstation","pullupbar","hangbar","ezbar","ghr","echobike","skierg","sled","battlerope"]);
