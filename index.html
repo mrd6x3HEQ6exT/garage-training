@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.10";
+const BUILD="2026.08.11";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -659,7 +659,7 @@ const EXERCISES=[
   X("bb_pause_dl","Paused deadlift","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Pause 1–2s just below the knee on the way up. Reinforces position and control."}),
   X("bb_jm_press","JM press","horiz_push","accessory",["triceps"],["chest"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"A cross between a close-grip and a skullcrusher — bar tracks to the throat, elbows forward. All triceps."}),
   X("bb_calf_raise","Barbell calf raise","calf","isolation",["calves"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar on the back, balls of the feet on a plate or block, full stretch to full contraction."}),
-  X("bb_bb_shrug","Barbell shrug","hinge","isolation",["back"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Heavy bar in the rack, shrug straight up to the ears, hold, lower slow. Traps."}),
+  X("bb_bb_shrug","Barbell shrug","horiz_pull","isolation",["back"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Heavy bar in the rack, shrug straight up to the ears, hold, lower slow. Traps."}),
   {id:"bike_int",name:"Echo Bike intervals",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"6 rounds — 20s all-out / 40s easy",45:"8 rounds — 30s hard / 30s easy",60:"10 rounds — 40s hard / 20s easy"}},
   {id:"bike_ss",name:"Echo Bike steady",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"8 min @ conversational pace",45:"12 min steady RPE 6",60:"18 min steady RPE 6"}},
   {id:"ski_int",name:"SkiErg intervals",type:"conditioning",requires:["skierg"],stations:["skierg"],muscles:["cond"],proto:{30:"8 × 100 m, walk back",45:"10 × 150 m / 45s rest",60:"6 × 250 m / 60s rest"}},
@@ -1331,7 +1331,43 @@ function generate(focusKey,duration,mode){
   const patVariety=e=>{ const n=recentPats[e.pattern]||0; return n>=2?0.35:n===1?0.7:1; };
   const compCap=duration>=45?2:1;
   pool.forEach(e=>{ delete e._dropPct; delete e._tech; });
-  const SIM_GROUPS=[["curtsy","ghr_curtsy"],["goblet","heel_squat"],["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press"],["bb_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","box_squat"],["trap_dl","bb_deficit_dl","bb_block_dl","bb_paused_dl"],["bb_ohp","bb_pin_ohp","bb_seated_ohp"],["ghr_curl","ghr_curl_cable","ghr_curl_band"],["lunge_rev","ghr_rev_lunge"],["lat_lunge","ghr_lat_lunge"]];
+  const SIM_GROUPS=[
+  // barbell/DB pressing families
+  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb"],
+  ["bb_ohp","bb_pin_ohp","bb_seated_ohp","db_ohp","db_ohp_st","arnold","bb_push_press","z_press"],
+  // squats
+  ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat"],
+  // hinges / deadlifts
+  ["deadlift","sumo_dl","trap_dl","bb_rdl","bb_pause_dl","bb_block_pull","bb_deficit_dl","rack_pull","trap_rdl","db_rdl","lm_rdl","kb_dl"],
+  // lunges & single-leg
+  ["rev_lunge","walk_lunge","curtsy_lunge","lm_rev_lunge","step_up","ghr_rev_lunge","ghr_lat_lunge","ghr_curtsy","bss"],
+  // shrugs
+  ["bb_bb_shrug","db_shrug","trap_shrug"],
+  // triceps extensions
+  ["oh_ext","cable_oh_ext","skull","kickback_tri","pushdown"],
+  // biceps curls
+  ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl"],
+  // chest flyes
+  ["cable_fly","cable_cross_high","incline_db_fly","db_fly_floor"],
+  // rows
+  ["lm_row","trap_row","pendlay","bb_yates_row","db_row","low_row","cs_row"],
+  // lat/vertical pulls
+  ["pulldown","ng_pulldown","cable_lat","pullup","chinup","pullup_neutral","pullup_wide","pullup_globe_lg","pullup_globe_sm"],
+  // carries
+  ["farmer","suitcase","oh_carry","frontrack_carry"],
+  // planks / anti-extension
+  ["plank","side_plank","ghr_bodysaw"],
+  // crunch family
+  ["cable_crunch","reverse_crunch","standing_oblique","decline_situp","vup"],
+  // hanging core
+  ["hlr","hang_knee","toes_to_bar","ww","hang_oblique"],
+  // GHR curls
+  ["ghr_curl","ghr_curl_cable","ghr_curl_band","ghr_curl_sl","ghr_bridge_curl"],
+  // GHR rollouts
+  ["ghr_rollout","ghr_rollout_stand","ghr_rollout_cable"],
+  // calf
+  ["calf_db","sl_calf","bb_calf_raise"],
+];
   const simOf=id=>{ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; };
   const simBlocked=new Set();
   const _add0=add; add=(e)=>{ if(!e) return; if(simBlocked.has(e.id)) return; _add0(e); simOf(e.id).forEach(x=>simBlocked.add(x)); };
@@ -1342,9 +1378,16 @@ function generate(focusKey,duration,mode){
   PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*injFactor(e)*patVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
+  // PINNED FIRST — before anchors, so a pinned lift always gets its slot and is never
+  // blocked by a near-duplicate sibling the picker happened to grab first.
+  if(!isCore){
+    pool.filter(e=>pinned.has(e.id)&&hitsFocus(e)&&e.role==="compound"&&!chosen.includes(e))
+        .forEach(e=>{ if(compCount()<compCap&&chosen.length<sCount) add(e); });
+  }
   if(!isCore){ for(const pat of f.anchors){ if(compCount()>=compCap||chosen.length>=Math.min(2,sCount)) break; add(pickFrom(pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)),recent)); } }
-  // pinned first
-  pool.filter(e=>pinned.has(e.id)&&hitsFocus(e)&&!chosen.includes(e)).forEach(e=>{ if(chosen.length<sCount) add(e); });
+  // pinned non-compounds (accessories/isolation/core) — capped like anything else
+  pool.filter(e=>pinned.has(e.id)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&!chosen.includes(e))
+      .forEach(e=>{ if(chosen.length<sCount&&(e.role!=="compound"||compCount()<compCap)) add(e); });
   // fill
   let guard=0;
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
@@ -1355,7 +1398,10 @@ function generate(focusKey,duration,mode){
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
   if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)),recent)); } // guaranteed ab work
-  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)); if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound"); const e=pickFrom(cands,recent); if(!e) break; add(e); }
+  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
+    if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
+    let fresh=cands.filter(e=>!simBlocked.has(e.id));
+    const e=pickFrom(fresh.length?fresh:cands,recent); if(!e) break; const before=chosen.length; add(e); if(chosen.length===before&&!fresh.length) break; }
 
   PICK_WFN=null;
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
@@ -1385,12 +1431,13 @@ function generate(focusKey,duration,mode){
     if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
     if(!cands.length) break;
     // try multiple candidates — don't give up on the first one that would overshoot
+    cands=cands.filter(e=>!simBlocked.has(e.id));
     let added=false, tried=new Set(), attempts=0;
     while(attempts++<cands.length){
       const left=cands.filter(c=>!tried.has(c.id)); if(!left.length) break;
       const pick=pickFrom(left,recent); if(!pick) break; tried.add(pick.id);
       const test=[...chosen,pick]; const w2=assemble(test);
-      if(estimateSessionSec(w2)<=target*1.08){ chosen.push(pick); wo=w2; added=true; break; }
+      if(estimateSessionSec(w2)<=target*1.08){ add(pick); if(chosen.includes(pick)){ wo=assemble(chosen); added=true; } break; }
     }
     if(!added) break;
   }
@@ -1420,6 +1467,8 @@ function normalizeGroupSets(w){
       while(work.length<target){ const last=work[work.length-1]||{w:"",reps:""}; work.push({w:last.w,reps:last.reps||"",done:false,band:last.band||null}); }
       while(work.length>target) work.pop();
       e.sets=work.concat(drop);
+      // keep the printed scheme honest — "3 × 12–15" must not sit above 4 sets
+      if(e.scheme){ const m=String(e.scheme).match(/^(\d+)(\s*×\s*.+)$/); if(m&&+m[1]!==target) e.scheme=target+m[2]; }
     });
   });
 }
@@ -1442,14 +1491,14 @@ function buildLoggable(e){
     return (nw>0&&Math.abs(nw-w)>=5)?nw:null; };
   for(let i=0;i<sc.sets;i++){ const src=psets?(psets[i]||psets[psets.length-1]):null;
     let w=src?src.w:"", rp=src?src.reps:"";
-    if(src&&metric==="reps"&&!src.band){ const nw=scaleW(src.w,src.reps); if(nw!=null){ if(!scaledFrom) scaledFrom={w:src.w,reps:src.reps}; w=String(nw); rp=""; } }
+    if(src&&metric==="reps"&&!src.band){ const nw=scaleW(src.w,src.reps); if(nw!=null){ if(!scaledFrom) scaledFrom={w:src.w,reps:src.reps}; w=String(nw); rp=lo?String(lo):""; } }
     sets.push({w,reps:rp,done:false,band:src?(src.band||null):null}); }
   if(dropPct){ const base=Math.max(0,...sets.map(s=>parseFloat(s.w)||0)); sets.push({w:base>0?round5(base*(1-dropPct)):"",reps:"",done:false,drop:true}); }
   const req=e.requires||[]; const bandKind=req.includes("resistancebands")?"power":req.includes("hipbands")?"hip":null;
   const prevBand=(prev&&prev.band)?prev.band:null;
   if(bandKind) sets.forEach(s=>{ if(s.band==null) s.band=prevBand||null; });
   return {id:e.id,name:e.name,role:e.role,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabel,metric,scaledFrom,
-    rest:fmt(restSec),restSec,cue:e.cue,tech:e._tech||null,dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:prev?(prev.rpe||null):null,sets,
+    rest:fmt(restSec),restSec,cue:e.cue,tech:e._tech||null,dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:null,sets,
     _prev:prev?prev.sets.filter(s=>!s.drop).map(s=>({w:s.w,reps:s.reps})):null};
 }
 function exStations(e){ const s=[...(e.stations||[])]; const r=e.requires||[]; if(r.includes("rack")&&r.includes("bench")) s.push("benchrack"); return s; }
@@ -2209,7 +2258,7 @@ function exportSessionTxt(w,ctx){
 }
 function exportSessionName(w,ctx){ const d=new Date(); const pad=n=>String(n).padStart(2,"0");
   const tag=ctx==="log"?"":(w.startedAt?"-inprogress":"-planned");
-  return "rack-and-roll-session-"+d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"-"+pad(d.getMinutes())+"-"+(w.focus||"session")+tag+".txt"; }
+  return "rack-and-roll-session-"+d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"-"+pad(d.getMinutes())+"-"+pad(d.getSeconds())+"-"+(w.focus||"session")+tag+".txt"; }
 function downloadSessionExport(w,ctx){ if(!w) return; const blob=new Blob([exportSessionTxt(w,ctx)],{type:"text/plain"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=exportSessionName(w,ctx); a.click(); URL.revokeObjectURL(url); }
 function buildPrint(w){
   const exMap={}; w.exercises.forEach(e=>exMap[e.id]=e); let g=""; let gi=0;

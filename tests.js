@@ -3,7 +3,7 @@
    Run: node tests.js   (from the folder containing index.html)
    Every build must pass this before upload. Add checks; never delete them. */
 const fs=require("fs");
-const html=fs.readFileSync(__dirname+"/index.html","utf8");
+const html=fs.readFileSync(__dirname+"/index.html","utf8"); global.__html=html;
 const m=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]).sort((a,b)=>b.length-a.length)[0];
 global.viewHTML="";
 function realCL(){const s=new Set();return{add:(...x)=>x.forEach(v=>s.add(v)),remove:(...x)=>x.forEach(v=>s.delete(v)),toggle:()=>{},contains:x=>s.has(x)};}
@@ -111,6 +111,45 @@ T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); de
   STATE.workouts=[{...w,id:"x"}]; STATE.tab="log"; render();
   T("export: button in Log", global.viewHTML.includes('data-action="exportlogtxt"'));
   STATE.workouts=[]; STATE.current=null; }
+// SIM_GROUPS must reference only real exercise ids (typos silently disable the guard)
+{ const srcIds=new Set(EXERCISES.map(e=>e.id));
+  const simSrc=global.__html.match(/const SIM_GROUPS=\[[\s\S]*?\];/)[0];
+  const refd=[...new Set(simSrc.match(/"[a-z0-9_]+"/g).map(x=>x.replace(/"/g,"")))];
+  const dead=refd.filter(id=>!srcIds.has(id));
+  T("SIM_GROUPS has no dead ids", dead.length===0, dead.join(",")); }
+// near-duplicate families never collide in one session
+{ const FAM=[["oh_ext","cable_oh_ext","skull","kickback_tri","pushdown"],["bb_bb_shrug","db_shrug","trap_shrug"],
+   ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl"],
+   ["farmer","suitcase","oh_carry","frontrack_carry"],["cable_crunch","reverse_crunch","standing_oblique","vup"],
+   ["bb_bench","bb_pause_bench","bb_incl","db_bench","db_incl","bb_pin_press"],
+   ["rev_lunge","walk_lunge","curtsy_lunge","lm_rev_lunge","step_up","ghr_rev_lunge","ghr_lat_lunge","ghr_curtsy","bss"]];
+  let coll=0,n=0,ex="";
+  for(const g of Object.keys(GOALS)){ STATE.settings.goal=g;
+    for(const f of ["push","pull","legs_quad","legs_post","core"]) for(const d of [45,60]){ const w=generate(f,d,"circuit"); n++;
+      const ids=w.exercises.map(e=>e.id);
+      FAM.forEach(mem=>{ const hit=ids.filter(x=>mem.includes(x)); if(hit.length>1){ coll++; if(!ex) ex=f+": "+hit.join("+"); } }); } }
+  STATE.settings.goal="general";
+  T("no same-family duplicates in "+n+" sessions", coll===0, coll+" — e.g. "+ex); }
+// pinned exercises appear AND respect the compound cap
+{ STATE.settings.pinned=["bb_bench"]; STATE.settings.goal="lean";
+  let has=0,over=0,n=0;
+  for(let i=0;i<40;i++){ const w=generate("push",45,"circuit"); n++;
+    if(w.exercises.some(e=>e.id==="bb_bench")) has++;
+    if(w.exercises.filter(e=>EXERCISES.find(y=>y.id===e.id).role==="compound").length>2) over++; }
+  T("pinned exercise reliably included", has/n>=0.9, (has/n*100).toFixed(0)+"%");
+  T("pinning never breaks the compound cap", over===0, over);
+  STATE.settings.pinned=[]; STATE.settings.goal="general"; }
+// no RPE inherited onto a fresh session; labels match sets; scaled sets carry reps
+{ let rpe=0,label=0,blank=0;
+  for(const g of Object.keys(GOALS)){ STATE.settings.goal=g;
+    for(const f of ["push","pull","legs_quad"]){ const w=generate(f,45,"circuit");
+      if(w.exercises.some(e=>e.rpe)) rpe++;
+      w.exercises.forEach(e=>{ const m=String(e.scheme).match(/^(\d+)\s*×/); if(m&&+m[1]!==e.sets.filter(s=>!s.drop).length) label++;
+        if(e.scaledFrom&&!e.sets[0].reps) blank++; }); } }
+  STATE.settings.goal="general";
+  T("no inherited RPE on fresh sessions", rpe===0, rpe);
+  T("scheme label matches set count", label===0, label);
+  T("scaled sets prefill reps", blank===0, blank); }
 // big regression
 STATE.workouts=[];
 const EXCL=new Set(["bench","barbell","rack","trapbar","landmine","cable_high","cable_low","dipstation","pullupbar","hangbar","ezbar","ghr","echobike","skierg","sled","battlerope"]);
