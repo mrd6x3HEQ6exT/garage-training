@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.06";
+const BUILD="2026.08.09";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -914,13 +914,17 @@ const GOALS={
     scheme:{compound:["8–10",120],accessory:["10–12",75],isolation:["12–15",60],core:["12–20",45]}},
   strong:{name:"Get stronger",blurb:"Heavy, low reps, long rest, straight sets.",straight:true,
     scheme:{compound:["3–5",180],accessory:["6–8",120],isolation:["8–10",75],core:["10–15",60]}},
-  lean:{name:"Get lean",blurb:"Moderate reps, short rest, circuits — keeps muscle while you lean out.",circuit:true,cond:{30:0,45:1,60:1},
+  lean:{name:"Get lean",blurb:"Moderate reps, short rest, circuits — keeps muscle while you lean out.",circuit:true,
     scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["12–15",45],core:["15–20",40]}},
-  weight:{name:"Reduce bodyweight",blurb:"Higher reps, short rest, circuits + a finisher — pairs with your morning cardio.",circuit:true,cond:{30:1,45:1,60:2},
+  weight:{name:"Reduce bodyweight",blurb:"Higher reps, short rest, circuits. Add cardio yourself, or run it as its own session.",circuit:true,
     scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["15–20",40],core:["15–25",35]}},
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
 function feat(k){ return !!(STATE.settings.feat&&STATE.settings.feat[k]); }
+function groupRestKey(g){ return "g_"+g.type+"_"+g.items.join("+"); }
+function groupRestSec(g,w){ const mem=g.items.map(id=>(w.exercises||[]).find(e=>e.id===id)).filter(Boolean);
+  const base=mem.length?Math.max(...mem.map(e=>e.restSec||60)):(g.type==="circuit"?120:90);
+  return restForKey(groupRestKey(g),base); }
 function reconcileMode(){ if(STATE.settings._modeSynced) return; const G=GOALS[STATE.settings.goal]; let m=null;
   if(G&&G.circuit&&STATE.settings.mode!=="circuit") m="circuit";
   else if(G&&G.straight&&STATE.settings.mode!=="strength") m="strength";
@@ -1351,7 +1355,7 @@ function generate(focusKey,duration,mode){
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
   if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)),recent)); } // guaranteed ab work
-  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)); if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound"); const e=pickFrom(cands,recent); if(!e) break; add(e); }
+  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)); if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound"); const e=pickFrom(cands,recent); if(!e) break; add(e); }
 
   PICK_WFN=null;
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
@@ -1376,14 +1380,19 @@ function generate(focusKey,duration,mode){
   // grow toward the target while candidates remain
   const target=duration*60;
   let wo=assemble(chosen); let grow=0;
-  while(estimateSessionSec(wo)<target*0.92&&chosen.length<14&&grow++<14){
+  while(estimateSessionSec(wo)<target*0.92&&chosen.length<14&&grow++<20){
     let cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e));
     if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
     if(!cands.length) break;
-    const pick=pickFrom(cands,recent); if(!pick) break;
-    const test=[...chosen,pick]; const w2=assemble(test);
-    if(estimateSessionSec(w2)>target*1.08) break;
-    chosen.push(pick); wo=w2;
+    // try multiple candidates — don't give up on the first one that would overshoot
+    let added=false, tried=new Set(), attempts=0;
+    while(attempts++<cands.length){
+      const left=cands.filter(c=>!tried.has(c.id)); if(!left.length) break;
+      const pick=pickFrom(left,recent); if(!pick) break; tried.add(pick.id);
+      const test=[...chosen,pick]; const w2=assemble(test);
+      if(estimateSessionSec(w2)<=target*1.08){ chosen.push(pick); wo=w2; added=true; break; }
+    }
+    if(!added) break;
   }
   fitToDuration(wo,duration);
   return wo;
@@ -1737,7 +1746,7 @@ function renderWorkout(w,editable){
     const multi=g.items.length>1;
     html+=`<div class="group${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}"><div class="group-h"><span class="gk${g.type==="superset"?" superset":g.type==="circuit"?" circuit":""}">${label}</span><span class="gr">${multi?String.fromCharCode(65+gi)+" · ":""}${restNote}</span>${editable&&multi?`<button class="chip sm ungroup-btn" data-action="ungroup" data-gi="${gi}">Ungroup</button>`:""}${editable&&feat("reorder")&&w.groups.length>1?`<button class="chip sm gmove" data-action="gmove" data-gi="${gi}" data-dir="-1">▲</button><button class="chip sm gmove" data-action="gmove" data-gi="${gi}" data-dir="1">▼</button>`:""}</div>`;
     g.items.forEach(id=>{ const idx=idxById[id]; if(idx!=null) html+=renderExercise(w.exercises[idx],idx,editable,w,multi); });
-    if(editable&&multi){ const gkey="g_"+g.type; const gsec=(STATE.settings.restOverrides||{})[gkey]||(g.type==="circuit"?120:90);
+    if(editable&&multi){ const gkey=groupRestKey(g); const gsec=groupRestSec(g,w);
       html+=`<div class="ex" style="padding:10px 12px"><button class="rounddone" data-action="grest" data-gi="${gi}" data-sec="${gsec}" data-key="${gkey}" data-name="Rest after round"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>ALL DONE — REST ${fmt(gsec)}</button></div>`; }
     html+=`</div>`;
   });
@@ -2208,7 +2217,7 @@ view.addEventListener("click",e=>{
         if(ex.sets.filter(x=>!x.drop).every(x=>x.done)){ const nx=nextExerciseId(ex.id); if(nx) cueNextSet(nx); else cueFinish(); } }
       else { const pos=grp.items.indexOf(ex.id);
         if(pos<grp.items.length-1){ cueNextSet(grp.items[pos+1]); }
-        else { const gd=goalDef(); const base=(gd.scheme&&gd.scheme.accessory)?gd.scheme.accessory[1]:(grp.type==="circuit"?120:90); const gkey2="g_"+grp.type+"_"+grp.items.join("+"); startRest(restForKey(gkey2,base),"Rest after round",gkey2); cueNextSet(grp.items[0]); }
+        else { const gkey2=groupRestKey(grp); startRest(groupRestSec(grp,STATE.current),"Rest after round",gkey2); cueNextSet(grp.items[0]); }
       }
     } return; }
   if(a==="more"){ const id=act.dataset.id; if(UI.moreOpen.has(id)) UI.moreOpen.delete(id); else UI.moreOpen.add(id); renderToday(); return; }

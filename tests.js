@@ -80,6 +80,23 @@ T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); de
   T("print: group letters sequential", circ.every((c,i)=>c===String.fromCharCode(65+i)), circ.join(","));
   T("print: no unlabeled tables", !p.includes('<div class="p-g"><table'));
   T("print: footer has totals+estimate", /working sets · about \d+ min/.test(p)); }
+// zero off-focus exercises, ever — the "why squats on push day" class of bug
+{ let bad=0,tot=0,ex="";
+  for(const g of Object.keys(GOALS)){ STATE.settings.goal=g;
+    for(const f of ["push","pull","legs_quad","legs_post","core"]){ const fmus=FOCI[f].muscles;
+      for(let i=0;i<12;i++){ const w=generate(f,45,"circuit"); w.exercises.forEach(e=>{ tot++; const x=EXERCISES.find(y=>y.id===e.id);
+        const hits=x.role==="core"?((x.primary||[]).includes("core")||(x.secondary||[]).includes("core")):((x.primary||[]).some(m=>fmus.includes(m))||(x.secondary||[]).some(m=>fmus.includes(m)));
+        if(!hits){ bad++; if(!ex) ex=f+": "+x.name; } }); } } }
+  STATE.settings.goal="general";
+  T("zero off-focus picks across "+tot+" exercises", bad===0, bad+" — e.g. "+ex); }
+// round-rest respects a compound member's own prescribed rest, and display matches firing
+{ let mism=0,tot=0;
+  for(const g of ["general","muscle","strong","lean","weight"]){ STATE.settings.goal=g;
+    for(let i=0;i<12;i++){ const w=generate("push",45,"circuit");
+      w.groups.filter(gr=>gr.items.length>1).forEach(gr=>{ tot++; const mem=gr.items.map(id=>w.exercises.find(e=>e.id===id)).filter(Boolean);
+        const want=Math.max(...mem.map(e=>e.restSec||60)); if(groupRestSec(gr,w)!==want) mism++; }); } }
+  STATE.settings.goal="general";
+  T("round-rest = max member rest across "+tot+" groups", mism===0, mism); }
 // big regression
 STATE.workouts=[];
 const EXCL=new Set(["bench","barbell","rack","trapbar","landmine","cable_high","cable_low","dipstation","pullupbar","hangbar","ezbar","ghr","echobike","skierg","sled","battlerope"]);
