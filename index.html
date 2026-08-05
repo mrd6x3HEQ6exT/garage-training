@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.09";
+const BUILD="2026.08.10";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1756,7 +1756,7 @@ function renderWorkout(w,editable){
     if(UI.addExOpen) html+=renderAddExercise(w);
     if(UI.cardioB&&UI.cardioB.open) html+=renderCardioBuilder();
     html+=`<textarea class="in" data-field="note" placeholder="Session notes (sleep, energy, tweaks)…" style="width:100%;min-height:54px;margin-top:6px;padding:9px;font-size:13px">${esc(w.note||"")}</textarea>
-      <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" id="finishBtn" style="flex:1" data-action="finish">Finish &amp; log</button>${feat("budget")?`<button class="btn" data-action="budget" title="Fit the rest to your time">⏱</button>`:""}<button class="btn" data-action="savetpl" title="Save as reusable workout">★ Save</button><button class="btn" data-action="print">Print</button><button class="btn ghost sm" data-action="discard">Clear</button></div>`;
+      <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" id="finishBtn" style="flex:1" data-action="finish">Finish &amp; log</button>${feat("budget")?`<button class="btn" data-action="budget" title="Fit the rest to your time">⏱</button>`:""}<button class="btn" data-action="savetpl" title="Save as reusable workout">★ Save</button><button class="btn" data-action="print">Print</button><button class="btn" data-action="exporttxt">📄 Export .txt</button><button class="btn ghost sm" data-action="discard">Clear</button></div>`;
   }
   return html+`</div>`;
 }
@@ -1915,7 +1915,7 @@ function renderLog(){
         <div class="dt">${new Date(w.date).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${new Date(w.date).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}</div>
         <div class="ti">${esc(w.focusName)}${w.prs&&w.prs.length?` <span class="pr-badge">🏆 ${w.prs.length} PR${w.prs.length>1?"s":""}</span>`:""}</div>
         <div class="meta">${w.duration} min${w.actualSec?" · "+fmt(w.actualSec)+" actual":""} · ${w.cardio?(w.focus==="hiit"?"HIIT":"Cardio"):(w.mode==="circuit"?"Circuit":"Strength")}${vol?" · "+Math.round(vol).toLocaleString()+" lb volume":""}${w.hrAvg?" · ♥ "+w.hrAvg+"/"+w.hrMax+" bpm":""}</div></div>
-        <div class="row" style="gap:6px"><button class="btn ghost sm" data-action="expand" data-i="${i}">View</button><button class="btn sm" data-action="printlog" data-i="${i}">Print</button></div></div>
+        <div class="row" style="gap:6px"><button class="btn ghost sm" data-action="expand" data-i="${i}">View</button><button class="btn sm" data-action="printlog" data-i="${i}">Print</button><button class="btn sm" data-action="exportlogtxt" data-i="${i}">📄 .txt</button></div></div>
       <div class="exp" id="exp${i}">${w.hrAvg?`<div class="er"><span>♥ Heart rate</span><span class="mono" style="color:#E06A5C">${w.hrAvg} avg · ${w.hrMax} max bpm</span></div>`:""}${w.exercises.map(e=>{ const done=(e.sets||[]).filter(s=>s.done); const sum=done.length?done.map(s=>`${s.w||"—"}×${s.reps||"—"}`).join("  "):"not completed"; const bd=e.band&&e.bandKind?bandById(e.bandKind,e.band):null; return `<div class="er"><span>${esc(e.name)}${e.rpe?` <span class="hint">RPE ${e.rpe}</span>`:""}${bd?` <span class="hint" style="color:${bd.css==="#20242b"?"var(--muted)":bd.css}">● ${bd.name} band</span>`:""}</span><span class="mono">${esc(sum)}</span></div>`; }).join("")}${(w.conditioning||[]).filter(c=>(c.sets&&c.sets.some(s=>s.done))||c.done).map(c=>{ const ds=(c.sets||[]).filter(s=>s.done); const sum=ds.length?ds.map(s=>{ const parts=[]; if(s.w) parts.push(s.w+"lb"); if(s.vals&&c.fields) c.fields.forEach(f=>{ if(s.vals[f.k]) parts.push(s.vals[f.k]); }); else if(s.result) parts.push(s.result); return parts.join(" ")||"done"; }).join("  "):"done"; return `<div class="er"><span>${esc(c.name)}</span><span class="mono">${esc(sum)}</span></div>`; }).join("")}${w.note?`<div style="margin-top:7px;font-style:italic">“${esc(w.note)}”</div>`:""}</div></div>`;
   });
   view.innerHTML=html+`</div>`;
@@ -2127,6 +2127,90 @@ function renderSettings(){
 }
 
 /* ---------------- Print ---------------- */
+function exportSessionTxt(w,ctx){
+  const exOf=id=>w.exercises.find(e=>e.id===id);
+  const now=new Date(); const p=n=>String(n).padStart(2,"0");
+  const status=ctx==="log"?"finished":(w.startedAt?"in-progress":"planned");
+  const started=!!w.startedAt;
+  let t="=== RACK & ROLL SESSION EXPORT ===\n";
+  t+="build: "+BUILD+" | exported: "+now.toISOString()+" | status: "+status+"\n\n";
+  t+="SESSION\n";
+  t+="  focus: "+(w.focus||"")+" | goal: "+(STATE.settings.goal||"general")+" | mode: "+(w.mode||STATE.settings.mode||"")+" | duration: "+(w.duration||"")+" (target)\n";
+  const est=w.estSec||estimateSessionSec(w);
+  t+="  estimated: "+Math.round(est/60)+" min"+(started?" | started: "+p(new Date(w.startedAt).getHours())+":"+p(new Date(w.startedAt).getMinutes()):"")+" | date: "+now.toISOString().slice(0,10)+"\n\n";
+
+  let gi=0;
+  (w.groups||[]).forEach(g=>{
+    const mem=(g.items||[]).map(exOf).filter(Boolean); if(!mem.length) return;
+    const grouped=mem.length>1;
+    const label=grouped?((g.type==="superset"?"SUPERSET ":"CIRCUIT ")+String.fromCharCode(65+(gi++))):"STRAIGHT SET";
+    const rest=grouped?groupRestSec(g,w):null;
+    t+=label+(rest!=null?" — rest "+fmt(rest)+"/round":"")+"\n";
+    mem.forEach((e,mi)=>{
+      const x=EXERCISES.find(y=>y.id===e.id)||{};
+      t+="  ["+(mi+1)+"] "+e.id+' "'+e.name+'"'+(e.unilateral?" (per side)":"")+"\n";
+      t+="      pattern: "+(x.pattern||"?")+" | role: "+(e.role||x.role||"?")+" | muscles: "+(e.muscles||[]).join(",")+"\n";
+      t+="      stations: "+(x.requires||[]).join(",")+" | scheme: "+(e.scheme||"?")+" | rest: "+fmt(e.restSec||0)+(e.scaledFrom?" | scaledFrom: "+e.scaledFrom.w+"×"+e.scaledFrom.reps:"")+"\n";
+      const sets=(e.sets||[]).filter(s=>!s.drop);
+      if(sets.length){
+        const parts=sets.map((s,si)=>{ const val=(s.w?s.w+"\u00d7":"")+(s.reps||"");
+          if(s.done){ const rtxt=s._restTook?", rested "+fmt(s._restTook):""; return "["+(si+1)+"] "+(val||"?")+" (done"+rtxt+")"; }
+          if(val) return "["+(si+1)+"] "+val+" (planned)";
+          return "["+(si+1)+"] (not logged)"; });
+        t+="      sets: "+parts.join("  ")+"\n";
+      }
+      if(e.dropPct) t+="      drop set: strip ~"+Math.round(e.dropPct*100)+"%\n";
+    });
+    t+="\n";
+  });
+
+  if((w.conditioning||[]).length){
+    t+="CONDITIONING\n";
+    w.conditioning.forEach((c,i)=>{
+      t+="  ["+(i+1)+"] "+(c.id||"")+' "'+c.name+'"'+(c.base?" base:"+c.base:"")+(c.custom?" custom:true":"")+"\n";
+      t+='      proto: "'+(c.proto||"")+'" | fields: '+(c.fields||[]).map(f=>f.k).join(",")+"\n";
+      const done=(c.sets||[]).filter(s=>s.done).length;
+      t+="      sets: "+done+"/"+(c.sets||[]).length+" done";
+      (c.sets||[]).forEach((s,si)=>{ if(s.done&&s.vals) t+=" — "+Object.entries(s.vals).filter(([k,v])=>v).map(([k,v])=>k+":"+v).join(" "); });
+      t+="\n";
+    });
+    t+="\n";
+  }
+
+  if((w.swaps||[]).length){
+    t+="SWAPS (committed)\n";
+    w.swaps.forEach((s,i)=>{ const d=new Date(s.t);
+      t+="  ["+(i+1)+"] "+s.from+' "'+s.fromName+'" \u2192 '+s.to+' "'+s.toName+'" ('+s.reason+", "+p(d.getHours())+":"+p(d.getMinutes())+")\n"; });
+    t+="\n";
+  }
+  if(w.swapOptions&&Object.keys(w.swapOptions).length){
+    t+="SWAP OPTIONS SHOWN\n";
+    Object.values(w.swapOptions).forEach(rec=>{ const d=new Date(rec.t);
+      t+="  For: "+rec.forId+' "'+rec.forName+'" (opened '+p(d.getHours())+":"+p(d.getMinutes())+")\n";
+      t+="    candidates offered ("+rec.cands.length+"):\n";
+      rec.cands.forEach((c,i)=>{ t+="      "+(i+1)+". "+c.id+' "'+c.name+'" \u2014 '+c.pattern+", "+c.muscles+", stations: "+c.stations+"\n"; });
+      t+="    picked: "+(rec.picked?rec.picked:"(none — panel closed without swapping)")+"\n";
+    });
+    t+="\n";
+  }
+
+  const totSets=w.exercises.reduce((a,e)=>a+(e.sets||[]).filter(s=>!s.drop).length,0);
+  const doneSets=w.exercises.reduce((a,e)=>a+(e.sets||[]).filter(s=>s.done).length,0);
+  const vol=w.exercises.reduce((a,e)=>a+(e.sets||[]).filter(s=>s.done).reduce((y,s)=>y+(parseFloat(s.w)||0)*(parseFloat(s.reps)||0),0),0);
+  t+="TOTALS\n";
+  t+="  exercises: "+w.exercises.length+" | working sets: "+totSets+" planned, "+doneSets+" logged\n";
+  t+="  volume so far: "+Math.round(vol).toLocaleString()+" lb"+(w.exercises.some(e=>e.rpe)?" | RPE: "+w.exercises.filter(e=>e.rpe).map(e=>e.rpe).join(","):" | RPE: (not yet rated)")+"\n";
+  t+="  HR: "+(HR.connected?"connected, ":"")+(w.hrAvg?"avg "+w.hrAvg+" max "+w.hrMax+" bpm":(HR.bpm?"live "+HR.bpm:"not recorded"))+"\n\n";
+
+  t+="SETTINGS CONTEXT\n";
+  t+="  hrZones: "+zTxt(2)+" \u00b7 "+zTxt(4)+" (max "+(STATE.settings.hrMax||144)+"/rest "+(STATE.settings.hrRest||43)+")\n";
+  t+="  blocked: "+(STATE.settings.blocked||[]).length+" exercises | pinned: "+(STATE.settings.pinned||[]).join(", ")+"\n";
+  return t;
+}
+function exportSessionName(w,ctx){ const d=new Date(); const pad=n=>String(n).padStart(2,"0");
+  const tag=ctx==="log"?"":(w.startedAt?"-inprogress":"-planned");
+  return "rack-and-roll-session-"+d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"-"+pad(d.getMinutes())+"-"+(w.focus||"session")+tag+".txt"; }
+function downloadSessionExport(w,ctx){ if(!w) return; const blob=new Blob([exportSessionTxt(w,ctx)],{type:"text/plain"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=exportSessionName(w,ctx); a.click(); URL.revokeObjectURL(url); }
 function buildPrint(w){
   const exMap={}; w.exercises.forEach(e=>exMap[e.id]=e); let g=""; let gi=0;
   w.groups.forEach(grp=>{ const mem=grp.items.map(id=>exMap[id]).filter(Boolean); if(!mem.length) return;
@@ -2211,8 +2295,13 @@ view.addEventListener("click",e=>{
   const act=e.target.closest("[data-action]"); if(!act) return; const a=act.dataset.action;
 
   if(a==="generate"){ const focus=STATE.settings._focus||recommendFocus(); UI.openSwap.clear(); UI.openPlates.clear(); STATE.current=generate(focus,STATE.settings.duration,STATE.settings.mode); pCur(); render(); toast("Workout built"); return; }
-  if(a==="toggleset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex; const ex=STATE.current.exercises[exi]; const s=ex.sets[+row.dataset.set]; s.done=!s.done; act.classList.toggle("done",s.done); pCur();
-    if(s.done){ const grp=STATE.current.groups.find(g=>g.items.includes(ex.id));
+  if(a==="toggleset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex; const ex=STATE.current.exercises[exi]; const s=ex.sets[+row.dataset.set]; s.done=!s.done; act.classList.toggle("done",s.done);
+    // stamp actual rest taken onto whichever set most recently triggered a rest timer
+    if(RT._sinceSet&&RT._sinceSet.startedAt){ const prevEx=STATE.current.exercises.find(e=>e.id===RT._sinceSet.exId); const prevSet=prevEx&&prevEx.sets[RT._sinceSet.setIdx];
+      if(prevSet) prevSet._restTook=Math.round((Date.now()-RT._sinceSet.startedAt)/1000); RT._sinceSet=null; }
+    pCur();
+    if(s.done){ RT._sinceSet={exId:ex.id,setIdx:+row.dataset.set,startedAt:Date.now()};
+      const grp=STATE.current.groups.find(g=>g.items.includes(ex.id));
       if(!grp||grp.items.length<=1){ startRest(restFor(ex),ex.name,ex.id);
         if(ex.sets.filter(x=>!x.drop).every(x=>x.done)){ const nx=nextExerciseId(ex.id); if(nx) cueNextSet(nx); else cueFinish(); } }
       else { const pos=grp.items.indexOf(ex.id);
@@ -2278,7 +2367,13 @@ view.addEventListener("click",e=>{
   if(a==="howto"){ openHowto(act.dataset.id,act.dataset.name); return; }
   if(a==="pin"){ const id=act.dataset.id; const arr=STATE.settings.pinned; const i=arr.indexOf(id); if(i>=0) arr.splice(i,1); else arr.push(id); pSet(); (STATE.tab==="set"?renderSettings:renderToday)(); toast(i>=0?"Unpinned":"Pinned"); return; }
   if(a==="libban"){ const id=act.dataset.id; if(!STATE.settings.blocked.includes(id)) STATE.settings.blocked.push(id); STATE.settings.pinned=STATE.settings.pinned.filter(x=>x!==id); pSet(); renderSettings(); toast("Banned"); return; }
-  if(a==="swap"){ const id=STATE.current.exercises[+act.dataset.ex].id; if(UI.openSwap.has(id)) UI.openSwap.delete(id); else UI.openSwap.add(id); renderToday(); return; }
+  if(a==="swap"){ const id=STATE.current.exercises[+act.dataset.ex].id; const opening=!UI.openSwap.has(id);
+    if(opening) UI.openSwap.add(id); else UI.openSwap.delete(id);
+    if(opening){ const ex=STATE.current.exercises.find(e=>e.id===id); const cands=swapCandidates({id},STATE.current).slice(0,10);
+      if(!STATE.current.swapOptions) STATE.current.swapOptions={};
+      STATE.current.swapOptions[id]={forId:id,forName:ex?ex.name:id,t:Date.now(),picked:null,
+        cands:cands.map(c=>({id:c.ex.id,name:c.ex.name,pattern:c.ex.pattern,muscles:(c.ex.primary||[]).concat(c.ex.secondary||[]).join(","),stations:(c.ex.requires||[]).join(",")}))}; }
+    renderToday(); return; }
   if(a==="plates"){ const id=STATE.current.exercises[+act.dataset.ex].id; if(UI.openPlates.has(id)) UI.openPlates.delete(id); else UI.openPlates.add(id); renderToday(); return; }
   if(a==="warmup"){ const id=STATE.current.exercises[+act.dataset.ex].id; if(UI.openWarmup.has(id)) UI.openWarmup.delete(id); else UI.openWarmup.add(id); renderToday(); return; }
   if(a==="feat"){ const k=act.dataset.k; STATE.settings.feat[k]=!feat(k); pSet(); renderSettings(); return; }
@@ -2317,7 +2412,11 @@ view.addEventListener("click",e=>{
       t.undone--; }
     normalizeGroupSets(STATE.current); pCur(); renderToday(); toast(cut?("Trimmed "+cut+" sets to fit ~"+mins+" min"):"Already fits — go"); return; }
   if(a==="dospwap"){ const idx=+act.dataset.ex; const ne=exById(act.dataset.id); const old=STATE.current.exercises[idx]; UI.openSwap.delete(old.id);
-    STATE.current.groups.forEach(g=>{ const gi=g.items.indexOf(old.id); if(gi>=0) g.items[gi]=ne.id; }); const nl=buildLoggable(ne); const ow=old.sets.filter(s=>!s.drop); nl.sets.forEach((s,i)=>{ const o=ow[i]||ow[ow.length-1]; if(o&&(s.reps===""||s.reps==null)) s.reps=o.reps; }); STATE.current.exercises[idx]=nl; normalizeGroupSets(STATE.current); pCur(); renderToday(); toast("Swapped"); return; }
+    STATE.current.groups.forEach(g=>{ const gi=g.items.indexOf(old.id); if(gi>=0) g.items[gi]=ne.id; }); const nl=buildLoggable(ne); const ow=old.sets.filter(s=>!s.drop); nl.sets.forEach((s,i)=>{ const o=ow[i]||ow[ow.length-1]; if(o&&(s.reps===""||s.reps==null)) s.reps=o.reps; });
+    if(!STATE.current.swaps) STATE.current.swaps=[];
+    STATE.current.swaps.push({from:old.id,fromName:old.name,to:ne.id,toName:ne.name,t:Date.now(),reason:"manual"});
+    if(STATE.current.swapOptions&&STATE.current.swapOptions[old.id]) STATE.current.swapOptions[old.id].picked=ne.id+' "'+ne.name+'"';
+    STATE.current.exercises[idx]=nl; normalizeGroupSets(STATE.current); pCur(); renderToday(); toast("Swapped — logged for export"); return; }
   if(a==="ban"){ const id=act.dataset.id; if(!STATE.settings.blocked.includes(id)) STATE.settings.blocked.push(id); pSet();
     UI.openSwap.add(id); renderToday(); toast("Banned — pick a replacement below"); return; }
   if(a==="finish"){ if(!STATE.current) return; const any=STATE.current.exercises.some(e=>e.sets.some(s=>s.done))||(STATE.current.conditioning||[]).some(c=>(c.sets&&c.sets.some(s=>s.done))||c.done); if(!any){ toast("Mark a set or a conditioning drill done first"); return; }
@@ -2329,7 +2428,9 @@ view.addEventListener("click",e=>{
     return; }
   if(a==="discard"){ STATE.current=null; STATE.settings._focus=null; HR.readings=[]; HR._lastP=0; pCur(); pSet(); stopWoTimer(); releaseWake(); renderToday(); return; }
   if(a==="print"){ doPrint(STATE.current); return; }
+  if(a==="exporttxt"){ downloadSessionExport(STATE.current,"current"); toast("Session exported"); return; }
   if(a==="printlog"){ doPrint(STATE.workouts.filter(w=>!w.ref)[+act.dataset.i]); return; }
+  if(a==="exportlogtxt"){ downloadSessionExport(STATE.workouts.filter(w=>!w.ref)[+act.dataset.i],"log"); toast("Session exported"); return; }
   if(a==="expand"){ document.getElementById("exp"+act.dataset.i).classList.toggle("open"); return; }
   if(a==="togglegear"){ const eq=STATE.equipment.find(x=>x.id===act.dataset.id); eq.on=!eq.on; pEq(); renderGear(); return; }
   if(a==="delgear"){ STATE.equipment=STATE.equipment.filter(x=>x.id!==act.dataset.id); pEq(); renderGear(); return; }

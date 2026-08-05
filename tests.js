@@ -5,9 +5,9 @@
 const fs=require("fs");
 const html=fs.readFileSync(__dirname+"/index.html","utf8");
 const m=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]).sort((a,b)=>b.length-a.length)[0];
-let viewHTML="";
+global.viewHTML="";
 function realCL(){const s=new Set();return{add:(...x)=>x.forEach(v=>s.add(v)),remove:(...x)=>x.forEach(v=>s.delete(v)),toggle:()=>{},contains:x=>s.has(x)};}
-function mkEl(){return new Proxy(function(){},{apply:()=>mkEl(),get:(t,p)=>{if(p==='innerHTML')return viewHTML;if(p==='value')return '';if(p==='classList')return realCL();if(p==='dataset')return{};if(p==='style')return{};if(p==='querySelector')return()=>mkEl();return(typeof p==='symbol')?undefined:mkEl();},set:(t,p,v)=>{if(p==='innerHTML'){viewHTML=v;}return true;}});}
+function mkEl(){return new Proxy(function(){},{apply:()=>mkEl(),get:(t,p)=>{if(p==='innerHTML')return global.viewHTML;if(p==='value')return '';if(p==='classList')return realCL();if(p==='dataset')return{};if(p==='style')return{};if(p==='querySelector')return()=>mkEl();return(typeof p==='symbol')?undefined:mkEl();},set:(t,p,v)=>{if(p==='innerHTML'){global.viewHTML=v;}return true;}});}
 const rt={classList:realCL(),addEventListener:()=>{}};const brQ={textContent:""};const br={classList:realCL(),addEventListener:()=>{},querySelector:()=>brQ};
 const store={};const LS={getItem:k=>k in store?store[k]:null,setItem:(k,v)=>{store[k]=String(v);},removeItem:k=>{delete store[k];},clear:()=>{for(const k in store)delete store[k];}};
 global.document={getElementById:id=>id==='rtimer'?rt:id==='bigrest'?br:mkEl(),querySelector:()=>mkEl(),querySelectorAll:()=>({forEach:()=>{}}),createElement:()=>mkEl(),addEventListener:()=>{},body:{appendChild:()=>{}},visibilityState:'visible'};
@@ -97,6 +97,20 @@ T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); de
         const want=Math.max(...mem.map(e=>e.restSec||60)); if(groupRestSec(gr,w)!==want) mism++; }); } }
   STATE.settings.goal="general";
   T("round-rest = max member rest across "+tot+" groups", mism===0, mism); }
+// session .txt export: structure, status context, buttons
+{ STATE.workouts=[]; const w=generate("push",45,"circuit");
+  const tPlanned=exportSessionTxt(w,"current");
+  T("export: planned status", tPlanned.includes("status: planned"));
+  T("export: has exercise IDs+patterns+stations", tPlanned.includes("pattern:")&&tPlanned.includes("stations:"));
+  T("export: has TOTALS+SETTINGS CONTEXT", tPlanned.includes("TOTALS")&&tPlanned.includes("SETTINGS CONTEXT"));
+  w.startedAt=Date.now(); w.exercises[0].sets[0].done=true;
+  T("export: in-progress even with a done set", exportSessionTxt(w,"current").includes("status: in-progress"));
+  T("export: log context always finished", exportSessionTxt(w,"log").includes("status: finished"));
+  STATE.tab="today"; STATE.current=w; renderToday();
+  T("export: button on Today", global.viewHTML.includes('data-action="exporttxt"'));
+  STATE.workouts=[{...w,id:"x"}]; STATE.tab="log"; render();
+  T("export: button in Log", global.viewHTML.includes('data-action="exportlogtxt"'));
+  STATE.workouts=[]; STATE.current=null; }
 // big regression
 STATE.workouts=[];
 const EXCL=new Set(["bench","barbell","rack","trapbar","landmine","cable_high","cable_low","dipstation","pullupbar","hangbar","ezbar","ghr","echobike","skierg","sled","battlerope"]);
