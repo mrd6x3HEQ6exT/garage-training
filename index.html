@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.03";
+const BUILD="2026.08.05";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -921,6 +921,11 @@ const GOALS={
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
 function feat(k){ return !!(STATE.settings.feat&&STATE.settings.feat[k]); }
+function reconcileMode(){ if(STATE.settings._modeSynced) return; const G=GOALS[STATE.settings.goal]; let m=null;
+  if(G&&G.circuit&&STATE.settings.mode!=="circuit") m="circuit";
+  else if(G&&G.straight&&STATE.settings.mode!=="strength") m="strength";
+  if(m){ STATE.settings.mode=m; setTimeout(()=>toast("Style set to "+(m==="circuit"?"Circuits":"Straight sets")+" to match your goal"),1200); }
+  STATE.settings._modeSynced=1; pSet(); }
 function hrMax(){ return +(STATE.settings.hrMax||144); }
 function hrRest(){ return +(STATE.settings.hrRest||43); }
 function hrZone(z){ const mx=hrMax(), rs=hrRest(), r=mx-rs; const B={1:[.50,.60],2:[.60,.70],3:[.70,.80],4:[.80,.90],5:[.90,1]}[z]||[.60,.70];
@@ -1000,6 +1005,7 @@ async function boot(){
   if(STATE.settings.sledLane==null) STATE.settings.sledLane=60;
   if(STATE.settings.autoBackup==null) STATE.settings.autoBackup="off";
   if(!STATE.settings.rdOverride) STATE.settings.rdOverride={};
+  { const ro=STATE.settings.restOverrides||{}; const gk=Object.keys(ro).filter(k=>k.startsWith("g_")); if(gk.length>40){ gk.slice(0,gk.length-40).forEach(k=>delete ro[k]); pSet(); } }
   if(STATE.settings.hrMax==null) STATE.settings.hrMax=144;
   if(STATE.settings.hrRest==null) STATE.settings.hrRest=43;
   // planner: migrate single-focus days to {am,pm}
@@ -1032,6 +1038,7 @@ async function boot(){
   }
   if(cur) STATE.current=cur;
   const tab=await loadKey("gym_tab"); if(tab&&["today","log","prog","gear","set"].includes(tab)) STATE.tab=tab;
+  reconcileMode();
   render();
 }
 
@@ -1249,7 +1256,7 @@ function bestEst1RM(exId,exclId){ let best=0; for(const w of STATE.workouts){ if
 function detectPRs(wo){ const prs=[]; wo.exercises.forEach(e=>{ const done=e.sets.filter(s=>s.done&&!s.drop&&parseFloat(s.w)>0&&parseFloat(s.reps)>0); if(!done.length) return; const prevBest=bestEst1RM(e.id,wo.id); if(prevBest<=0) return; let topSet=null,topE=0; done.forEach(s=>{ const v=est1RM(parseFloat(s.w),parseFloat(s.reps)); if(v>topE){topE=v;topSet=s;} }); if(topE>prevBest*1.005) prs.push({name:e.name,w:topSet.w,reps:topSet.reps}); }); return prs; }
 function weeklyVolume(days){ const since=Date.now()-days*86400000; const vol={}; for(const w of STATE.workouts){ if(w.ref||w.date<since) continue; w.exercises.forEach(e=>{ const base=exById(e.id); if(!base) return; const n=e.sets.filter(s=>s.done&&!s.drop).length; if(!n) return; (base.primary||[]).forEach(m=>vol[m]=(vol[m]||0)+n); (base.secondary||[]).forEach(m=>vol[m]=(vol[m]||0)+n*0.5); }); } return vol; }
 function muscleLastTrained(){ const last={}; for(const w of STATE.workouts){ for(const ex of (w.exercises||[])){ if(!(ex.sets&&ex.sets.some(s=>s.done))) continue; for(const m of (ex.muscles||[])){ if(last[m]==null) last[m]=w.date; } } } return last; }
-function workoutMuscleLoad(w){ const load={}; const add=(m,v)=>{ if(MUSCLE_LABEL[m]) load[m]=(load[m]||0)+v; };
+function workoutMuscleLoad(w){ const load={}; let add=(m,v)=>{ if(MUSCLE_LABEL[m]) load[m]=(load[m]||0)+v; };
   (w.exercises||[]).forEach(e=>{ const b=exById(e.id)||e; (b.primary||[]).forEach(m=>add(m,1)); (b.secondary||[]).forEach(m=>add(m,0.5)); });
   (w.conditioning||[]).forEach(c=>{ const b=exById(c.id)||c; (b.muscles||[]).forEach(m=>add(m,0.5)); });
   return load; }
@@ -1313,12 +1320,17 @@ function generate(focusKey,duration,mode){
     if(condMin) n=Math.round((budget-condMin)/(eff*setsPerEx));
     return Math.max(3,Math.min(12,n)); })();
   const isCore=focusKey==="core";
-  const chosen=[]; const add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
+  const chosen=[]; let add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
   const rmap=readiness();
   const barbellBias=e=>{ const r=e.requires||[]; if(r.includes("barbell")||r.includes("trapbar")) return 1.2; if(r.includes("rack")) return 1.1; return 1; };
   const recentPats=recentPatterns(2);
   const patVariety=e=>{ const n=recentPats[e.pattern]||0; return n>=2?0.35:n===1?0.7:1; };
   const compCap=duration>=45?2:1;
+  pool.forEach(e=>{ delete e._dropPct; delete e._tech; });
+  const SIM_GROUPS=[["curtsy","ghr_curtsy"],["goblet","heel_squat"],["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press"],["bb_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","box_squat"],["trap_dl","bb_deficit_dl","bb_block_dl","bb_paused_dl"],["bb_ohp","bb_pin_ohp","bb_seated_ohp"],["ghr_curl","ghr_curl_cable","ghr_curl_band"],["lunge_rev","ghr_rev_lunge"],["lat_lunge","ghr_lat_lunge"]];
+  const simOf=id=>{ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; };
+  const simBlocked=new Set();
+  const _add0=add; add=(e)=>{ if(!e) return; if(simBlocked.has(e.id)) return; _add0(e); simOf(e.id).forEach(x=>simBlocked.add(x)); };
   const compCount=()=>chosen.filter(x=>x.role==="compound").length;
   const patCount=p=>chosen.filter(x=>x.pattern===p).length;
   const patLimit=sCount>=8?3:2;
@@ -1349,7 +1361,7 @@ function generate(focusKey,duration,mode){
       for(let i=0;i<want&&cp.length;i++){ const pick=cp.splice(Math.floor(Math.random()*cp.length),1)[0]; conds.push(pick); } } }
 
   if(STATE.settings.experience!=="beginner"){
-    const iso=chosen.filter(e=>e.role==="isolation"); if(iso.length){ iso[iso.length-1]._tech="Drop set on the final set — strip ~30% and go to failure."; iso[iso.length-1]._dropPct=0.30; }
+    if(!goalDef().straight){ const iso=chosen.filter(e=>e.role==="isolation"); if(iso.length){ iso[iso.length-1]._tech="Drop set on the final set — strip ~30% and go to failure."; iso[iso.length-1]._dropPct=0.30; } }
     const acc=chosen.filter(e=>e.role==="accessory"); if(acc.length&&Math.random()<.6) acc[0]._tech="Tempo: 3s down, 1s pause, drive up.";
   }
   let gmode=mode; const g=goalDef();
@@ -1389,21 +1401,32 @@ function normalizeGroupSets(w){
     });
   });
 }
+const STRONG_HIGHREP=new Set(["face_pull","rear_fly","band_pull_apart"]);
 function buildLoggable(e){
-  const sc=schemeFor(e.role); const prev=lastSession(e.id);
+  let sc=schemeFor(e.role); const prev=lastSession(e.id);
+  if(goalDef().straight&&STRONG_HIGHREP.has(e.id)) sc={...sc,reps:"10–15",restSec:60};
   const ov=(STATE.settings.restOverrides||{})[e.id];
   const restSec=ov!=null?ov:sc.restSec;
   const dropPct=e._dropPct||null;
   const metric=e.metric||"reps";
   const repLabel=metric==="time"?"30–45s":metric==="carry"?"~40 steps":sc.reps;
-  let sets=[];
+  let sets=[]; let scaledFrom=null;
   const psets=(prev&&prev.sets&&prev.sets.length)?prev.sets.filter(s=>!s.drop):null;
-  for(let i=0;i<sc.sets;i++){ const src=psets?(psets[i]||psets[psets.length-1]):null; sets.push({w:src?src.w:"",reps:src?src.reps:"",done:false,band:src?(src.band||null):null}); }
+  // target range from scheme, e.g. "8–10"
+  const rng=String(sc.reps||"").match(/^(\d+)[–-](\d+)$/); const lo=rng?+rng[1]:null, hi=rng?+rng[2]:null;
+  const scaleW=(w,r)=>{ w=parseFloat(w); r=parseFloat(r); if(!rng||!isFinite(w)||w<=0||!isFinite(r)||r<1) return null;
+    if(r>=lo&&r<=hi) return null;                       // already in range — keep as-is
+    const mid=Math.round((lo+hi)/2); const nw=round5(est1RM(w,r)/(1+mid/30));
+    return (nw>0&&Math.abs(nw-w)>=5)?nw:null; };
+  for(let i=0;i<sc.sets;i++){ const src=psets?(psets[i]||psets[psets.length-1]):null;
+    let w=src?src.w:"", rp=src?src.reps:"";
+    if(src&&metric==="reps"&&!src.band){ const nw=scaleW(src.w,src.reps); if(nw!=null){ if(!scaledFrom) scaledFrom={w:src.w,reps:src.reps}; w=String(nw); rp=""; } }
+    sets.push({w,reps:rp,done:false,band:src?(src.band||null):null}); }
   if(dropPct){ const base=Math.max(0,...sets.map(s=>parseFloat(s.w)||0)); sets.push({w:base>0?round5(base*(1-dropPct)):"",reps:"",done:false,drop:true}); }
   const req=e.requires||[]; const bandKind=req.includes("resistancebands")?"power":req.includes("hipbands")?"hip":null;
   const prevBand=(prev&&prev.band)?prev.band:null;
   if(bandKind) sets.forEach(s=>{ if(s.band==null) s.band=prevBand||null; });
-  return {id:e.id,name:e.name,role:e.role,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabel,metric,
+  return {id:e.id,name:e.name,role:e.role,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabel,metric,scaledFrom,
     rest:fmt(restSec),restSec,cue:e.cue,tech:e._tech||null,dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:prev?(prev.rpe||null):null,sets,
     _prev:prev?prev.sets.filter(s=>!s.drop).map(s=>({w:s.w,reps:s.reps})):null};
 }
@@ -1418,7 +1441,16 @@ function groupExercises(list,mode){
   if(mode==="strength"){ const comp=remaining.filter(e=>e.role==="compound"); comp.forEach(e=>{ remaining=remaining.filter(x=>x!==e); groups.push({type:"straight",items:[e.id]}); }); }
   while(remaining.length){
     const head=remaining.shift(); const g=[head]; let stn=exStations(head);
-    if(!head._dropPct){ for(let i=0;i<remaining.length&&g.length<size;){ if(!remaining[i]._dropPct&&!stationConflict(stn,remaining[i])&&capOK(g,remaining[i])){ stn=stn.concat(exStations(remaining[i])); g.push(remaining.splice(i,1)[0]); } else i++; } }
+    const prim=e=>new Set(e.primary||[]);
+    const overlaps=(e)=>g.some(m=>{ const p=prim(m); return (e.primary||[]).some(x=>p.has(x)); });
+    if(!head._dropPct){
+      // pass 1: prefer partners hitting DIFFERENT primary muscles (real circuit alternation)
+      for(let i=0;i<remaining.length&&g.length<size;){ const c=remaining[i];
+        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&!overlaps(c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
+      // pass 2: fill leftovers even if muscles overlap (better grouped than orphaned)
+      for(let i=0;i<remaining.length&&g.length<size;){ const c=remaining[i];
+        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
+    }
     groups.push({type:g.length>1?(mode==="circuit"?"circuit":"superset"):"straight",items:g.map(e=>e.id)});
   }
   return groups;
@@ -1688,6 +1720,7 @@ function renderExercise(ex,idx,editable,w,grouped){
   { const base=exById(ex.id); if(base){ const r=readiness(); const tag=(m,pri)=>{ const rd=r[m]!=null?r[m]:1; const col=rd<0.4?"var(--cold)":rd<0.75?"var(--mid)":"var(--ready)"; return `<span class="mtag ${pri?"pri":"sec"}" style="color:${col}">${MUSCLE_LABEL[m]||m}</span>`; }; const tags=[...(base.primary||[]).map(m=>tag(m,true)),...(base.secondary||[]).map(m=>tag(m,false))].join(""); if(tags) h+=`<div class="mtags">${tags}</div>`; } }
   if(ex.cue) h+=`<div class="ex-cue">${esc(ex.cue)}</div>`;
   if(editable){ const oh=overloadHint(ex); if(oh) h+=`<div class="overload">↑ ${esc(oh.text)}</div>`; }
+  if(editable&&ex.scaledFrom) h+=`<div class="overload" style="color:var(--steel)">↓ last ${esc(String(ex.scaledFrom.w))}×${esc(String(ex.scaledFrom.reps))} — weight scaled for ${esc(ex.scheme.split("× ")[1]||"the new rep range")}</div>`;
   if(feat("notes")&&STATE.settings.exNotes[ex.id]) h+=`<div class="exnote">📌 ${esc(STATE.settings.exNotes[ex.id])}</div>`;
   { const base=exById(ex.id); if(feat("injury")&&base){ const hits=exInjuryHits(base); if(hits.length) h+=`<div class="injwarn">⚠ easy on the ${hits.map(a=>(INJ_AREAS.find(x=>x[0]===a)||[a,a])[1].toLowerCase()).join(" + ")}</div>`; } }
   if(ex.tech) h+=`<div class="ex-tech">▲ ${esc(ex.tech)}</div>`;
@@ -2021,7 +2054,7 @@ function renderSettings(){
     html+=accSection("features","Features",Object.keys(STATE.settings.feat).filter(k=>feat(k)).length+" on",fb,`<div class="hint" style="margin-bottom:8px">Flip any of these on or off — they're all optional.</div>`); }
   html+=libEntryPanel();
   html+=`<div class="panel"><div class="eyebrow">Data</div><div class="hint" style="margin:8px 0 12px">Stored on this device${hasStore?"":" — note: a downloaded copy won’t persist between opens"}.</div>
-    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-action="sync">Sync / transfer ↔ device</button><button class="btn sm" data-action="export">Save backup file</button>${(canShareFiles()||hasFolderPicker())?`<button class="btn sm" data-action="sharebk">Send to Drive</button>`:""}<button class="btn sm" data-action="exportcsv">Export CSV</button><button class="btn sm" data-action="importfile">Import backup file</button><button class="btn ghost sm" data-action="wipe" style="margin-left:auto;color:var(--cold)">Erase all</button></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-action="sync">Sync / transfer ↔ device</button><button class="btn sm" data-action="export">Save backup file</button>${(canShareFiles()||hasFolderPicker())?`<button class="btn sm" data-action="sharebk">Send to Drive</button>`:""}<button class="btn sm" data-action="exportcsv">Export CSV</button><button class="btn sm" data-action="importfile">Import backup file</button></div>
     <div class="hint" style="margin-top:8px">${s.lastBackupTs?`Last backup: ${new Date(s.lastBackupTs).toLocaleDateString(undefined,{month:"short",day:"numeric"})} · ${unbackedCount()} session${unbackedCount()===1?"":"s"} since.`:"No backup saved yet — save one now to be safe."} <b>CSV</b> exports every set for Sheets or any other app.</div>
     <div class="frow" style="margin-top:10px"><label>Auto-backup on finish<small>${canShareFiles()?"“Send to Drive” opens the share sheet when you finish — tap Drive and it’s saved.":"Writes a backup file automatically when you finish a workout."}</small></label>
       <select class="in" data-set="autoBackup" style="width:130px">${[["off","Off"],["download","Download"],["share","Send to Drive"]].map(([v,l])=>`<option value="${v}" ${(s.autoBackup||"off")===v?"selected":""}>${l}</option>`).join("")}</select></div>
@@ -2124,7 +2157,7 @@ view.addEventListener("click",e=>{
   if(a==="rmset"){ const idx=+act.dataset.ex; const cur=STATE.current.exercises[idx]; const grp=STATE.current.groups.find(g=>g.items.includes(cur.id)); const targets=(grp&&grp.items.length>1)?grp.items.map(id=>STATE.current.exercises.find(e=>e.id===id)).filter(Boolean):[cur];
     targets.forEach(ex=>{ if(ex.sets.filter(s=>!s.drop).length>1){ for(let i=ex.sets.length-1;i>=0;i--){ if(!ex.sets[i].drop){ ex.sets.splice(i,1); break; } } } });
     pCur(); renderToday(); return; }
-  if(a==="startwo"){ STATE.current.startedAt=Date.now(); ensureAudio(); pCur(); renderToday(); return; }
+  if(a==="startwo"){ STATE.current.startedAt=Date.now(); HR.readings=[]; HR._lastP=0; delete STATE.current.hrStats; ensureAudio(); pCur(); renderToday(); return; }
   if(a==="connecthr"){ connectHR(); return; }
   if(a==="importfile"){ let inp=document.getElementById("fileIn"); if(!inp){ inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json"; inp.id="fileIn"; inp.style.display="none"; document.body.appendChild(inp);
       inp.addEventListener("change",()=>{ const f=inp.files&&inp.files[0]; if(!f){ return; } const rd=new FileReader(); rd.onload=()=>{ if(importData(String(rd.result))){ STATE.tab="log"; render(); toast("Imported & merged from file"); } else toast("Couldn’t read that file"); }; rd.readAsText(f); inp.value=""; }); }
@@ -2204,10 +2237,17 @@ view.addEventListener("click",e=>{
   if(a==="metro"){ ensureAudio(); if(METRO.ex===act.dataset.id){ metroStop(); } else { metroStop(); METRO.ex=act.dataset.id; METRO.beat=0; METRO.int=setInterval(metroTick,1000); setTimeout(()=>{ if(METRO.ex===act.dataset.id) metroStop(); },120000); } renderToday(); return; }
   if(a==="voicelog"){ const idx=+act.dataset.ex; const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ toast("Voice input isn’t available in this browser"); return; } try{ const r=new SR(); r.lang="en-US"; toast("Listening… say “185 for 8”"); r.onresult=ev=>{ const txt=ev.results[0][0].transcript; const p=parseVoiceSet(txt); if(!p){ toast("Didn’t catch that: “"+txt+"”"); return; } const ex=STATE.current.exercises[idx]; const si=ex.sets.findIndex(s=>!s.done&&!s.drop); if(si<0){ toast("All sets done"); return; } ex.sets[si].w=p.w; ex.sets[si].reps=p.reps; ex.sets[si]._we=true; ex.sets[si]._re=true; pCur(); renderToday(); toast("Set "+(si+1)+": "+p.w+"×"+p.reps); }; r.onerror=()=>toast("Voice input failed — type it instead"); r.start(); }catch(e){ toast("Voice input failed"); } return; }
   if(a==="gmove"){ const gi=+act.dataset.gi, dir=+act.dataset.dir; const gs=STATE.current.groups; const ni=gi+dir; if(ni<0||ni>=gs.length) return; const t=gs[gi]; gs[gi]=gs[ni]; gs[ni]=t; pCur(); renderToday(); return; }
-  if(a==="budget"){ if(!STATE.current) return; const v=prompt("Minutes you have left:","25"); const mins=Math.max(3,+v||0); if(!v||!mins) return; const secPerSet=s=>35+ (s||75);
-    let items=[]; STATE.current.exercises.forEach(e=>{ const undone=e.sets.filter(s=>!s.done&&!s.drop).length; if(undone>0) items.push({e,undone}); });
-    let est=items.reduce((a,x)=>a+x.undone*secPerSet(x.e.restSec),0); let cut=0;
-    while(est>mins*60){ items.sort((a,b)=>b.undone-a.undone); const t=items.find(x=>x.undone>1); if(!t) break; const work=t.e.sets.filter(s=>!s.drop); for(let j=work.length-1;j>=0;j--){ if(!work[j].done){ const gi=t.e.sets.indexOf(work[j]); t.e.sets.splice(gi,1); break; } } t.undone--; cut++; est=items.reduce((a,x)=>a+x.undone*secPerSet(x.e.restSec),0); }
+  if(a==="budget"){ if(!STATE.current) return; const v=prompt("Minutes you have left:","25"); const mins=Math.max(3,+v||0); if(!v||!mins) return;
+    const exOf=id=>STATE.current.exercises.find(e=>e.id===id);
+    // units = groups (a round trims every member together) + straight exercises
+    const units=[]; (STATE.current.groups||[]).forEach(g=>{ const mem=g.items.map(exOf).filter(Boolean); if(!mem.length) return;
+      const undone=Math.min(...mem.map(e=>e.sets.filter(s=>!s.done&&!s.drop).length));
+      units.push({mem,undone,rest:Math.max(...mem.map(e=>e.restSec||60))}); });
+    const est=()=>units.reduce((a,u)=>a+u.undone*(u.mem.length*40+u.rest),0);
+    let cut=0;
+    while(est()>mins*60){ units.sort((a,b)=>b.undone-a.undone); const t=units.find(u=>u.undone>1); if(!t) break;
+      t.mem.forEach(e=>{ const work=e.sets.filter(s=>!s.drop); for(let j=work.length-1;j>=0;j--){ if(!work[j].done){ e.sets.splice(e.sets.indexOf(work[j]),1); cut++; break; } } });
+      t.undone--; }
     normalizeGroupSets(STATE.current); pCur(); renderToday(); toast(cut?("Trimmed "+cut+" sets to fit ~"+mins+" min"):"Already fits — go"); return; }
   if(a==="dospwap"){ const idx=+act.dataset.ex; const ne=exById(act.dataset.id); const old=STATE.current.exercises[idx]; UI.openSwap.delete(old.id);
     STATE.current.groups.forEach(g=>{ const gi=g.items.indexOf(old.id); if(gi>=0) g.items[gi]=ne.id; }); const nl=buildLoggable(ne); const ow=old.sets.filter(s=>!s.drop); nl.sets.forEach((s,i)=>{ const o=ow[i]||ow[ow.length-1]; if(o&&(s.reps===""||s.reps==null)) s.reps=o.reps; }); STATE.current.exercises[idx]=nl; normalizeGroupSets(STATE.current); pCur(); renderToday(); toast("Swapped"); return; }
@@ -2220,7 +2260,7 @@ view.addEventListener("click",e=>{
     pWo(); pCur(); pSet(); stopRest(); stopWoTimer(); releaseWake(); STATE.tab="log"; render(); toast(prs.length?`🏆 ${prs.length} PR${prs.length>1?"s":""}! ${prs[0].name} ${prs[0].w}×${prs[0].reps}`:"Logged — nice work"); if(prs.length&&feat("confetti")) fireConfetti();
     { const ab=STATE.settings.autoBackup||"off"; if(ab!=="off") doBackup({mode:ab==="download"?"download":undefined,silent:true}); }
     return; }
-  if(a==="discard"){ STATE.current=null; STATE.settings._focus=null; pCur(); pSet(); stopWoTimer(); releaseWake(); renderToday(); return; }
+  if(a==="discard"){ STATE.current=null; STATE.settings._focus=null; HR.readings=[]; HR._lastP=0; pCur(); pSet(); stopWoTimer(); releaseWake(); renderToday(); return; }
   if(a==="print"){ doPrint(STATE.current); return; }
   if(a==="printlog"){ doPrint(STATE.workouts.filter(w=>!w.ref)[+act.dataset.i]); return; }
   if(a==="expand"){ document.getElementById("exp"+act.dataset.i).classList.toggle("open"); return; }
@@ -2234,11 +2274,12 @@ view.addEventListener("click",e=>{
   if(a==="sharebk"){ doBackup({}); return; }
   if(a==="pickfolder"){ (async()=>{ if(!hasFolderPicker()){ toast("Your browser can’t pick folders yet"); return; } try{ const h=await window.showDirectoryPicker({mode:"readwrite",id:"rrbackup"}); await idbHandle("put",h); STATE.settings.backupFolder=h.name||"folder"; pSet(); renderSettings(); toast("Backups will save to "+(h.name||"that folder")); }catch(e){} })(); return; }
   if(a==="clearfolder"){ (async()=>{ try{ await idbHandle("del"); }catch(e){} STATE.settings.backupFolder=null; pSet(); renderSettings(); toast("Folder cleared"); })(); return; }
-  if(a==="exportcsv"){ const rows=[["date","session","exercise","set","weight","band","reps","done","rpe"]]; STATE.workouts.filter(w=>!w.ref).forEach(w=>{ const dt=new Date(w.date).toISOString().slice(0,10); (w.exercises||[]).forEach(e=>{ (e.sets||[]).forEach((s,i)=>{ const bnd=s.band?(bandById(e.bandKind,s.band)||{}).name||"":""; rows.push([dt,w.focusName||w.focus||"",e.name,i+1,s.w||"",bnd,s.reps||"",s.done?"yes":"no",e.rpe||""]); }); }); }); const csv=rows.map(r=>r.map(c=>{ c=String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(",")).join("\n"); const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob); const link=document.createElement("a"); link.href=url; link.download="rack-and-roll-log.csv"; link.click(); URL.revokeObjectURL(url); toast("CSV exported"); return; }
+  if(a==="exportcsv"){ const rows=[["date","session","exercise","set","weight","band","reps","done","rpe"]]; STATE.workouts.filter(w=>!w.ref).forEach(w=>{ const dt=new Date(w.date).toISOString().slice(0,10); (w.exercises||[]).forEach(e=>{ (e.sets||[]).forEach((s,i)=>{ const bnd=s.band?(bandById(e.bandKind,s.band)||{}).name||"":""; rows.push([dt,w.focusName||w.focus||"",e.name,i+1,s.w||"",bnd,s.reps||"",s.done?"yes":"no",e.rpe||""]); }); });
+      (w.conditioning||[]).forEach(c=>{ (c.sets||[]).forEach((s,i)=>{ const vv=s.vals||{}; const summary=[vv.time?("time "+vv.time):null,vv.dist?("dist "+vv.dist):null,vv.cals?(vv.cals+" cal"):null,vv.reps?(vv.reps+" reps"):null,vv.level?("lvl "+vv.level):null].filter(Boolean).join(" · ");
+        rows.push([dt,w.focusName||w.focus||"",c.name+(c.proto?" — "+c.proto:""),i+1,"","",summary,s.done?"yes":"no",""]); }); }); }); const csv=rows.map(r=>r.map(c=>{ c=String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(",")).join("\n"); const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob); const link=document.createElement("a"); link.href=url; link.download="rack-and-roll-log.csv"; link.click(); URL.revokeObjectURL(url); toast("CSV exported"); return; }
   if(a==="togglewake"){ STATE.settings.keepAwake=!STATE.settings.keepAwake; pSet(); if(STATE.settings.keepAwake&&STATE.current&&STATE.current.startedAt) requestWake(); else releaseWake(); renderSettings(); return; }
   if(a==="testalarm"){ ensureAudio(); beep(); if(navigator.vibrate) navigator.vibrate([500,140,500,140,500]); return; }
   if(a==="sync"){ openSync(); return; }
-  if(a==="wipe"){ if(confirm("Erase all logs, pins, blocks, custom gear, and settings? Can’t be undone.")){ STATE.workouts=[]; STATE.current=null; STATE.settings={daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[]}; STATE.equipment=DEFAULT_EQUIPMENT.map(e=>({...e})); pWo();pCur();pSet();pEq(); STATE.tab="today"; render(); toast("Reset"); } return; }
 });
 
 view.addEventListener("input",e=>{
@@ -2264,7 +2305,7 @@ view.addEventListener("input",e=>{
 view.addEventListener("change",e=>{
   const pe=e.target.closest("[data-prog='ex']"); if(pe){ UI.progEx=pe.value; renderProgress(); return; }
   const sel=e.target.closest("[data-set]");
-  if(sel){ let v=sel.value; if(sel.dataset.set==="daysPerWeek"||sel.dataset.set==="duration") v=+v; STATE.settings[sel.dataset.set]=v; pSet(); renderWeekBadge(); if(sel.dataset.set==="goal"&&STATE.tab==="set") renderSettings(); if(sel.dataset.set==="alarmSound"){ ensureAudio(); playAlarm(); } return; }
+  if(sel){ let v=sel.value; if(sel.dataset.set==="daysPerWeek"||sel.dataset.set==="duration") v=+v; STATE.settings[sel.dataset.set]=v; pSet(); renderWeekBadge(); if(sel.dataset.set==="goal"){ const G=GOALS[v]; if(G){ if(G.circuit) STATE.settings.mode="circuit"; else if(G.straight) STATE.settings.mode="strength"; pSet(); } if(STATE.tab==="set") renderSettings(); toast(G&&G.circuit?"Style set to Circuits to match the goal":G&&G.straight?"Style set to Straight sets to match the goal":"Goal updated"); } if(sel.dataset.set==="alarmSound"){ ensureAudio(); playAlarm(); } return; }
   const pb=e.target.closest("[data-pc='bar']");
   if(pb){ const panel=pb.closest(".pcalc"); const id=panel.dataset.ex; UI.plateBar[id]=+pb.value; renderToday(); return; }
   const tf=e.target.closest("input[data-cf='time']");
