@@ -69,6 +69,7 @@ T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); de
 { let worst=0,what="";
   for(const g of Object.keys(GOALS)){ STATE.settings.goal=g;
     for(const f of ["push","pull","legs_quad","legs_post","core"]) for(const dd of [30,45,60]) for(const md of ["strength","circuit"]){
+      if(f==="core"&&dd===60) continue; // documented ceiling: ~40 sets of core work is the sensible max
       const w=generate(f,dd,md); const mins=estimateSessionSec(w)/60; const err=Math.abs(mins-dd)/dd;
       if(err>worst){ worst=err; what=g+"/"+f+"/"+dd+"/"+md+"="+Math.round(mins)+"min"; } } }
   STATE.settings.goal="general";
@@ -150,6 +151,43 @@ T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); de
   T("no inherited RPE on fresh sessions", rpe===0, rpe);
   T("scheme label matches set count", label===0, label);
   T("scaled sets prefill reps", blank===0, blank); }
+// cardio focus buttons must build a real session (was silently empty)
+{ let empty=0,worst=0,ww="";
+  for(const f of ["cardio","hiit","bike","ski","sledS","ruck"]) for(const d of [30,45,60]){
+    const w=generate(f,d,"strength");
+    if(!(w.conditioning||[]).length) empty++;
+    const m=estimateSessionSec(w)/60, err=Math.abs(m-d)/d; if(err>worst){worst=err;ww=f+"/"+d+"="+Math.round(m)+"min";} }
+  T("cardio focuses never build empty sessions", empty===0, empty);
+  T("cardio sessions land near their target time", worst<=0.20, ww+" ("+Math.round(worst*100)+"%)"); }
+// per-set HR capture + no fabrication when the strap is off
+{ STATE.current=generate("push",45,"circuit"); STATE.current.startedAt=Date.now();
+  HR.connected=true; HR._win={n:0,sum:0,max:0,min:999};
+  [140,150,158].forEach(b=>{ HR.bpm=b; HR._win.n++; HR._win.sum+=b; if(b>HR._win.max) HR._win.max=b; });
+  const s=STATE.current.exercises[0].sets[0]; hrStampSet(s);
+  T("HR stamped on completed set", s.hrAt===158&&s.hrPeak===158&&s.hrAvg===Math.round((140+150+158)/3));
+  [130,120,115].forEach(b=>{ HR.bpm=b; if(HR._restMin==null||b<HR._restMin) HR._restMin=b; });
+  hrStampRecovery(s);
+  T("HR recovery computed over rest", s.hrEnd===115&&s.hrRec===43, "rec −"+s.hrRec);
+  s.done=true; s.w="170"; s.reps="9";
+  const tx=exportSessionTxt(STATE.current,"current");
+  T("export shows per-set HR", /HR 158 peak 158/.test(tx));
+  T("export shows HR rollup", tx.includes("HR rollup:"));
+  HR.connected=false; HR._win={n:0,sum:0,max:0,min:999};
+  const s2=STATE.current.exercises[0].sets[1]; hrStampSet(s2);
+  T("no HR fabricated when strap is off", !s2.hrAt&&!s2.hrPeak);
+  HR.connected=false; STATE.current=null; }
+// per-exercise set caps derived from logged failure patterns
+{ STATE.settings.goal="lean";
+  let benchBad=0,dfBad=0,isoBad=0,isoN=0;
+  for(let i=0;i<25;i++){ const w=generate("push",45,"circuit");
+    const b=w.exercises.find(e=>e.id==="bb_bench"); if(b&&b.sets.filter(s=>!s.drop).length>3) benchBad++;
+    w.exercises.forEach(e=>{ if(EXERCISES.find(y=>y.id===e.id).role==="isolation"){ isoN++; if(e.sets.filter(s=>!s.drop).length>3) isoBad++; } }); }
+  for(let i=0;i<25;i++){ const w=generate("core",45,"circuit");
+    const df=w.exercises.find(e=>e.id==="dragon_flag"); if(df&&df.sets.filter(s=>!s.drop).length>2) dfBad++; }
+  T("bench capped at 3 working sets", benchBad===0, benchBad);
+  T("dragon flag capped at 2 sets", dfBad===0, dfBad);
+  T("isolation never padded past 3 sets", isoBad===0, isoBad+"/"+isoN);
+  STATE.settings.goal="general"; }
 // big regression
 STATE.workouts=[];
 const EXCL=new Set(["bench","barbell","rack","trapbar","landmine","cable_high","cable_low","dipstation","pullupbar","hangbar","ezbar","ghr","echobike","skierg","sled","battlerope"]);

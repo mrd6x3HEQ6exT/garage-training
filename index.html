@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.11";
+const BUILD="2026.08.13";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -900,24 +900,28 @@ const FOCI={
 Object.assign(FOCI,MACHINE_FOCI);
 const STRENGTH_COUNT={30:4,45:6,60:7};
 const COND_COUNT={30:1,45:1,60:2};
+// Hard caps from logged performance: sets that consistently break down are not volume.
+// bb_bench: 4th set failed 3 of 4 sessions (175x6,6,6,4 / 185x6,6,6,4).
+// dragon_flag: reps halve by the last set every time (8,6,6 / 8,6,3 / 6,6,4) at RPE 10.
+const EX_SET_CAP={bb_bench:3,dragon_flag:2};
 const SCHEME={
   compound:{sets:4,reps:"6–8",rest:"2:00",restSec:120},
   accessory:{sets:3,reps:"10–12",rest:"1:15",restSec:75},
-  isolation:{sets:3,reps:"12–15",rest:"1:00",restSec:60},
+  isolation:{sets:3,reps:"10–12",rest:"1:00",restSec:60},
   core:{sets:3,reps:"12–20",rest:"0:45",restSec:45},
 };
 // Training goals shape the rep ranges, rest, conditioning volume, and grouping.
 const GOALS={
   general:{name:"General fitness",blurb:"Balanced all-round lifting — moderate reps, moderate rest.",
-    scheme:{compound:["8–12",90],accessory:["10–12",70],isolation:["12–15",50],core:["12–20",45]}},
+    scheme:{compound:["8–12",90],accessory:["10–12",70],isolation:["10–12",50],core:["12–20",45]}},
   muscle:{name:"Build muscle",blurb:"Hypertrophy — moderate reps, more volume, shorter rest.",
-    scheme:{compound:["8–10",120],accessory:["10–12",75],isolation:["12–15",60],core:["12–20",45]}},
+    scheme:{compound:["8–10",120],accessory:["10–12",75],isolation:["10–12",60],core:["12–20",45]}},
   strong:{name:"Get stronger",blurb:"Heavy, low reps, long rest, straight sets.",straight:true,
     scheme:{compound:["3–5",180],accessory:["6–8",120],isolation:["8–10",75],core:["10–15",60]}},
   lean:{name:"Get lean",blurb:"Moderate reps, short rest, circuits — keeps muscle while you lean out.",circuit:true,
-    scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["12–15",45],core:["15–20",40]}},
+    scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["10–12",45],core:["12–15",40]}},
   weight:{name:"Reduce bodyweight",blurb:"Higher reps, short rest, circuits. Add cardio yourself, or run it as its own session.",circuit:true,
-    scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["15–20",40],core:["15–25",35]}},
+    scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["10–12",40],core:["12–20",35]}},
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
 function feat(k){ return !!(STATE.settings.feat&&STATE.settings.feat[k]); }
@@ -934,6 +938,11 @@ function hrMax(){ return +(STATE.settings.hrMax||144); }
 function hrRest(){ return +(STATE.settings.hrRest||43); }
 function hrZone(z){ const mx=hrMax(), rs=hrRest(), r=mx-rs; const B={1:[.50,.60],2:[.60,.70],3:[.70,.80],4:[.80,.90],5:[.90,1]}[z]||[.60,.70];
   return [Math.round(rs+r*B[0]),Math.round(rs+r*B[1])]; }
+function hrZoneOf(bpm){ for(let z=5;z>=1;z--){ const [a,b]=hrZone(z); if(bpm>=a) return z; } return 1; }
+function hrStampSet(s){ const w=HR._win; if(HR.connected&&w&&w.n){ s.hrAt=HR.bpm||null; s.hrPeak=w.max; s.hrAvg=Math.round(w.sum/w.n); }
+  HR._win={n:0,sum:0,max:0,min:999}; HR._restMin=null; HR._resting=true; }
+function hrStampRecovery(s){ if(!s) return; if(HR.connected&&s.hrAt&&HR._restMin!=null){ s.hrEnd=HR._restMin; s.hrRec=s.hrAt-HR._restMin; }
+  HR._resting=false; HR._restMin=null; }
 function zTxt(z){ const [a,b]=hrZone(z); return "Z"+z+" "+a+"\u2013"+b+" bpm"; }
 const INJ_AREAS=[["shoulder","Shoulder"],["elbow","Elbow"],["wrist","Wrist"],["lowback","Low back"],["hip","Hip"],["knee","Knee"]];
 function exInjuryHits(e){ const inj=STATE.settings.injuries||[]; if(!inj.length) return []; const out=[]; const pat=e.pattern, pri=e.primary||[], req=e.requires||[];
@@ -1071,44 +1080,44 @@ const MACHINE_SESSIONS={
   sledS:{machine:"sled",name:"Sled"},
   ruck:{machine:"ruck",name:"Ruck"},
 };
-function mkSessBlock(mId,name,proto,muscles){ const m=cbMachine(mId); const n=condRounds(proto); const sets=[]; const fields=m.fields;
+function mkSessBlock(mId,name,proto,muscles,estMin){ const m=cbMachine(mId); const n=condRounds(proto); const sets=[]; const fields=m.fields;
   for(let i=0;i<n;i++) sets.push(mkCondSet(fields));
-  return {id:"cc_"+Date.now()+"_"+Math.floor(Math.random()*99999),base:m.base,custom:true,name,proto,muscles:muscles||m.muscles,weighted:!!m.weighted,loadCap:m.weighted?(m.id==="kb"?"kettlebell":"vest"):null,fields,sets}; }
+  return {id:"cc_"+Date.now()+"_"+Math.floor(Math.random()*99999),base:m.base,custom:true,name,proto,estMin:estMin||null,muscles:muscles||m.muscles,weighted:!!m.weighted,loadCap:m.weighted?(m.id==="kb"?"kettlebell":"vest"):null,fields,sets}; }
 function buildMachineSession(key,duration,hard){
   const S=MACHINE_SESSIONS[key]; if(!S) return [];
   const m=S.machine, z2=zTxt(2), z4=zTxt(4), z1=zTxt(1), out=[];
   const lane=STATE.settings.sledLane||60;
   if(m==="sled"){ const trips={30:10,45:16,60:20}[duration]||12;
-    out.push(mkSessBlock("sled","Sled warm-up","3 trips \u00d7 "+lane+" ft easy"));
-    out.push(mkSessBlock("sled","Sled work",trips+" trips \u00d7 "+lane+" ft \u2014 rotate push / drag \u00b7 walk back = rest"));
+    out.push(mkSessBlock("sled","Sled warm-up","3 trips \u00d7 "+lane+" ft easy",null,Math.round(duration*0.12)));
+    out.push(mkSessBlock("sled","Sled work",trips+" trips \u00d7 "+lane+" ft \u2014 rotate push / drag \u00b7 walk back = rest",null,Math.round(duration*0.88)));
     return out; }
   if(m==="ruck"){ const mi={30:1.5,45:2.5,60:3.5}[duration]||2;
-    out.push(mkSessBlock("ruck","Vest ruck",mi+" mi steady \u00b7 "+z2));
+    out.push(mkSessBlock("ruck","Vest ruck",mi+" mi steady \u00b7 "+z2,null,duration));
     return out; }
   if(m==="bike"){
     if(!hard){ const main={30:20,45:33,60:46}[duration];
-      out.push(mkSessBlock("bike","Warm-up",{30:4,45:5,60:6}[duration]+" min easy \u00b7 "+z1));
-      out.push(mkSessBlock("bike","Steady",main+" min conversational \u00b7 "+z2));
-      out.push(mkSessBlock("bike","Cool-down",{30:4,45:5,60:6}[duration]+" min easy"));
+      out.push(mkSessBlock("bike","Warm-up",{30:4,45:5,60:6}[duration]+" min easy \u00b7 "+z1,null,{30:4,45:5,60:6}[duration]));
+      out.push(mkSessBlock("bike","Steady",main+" min conversational \u00b7 "+z2,null,main));
+      out.push(mkSessBlock("bike","Cool-down",{30:4,45:5,60:6}[duration]+" min easy",null,{30:4,45:5,60:6}[duration]));
     } else {
-      out.push(mkSessBlock("bike","Warm-up",{30:5,45:6,60:6}[duration]+" min easy \u00b7 "+z1));
-      if(duration===30) out.push(mkSessBlock("bike","Intervals","8 \u00d7 40s hard / 80s easy \u00b7 hard = "+z4));
-      else if(duration===45) out.push(mkSessBlock("bike","Intervals","10 \u00d7 60s hard / 90s easy \u00b7 hard = "+z4));
-      else { out.push(mkSessBlock("bike","Intervals","6 \u00d7 2 min hard / 2 min easy \u00b7 hard = "+z4)); out.push(mkSessBlock("bike","Steady","18 min easy \u00b7 "+z2)); }
-      out.push(mkSessBlock("bike","Cool-down",{30:5,45:6,60:6}[duration]+" min easy"));
+      out.push(mkSessBlock("bike","Warm-up",{30:5,45:6,60:6}[duration]+" min easy \u00b7 "+z1,null,{30:5,45:6,60:6}[duration]));
+      if(duration===30){ out.push(mkSessBlock("bike","Intervals","8 \u00d7 40s hard / 80s easy \u00b7 hard = "+z4,null,16)); out.push(mkSessBlock("bike","Steady","4 min easy \u00b7 "+z2,null,4)); }
+      else if(duration===45){ out.push(mkSessBlock("bike","Intervals","10 \u00d7 60s hard / 90s easy \u00b7 hard = "+z4,null,25)); out.push(mkSessBlock("bike","Steady","8 min easy \u00b7 "+z2,null,8)); }
+      else { out.push(mkSessBlock("bike","Intervals","6 \u00d7 2 min hard / 2 min easy \u00b7 hard = "+z4,null,24)); out.push(mkSessBlock("bike","Steady","18 min easy \u00b7 "+z2,null,18)); }
+      out.push(mkSessBlock("bike","Cool-down",{30:5,45:6,60:6}[duration]+" min easy",null,{30:5,45:6,60:6}[duration]));
     }
     return out; }
   if(m==="ski"){
     if(!hard){ const main={30:2500,45:4000,60:5500}[duration];
-      out.push(mkSessBlock("ski","Warm-up",{30:400,45:500,60:600}[duration]+" m easy \u00b7 "+z1));
-      out.push(mkSessBlock("ski","Steady",main+" m conversational \u00b7 "+z2));
-      out.push(mkSessBlock("ski","Cool-down",{30:400,45:500,60:600}[duration]+" m easy"));
+      out.push(mkSessBlock("ski","Warm-up",{30:400,45:500,60:600}[duration]+" m easy \u00b7 "+z1,null,{30:3,45:4,60:5}[duration]));
+      out.push(mkSessBlock("ski","Steady",main+" m conversational \u00b7 "+z2,null,{30:22,45:36,60:50}[duration]));
+      out.push(mkSessBlock("ski","Cool-down",{30:400,45:500,60:600}[duration]+" m easy",null,{30:3,45:4,60:5}[duration]));
     } else {
-      out.push(mkSessBlock("ski","Warm-up",{30:500,45:600,60:700}[duration]+" m easy \u00b7 "+z1));
-      if(duration===30) out.push(mkSessBlock("ski","Intervals","8 \u00d7 250 m / 60s rest \u00b7 hard = "+z4));
-      else if(duration===45) out.push(mkSessBlock("ski","Intervals","12 \u00d7 250 m / 60s rest \u00b7 hard = "+z4));
-      else { out.push(mkSessBlock("ski","Intervals","10 \u00d7 300 m / 75s rest \u00b7 hard = "+z4)); out.push(mkSessBlock("ski","Steady","1500 m easy \u00b7 "+z2)); }
-      out.push(mkSessBlock("ski","Cool-down",{30:500,45:600,60:700}[duration]+" m easy"));
+      out.push(mkSessBlock("ski","Warm-up",{30:500,45:600,60:700}[duration]+" m easy \u00b7 "+z1,null,{30:4,45:5,60:6}[duration]));
+      if(duration===30){ out.push(mkSessBlock("ski","Intervals","8 \u00d7 250 m / 60s rest \u00b7 hard = "+z4,null,16)); out.push(mkSessBlock("ski","Steady","600 m easy \u00b7 "+z2,null,6)); }
+      else if(duration===45){ out.push(mkSessBlock("ski","Intervals","12 \u00d7 250 m / 60s rest \u00b7 hard = "+z4,null,25)); out.push(mkSessBlock("ski","Steady","1000 m easy \u00b7 "+z2,null,10)); }
+      else { out.push(mkSessBlock("ski","Intervals","10 \u00d7 300 m / 75s rest \u00b7 hard = "+z4,null,25)); out.push(mkSessBlock("ski","Steady","1500 m easy \u00b7 "+z2,null,17)); }
+      out.push(mkSessBlock("ski","Cool-down",{30:500,45:600,60:700}[duration]+" m easy",null,{30:4,45:5,60:6}[duration]));
     }
     return out; }
   return out;
@@ -1300,14 +1309,20 @@ function generate(focusKey,duration,mode){
     return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,hardDay:!!UI.hardDay,
       exercises:[],conditioning:conds,groups:[],note:""}; }
   if(f.cardio){
-    const want=f.style;
-    let condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id)&&COND_STYLE[e.id]===want);
-    const n=(want==="interval"?{30:3,45:4,60:5}:{30:1,45:2,60:2})[duration];
-    const conds=[]; const cp=[...condPool];
-    for(let i=0;i<n&&cp.length;i++) conds.push(cp.splice(Math.floor(Math.random()*cp.length),1)[0]);
-    UI.cardioB={open:true,machine:null,movement:null,mode:want==="interval"?"intervals":null,p:{}};
-    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:want==="interval"?"circuit":"strength",cardio:true,
-      exercises:[],conditioning:[],groups:[],note:""};
+    // Auto-build a full machine session (warm-up / main / cool-down) on whatever
+    // cardio gear is switched on, rotating away from whatever was used last time.
+    const hard=(f.style==="interval");
+    const keyOf={bike:"bike",ski:"ski",sled:"sledS",ruck:"ruck"};
+    let opts=CARDIO_MACHINES.filter(m=>(!m.cap||owned.has(m.cap))&&keyOf[m.id]).map(m=>keyOf[m.id]);
+    if(hard) opts=opts.filter(k=>k==="bike"||k==="ski").length?opts.filter(k=>k==="bike"||k==="ski"):opts;
+    const lastC=STATE.workouts.find(x=>!x.ref&&x.cardio&&x.machineKey);
+    let pick=null;
+    if(opts.length){ let pool2=opts.filter(k=>!lastC||lastC.machineKey!==k); if(!pool2.length) pool2=opts;
+      pick=pool2[Math.floor(Math.random()*pool2.length)]; }
+    const conds=pick?buildMachineSession(pick,duration,hard):[];
+    if(!pick) UI.cardioB={open:true,machine:null,movement:null,mode:hard?"intervals":null,p:{}};
+    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,
+      machineKey:pick,hardDay:hard,exercises:[],conditioning:conds,groups:[],note:""};
   }
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const recent=recentExerciseIds(3);
@@ -1462,7 +1477,12 @@ function orderGroupsEfficient(groups){
 function normalizeGroupSets(w){
   (w.groups||[]).forEach(g=>{ if(g.items.length<2) return;
     const exs=g.items.map(id=>w.exercises.find(e=>e.id===id)).filter(Boolean);
-    const target=Math.max(...exs.map(e=>e.sets.filter(s=>!s.drop).length));
+    let target=Math.max(...exs.map(e=>e.sets.filter(s=>!s.drop).length));
+    const plans=exs.map(e=>e.planSets).filter(Boolean);
+    if(plans.length) target=Math.min(target,Math.min(...plans));
+    const caps=exs.map(e=>EX_SET_CAP[e.id]).filter(Boolean);
+    if(caps.length) target=Math.min(target,Math.min(...caps));
+    target=Math.max(2,target);
     exs.forEach(e=>{ const drop=e.sets.filter(s=>s.drop); let work=e.sets.filter(s=>!s.drop);
       while(work.length<target){ const last=work[work.length-1]||{w:"",reps:""}; work.push({w:last.w,reps:last.reps||"",done:false,band:last.band||null}); }
       while(work.length>target) work.pop();
@@ -1475,6 +1495,8 @@ function normalizeGroupSets(w){
 const STRONG_HIGHREP=new Set(["face_pull","rear_fly","band_pull_apart"]);
 function buildLoggable(e){
   let sc=schemeFor(e.role); const prev=lastSession(e.id);
+  if(EX_SET_CAP[e.id]) sc={...sc,sets:Math.min(sc.sets,EX_SET_CAP[e.id])};
+  const planSets=sc.sets;
   if(goalDef().straight&&STRONG_HIGHREP.has(e.id)) sc={...sc,reps:"10–15",restSec:60};
   const ov=(STATE.settings.restOverrides||{})[e.id];
   const restSec=ov!=null?ov:sc.restSec;
@@ -1497,7 +1519,7 @@ function buildLoggable(e){
   const req=e.requires||[]; const bandKind=req.includes("resistancebands")?"power":req.includes("hipbands")?"hip":null;
   const prevBand=(prev&&prev.band)?prev.band:null;
   if(bandKind) sets.forEach(s=>{ if(s.band==null) s.band=prevBand||null; });
-  return {id:e.id,name:e.name,role:e.role,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabel,metric,scaledFrom,
+  return {id:e.id,name:e.name,role:e.role,planSets,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabel,metric,scaledFrom,
     rest:fmt(restSec),restSec,cue:e.cue,tech:e._tech||null,dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:null,sets,
     _prev:prev?prev.sets.filter(s=>!s.drop).map(s=>({w:s.w,reps:s.reps})):null};
 }
@@ -1627,7 +1649,13 @@ async function connectHR(){
     const ch=await svc.getCharacteristic("heart_rate_measurement");
     await ch.startNotifications();
     ch.addEventListener("characteristicvaluechanged",e=>{ const v=e.target.value; const f=v.getUint8(0); const bpm=(f&1)?v.getUint16(1,true):v.getUint8(1); if(bpm>0){ HR.bpm=bpm; HR.readings.push(bpm);
-      if(STATE.current){ const hs=STATE.current.hrStats||(STATE.current.hrStats={n:0,sum:0,max:0}); hs.n++; hs.sum+=bpm; if(bpm>hs.max) hs.max=bpm; const now=Date.now(); if(!HR._lastP||now-HR._lastP>30000){ HR._lastP=now; pCur(); } } } updateHRChip(); });
+      // rolling window since the last completed set — powers per-set HR
+      if(!HR._win) HR._win={n:0,sum:0,max:0,min:999};
+      HR._win.n++; HR._win.sum+=bpm; if(bpm>HR._win.max) HR._win.max=bpm; if(bpm<HR._win.min) HR._win.min=bpm;
+      if(HR._resting){ if(HR._restMin==null||bpm<HR._restMin) HR._restMin=bpm; }
+      if(STATE.current){ const hs=STATE.current.hrStats||(STATE.current.hrStats={n:0,sum:0,max:0}); hs.n++; hs.sum+=bpm; if(bpm>hs.max) hs.max=bpm;
+        const z=hrZoneOf(bpm); if(z){ const tz=STATE.current.hrZoneSec||(STATE.current.hrZoneSec={}); tz[z]=(tz[z]||0)+1; }
+        const now=Date.now(); if(!HR._lastP||now-HR._lastP>30000){ HR._lastP=now; pCur(); } } } updateHRChip(); });
     dev.addEventListener("gattserverdisconnected",()=>{ HR.connected=false; HR.bpm=null; HR.wasConnected=true; updateHRChip(); toast("HR strap disconnected — tap Reconnect HR"); });
     HR.device=dev; HR.char=ch; HR.connected=true; updateHRChip(); toast("HR monitor connected");
   }catch(err){ if(err&&(err.name==="NotFoundError"||err.name==="AbortError")) return; toast("Couldn’t connect — check the watch is broadcasting heart rate"); }
@@ -1711,7 +1739,7 @@ function fitToDuration(w,duration){
   normalizeGroupSets(w);
   w.estSec=estimateSessionSec(w);
   return w; }
-function condProtoMin(c){ const p=String(c.proto||""); let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
+function condProtoMin(c){ if(c.estMin) return c.estMin; const p=String(c.proto||""); let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
   m=p.match(/(\d+)\s*(?:\u00d7|x)\s*(\d+)\s*s\b/i); if(m) return Math.round((+m[1]*+m[2]*2)/60);
   const r=condRounds(p); return Math.max(3,Math.round(r*1.2)); }
 function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id===id);
@@ -2203,10 +2231,18 @@ function exportSessionTxt(w,ctx){
       const sets=(e.sets||[]).filter(s=>!s.drop);
       if(sets.length){
         const parts=sets.map((s,si)=>{ const val=(s.w?s.w+"\u00d7":"")+(s.reps||"");
-          if(s.done){ const rtxt=s._restTook?", rested "+fmt(s._restTook):""; return "["+(si+1)+"] "+(val||"?")+" (done"+rtxt+")"; }
+          if(s.done){ const rtxt=s._restTook?", rested "+fmt(s._restTook):"";
+            let hr=""; if(s.hrAt||s.hrPeak){ hr=" \u2014 HR "+(s.hrAt||"?")+(s.hrPeak?" peak "+s.hrPeak:"")+(s.hrAvg?" avg "+s.hrAvg:"");
+              if(s.hrEnd!=null) hr+=", recovered to "+s.hrEnd+" ("+(s.hrRec>=0?"\u2212":"+")+Math.abs(s.hrRec)+")"; }
+            return "["+(si+1)+"] "+(val||"?")+" (done"+rtxt+")"+hr; }
           if(val) return "["+(si+1)+"] "+val+" (planned)";
           return "["+(si+1)+"] (not logged)"; });
         t+="      sets: "+parts.join("  ")+"\n";
+        const hrSets=sets.filter(s=>s.hrAvg);
+        if(hrSets.length){ const avg=Math.round(hrSets.reduce((a,s)=>a+s.hrAvg,0)/hrSets.length);
+          const peak=Math.max(...hrSets.map(s=>s.hrPeak||0));
+          const recs=hrSets.filter(s=>s.hrRec!=null).map(s=>s.hrRec);
+          t+="      HR rollup: avg "+avg+" \u00b7 peak "+peak+(recs.length?" \u00b7 mean recovery \u2212"+Math.round(recs.reduce((a,b)=>a+b,0)/recs.length)+" bpm":"")+"\n"; }
       }
       if(e.dropPct) t+="      drop set: strip ~"+Math.round(e.dropPct*100)+"%\n";
     });
@@ -2219,9 +2255,12 @@ function exportSessionTxt(w,ctx){
       t+="  ["+(i+1)+"] "+(c.id||"")+' "'+c.name+'"'+(c.base?" base:"+c.base:"")+(c.custom?" custom:true":"")+"\n";
       t+='      proto: "'+(c.proto||"")+'" | fields: '+(c.fields||[]).map(f=>f.k).join(",")+"\n";
       const done=(c.sets||[]).filter(s=>s.done).length;
-      t+="      sets: "+done+"/"+(c.sets||[]).length+" done";
-      (c.sets||[]).forEach((s,si)=>{ if(s.done&&s.vals) t+=" — "+Object.entries(s.vals).filter(([k,v])=>v).map(([k,v])=>k+":"+v).join(" "); });
-      t+="\n";
+      t+="      sets: "+done+"/"+(c.sets||[]).length+" done\n";
+      (c.sets||[]).forEach((s,si)=>{ if(!s.done) return;
+        const vals=s.vals?Object.entries(s.vals).filter(([k,v])=>v).map(([k,v])=>k+":"+v).join(" "):"";
+        let hr=""; if(s.hrAt||s.hrPeak){ hr=" \u2014 HR "+(s.hrAt||"?")+(s.hrPeak?" peak "+s.hrPeak:"")+(s.hrAvg?" avg "+s.hrAvg:"");
+          if(s.hrEnd!=null) hr+=", recovered to "+s.hrEnd; }
+        t+="        lap "+(si+1)+": "+(vals||"(no values)")+hr+"\n"; });
     });
     t+="\n";
   }
@@ -2249,7 +2288,10 @@ function exportSessionTxt(w,ctx){
   t+="TOTALS\n";
   t+="  exercises: "+w.exercises.length+" | working sets: "+totSets+" planned, "+doneSets+" logged\n";
   t+="  volume so far: "+Math.round(vol).toLocaleString()+" lb"+(w.exercises.some(e=>e.rpe)?" | RPE: "+w.exercises.filter(e=>e.rpe).map(e=>e.rpe).join(","):" | RPE: (not yet rated)")+"\n";
-  t+="  HR: "+(HR.connected?"connected, ":"")+(w.hrAvg?"avg "+w.hrAvg+" max "+w.hrMax+" bpm":(HR.bpm?"live "+HR.bpm:"not recorded"))+"\n\n";
+  t+="  HR: "+(HR.connected?"connected, ":"")+(w.hrAvg?"avg "+w.hrAvg+" max "+w.hrMax+" bpm":(HR.bpm?"live "+HR.bpm:"not recorded"))+"\n";
+  if(w.hrZoneSec&&Object.keys(w.hrZoneSec).length){ const tot=Object.values(w.hrZoneSec).reduce((a,b)=>a+b,0)||1;
+    t+="  time in zone: "+[1,2,3,4,5].map(z=>{ const s=w.hrZoneSec[z]||0; return "Z"+z+" "+Math.round(s/60)+"m ("+Math.round(s/tot*100)+"%)"; }).join(" \u00b7 ")+"\n"; }
+  t+="\n";
 
   t+="SETTINGS CONTEXT\n";
   t+="  hrZones: "+zTxt(2)+" \u00b7 "+zTxt(4)+" (max "+(STATE.settings.hrMax||144)+"/rest "+(STATE.settings.hrRest||43)+")\n";
@@ -2347,9 +2389,9 @@ view.addEventListener("click",e=>{
   if(a==="toggleset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex; const ex=STATE.current.exercises[exi]; const s=ex.sets[+row.dataset.set]; s.done=!s.done; act.classList.toggle("done",s.done);
     // stamp actual rest taken onto whichever set most recently triggered a rest timer
     if(RT._sinceSet&&RT._sinceSet.startedAt){ const prevEx=STATE.current.exercises.find(e=>e.id===RT._sinceSet.exId); const prevSet=prevEx&&prevEx.sets[RT._sinceSet.setIdx];
-      if(prevSet) prevSet._restTook=Math.round((Date.now()-RT._sinceSet.startedAt)/1000); RT._sinceSet=null; }
+      if(prevSet){ prevSet._restTook=Math.round((Date.now()-RT._sinceSet.startedAt)/1000); hrStampRecovery(prevSet); } RT._sinceSet=null; }
     pCur();
-    if(s.done){ RT._sinceSet={exId:ex.id,setIdx:+row.dataset.set,startedAt:Date.now()};
+    if(s.done){ hrStampSet(s); RT._sinceSet={exId:ex.id,setIdx:+row.dataset.set,startedAt:Date.now()};
       const grp=STATE.current.groups.find(g=>g.items.includes(ex.id));
       if(!grp||grp.items.length<=1){ startRest(restFor(ex),ex.name,ex.id);
         if(ex.sets.filter(x=>!x.drop).every(x=>x.done)){ const nx=nextExerciseId(ex.id); if(nx) cueNextSet(nx); else cueFinish(); } }
@@ -2377,6 +2419,8 @@ view.addEventListener("click",e=>{
   if(a==="loadtpl"){ const t=(STATE.templates||[]).find(x=>x.id===act.dataset.id); if(!t) return; const exercises=t.items.map(id=>{ const ex=exById(id); return ex?buildLoggable(ex):null; }).filter(Boolean); const have=new Set(exercises.map(e=>e.id)); const groups=(t.groups||[]).map(g=>({type:g.type,items:g.items.filter(id=>have.has(id))})).filter(g=>g.items.length); have.forEach(id=>{ if(!groups.some(g=>g.items.includes(id))) groups.push({type:"straight",items:[id]}); }); const conditioning=(t.conds||[]).map(x=>{ if(x&&x.c){ const c=JSON.parse(JSON.stringify(x.c)); c.id="cc_"+Date.now()+"_"+Math.floor(Math.random()*999); const n=condRounds(c.proto); c.sets=[]; for(let i=0;i<n;i++) c.sets.push(mkCondSet(c.fields)); return c; } const c=EXERCISES.find(e=>e.id===x); return c?buildCond(c,t.duration):null; }).filter(Boolean); STATE.current={id:"w"+Date.now(),date:Date.now(),focus:t.focus,focusName:t.name,duration:t.duration,mode:t.mode,exercises,conditioning,groups,note:"",fromTpl:t.id}; normalizeGroupSets(STATE.current); pCur(); STATE.tab="today"; render(); toast("Loaded "+t.name); return; }
   if(a==="deltpl"){ if(!confirm("Delete this saved workout?")) return; STATE.templates=(STATE.templates||[]).filter(x=>x.id!==act.dataset.id); pTpl(); renderToday(); return; }
   if(a==="condset"){ const row=act.closest(".setrow"); const c=STATE.current.conditioning[+row.dataset.ci]; const s=c.sets[+row.dataset.cset]; s.done=!s.done; act.classList.toggle("done",s.done); 
+    if(RT._sinceSet&&RT._sinceSet.cond){ const pc=STATE.current.conditioning[RT._sinceSet.ci]; const ps=pc&&pc.sets[RT._sinceSet.setIdx]; if(ps) hrStampRecovery(ps); RT._sinceSet=null; }
+    if(s.done){ hrStampSet(s); RT._sinceSet={cond:true,ci:+row.dataset.ci,setIdx:+row.dataset.cset,startedAt:Date.now()}; }
     if(s.done&&c._running&&c._lapStart){ const lap=Math.round((Date.now()-c._lapStart)/1000); const tf=(c.fields||[]).find(f=>f.k==="time"); if(tf){ if(!s.vals) s.vals={}; if(!s.vals.time) s.vals.time=fmt(lap); } c._lapStart=Date.now(); }
     pCur();
     if(s.done){ startRest(restForKey("cond_"+c.id,60),c.name+" rest","cond_"+c.id); } return; }
