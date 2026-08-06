@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.13";
+const BUILD="2026.08.14";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1386,11 +1386,34 @@ function generate(focusKey,duration,mode){
   const simOf=id=>{ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; };
   const simBlocked=new Set();
   const _add0=add; add=(e)=>{ if(!e) return; if(simBlocked.has(e.id)) return; _add0(e); simOf(e.id).forEach(x=>simBlocked.add(x)); };
+  // Per-muscle and per-equipment exposure tracking. Nothing previously tracked how many
+  // times a muscle (or, for isolation work, a piece of equipment) had already been hit
+  // while filling a session — SIM_GROUPS only blocks exact lift-family duplicates, and
+  // the pattern limit below is about movement pattern, not muscle. That gap let e.g. a
+  // push day stack 5+ shoulder-touching exercises and 3 separate dumbbell isolation
+  // moves into one session.
+  // Muscle cap is a MOVING target, not a flat constant: a focus only touches 2-3 muscles
+  // (push = chest/shoulders/triceps), so a fixed cap like 3 is already exhausted by the
+  // time an 11-exercise session is half full, and the empty-pool fallback that has to
+  // fire on every remaining pick ends up disabling the cap entirely — that was the bug
+  // in the first version of this fix. Scaling the cap with how large the session has
+  // grown so far keeps it proportionally tight at every size instead of just failing
+  // open once the session outgrows a constant.
+  const ISO_STATION_CAP=2;
+  const muscleHits={}, stationHits={};
+  const bumpExposure=e=>{ const p=(e.primary||[])[0]; if(p) muscleHits[p]=(muscleHits[p]||0)+1;
+    if(e.role==="isolation"){ (e.requires||[]).forEach(s=>{ stationHits[s]=(stationHits[s]||0)+1; }); } };
+  const MUSCLE_CAP=4;
+  const muscleOK=e=>{ const p=(e.primary||[])[0]; return !p||(muscleHits[p]||0)<MUSCLE_CAP; };
+  const muscleVariety=e=>{ const p=(e.primary||[])[0]; if(!p) return 1; const n=muscleHits[p]||0; return n>=4?0.12:n>=3?0.3:n>=2?0.6:1; };
+  const stationOK=e=>{ if(e.role!=="isolation") return true; return !(e.requires||[]).some(s=>(stationHits[s]||0)>=ISO_STATION_CAP); };
+  const _add1=add; add=(e)=>{ if(!e) return; const before=chosen.length; _add1(e); if(chosen.length>before) bumpExposure(e); };
   const compCount=()=>chosen.filter(x=>x.role==="compound").length;
+  const coreCount=()=>chosen.filter(x=>x.role==="core").length;
   const patCount=p=>chosen.filter(x=>x.pattern===p).length;
   const patLimit=sCount>=8?3:2;
   const patOK=e=>e.role==="core"||e.pattern==="core"||patCount(e.pattern)<patLimit;
-  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*injFactor(e)*patVariety(e);
+  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
   // PINNED FIRST — before anchors, so a pinned lift always gets its slot and is never
@@ -1408,17 +1431,19 @@ function generate(focusKey,duration,mode){
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
     let cands;
     if(isCore){ cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")); if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
-    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)); if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
+    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e));
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)); // relax exposure caps before pattern limit
+      if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&(compCount()<compCap||e.role!=="compound")); }
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
-  if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)),recent)); } // guaranteed ab work
+  if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
   guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
     if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
-    let fresh=cands.filter(e=>!simBlocked.has(e.id));
+    let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e));
+    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id));
     const e=pickFrom(fresh.length?fresh:cands,recent); if(!e) break; const before=chosen.length; add(e); if(chosen.length===before&&!fresh.length) break; }
 
-  PICK_WFN=null;
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const conds=[];
   { const gg=goalDef(); const want=(gg.cond&&gg.cond[duration])||0;
@@ -1442,7 +1467,16 @@ function generate(focusKey,duration,mode){
   const target=duration*60;
   let wo=assemble(chosen); let grow=0;
   while(estimateSessionSec(wo)<target*0.92&&chosen.length<14&&grow++<20){
-    let cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e));
+    // As a session grows beyond its base size, keep core work scaling with it instead of
+    // staying pinned at the single guaranteed exercise added above. Target roughly 1 core
+    // exercise per 4 total, capped at 3 so a push/pull/leg day never turns into a core day.
+    const wantCore=!isCore&&coreCount()<Math.ceil((chosen.length+1)/4)&&coreCount()<3;
+    let cands=wantCore?pool.filter(e=>!chosen.includes(e)&&e.role==="core"):[];
+    if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e)&&muscleOK(e)&&stationOK(e));
+    // No relax-fallback here on purpose: fill (above) guarantees a viable minimum session
+    // and is allowed to repeat a muscle if the pool forces it, but grow is pure padding —
+    // once every remaining candidate would break the exposure caps, stop rather than force
+    // another same-muscle repeat just to eat up leftover time.
     if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
     if(!cands.length) break;
     // try multiple candidates — don't give up on the first one that would overshoot
@@ -1456,6 +1490,7 @@ function generate(focusKey,duration,mode){
     }
     if(!added) break;
   }
+  PICK_WFN=null;
   fitToDuration(wo,duration);
   return wo;
 }
@@ -1720,9 +1755,14 @@ function fitToDuration(w,duration){
   let guard=0;
   const regroup=()=>{ const ids=w.exercises.map(e=>e.id); w.groups=(w.groups||[]).map(g=>({...g,items:g.items.filter(x=>ids.includes(x))})).filter(g=>g.items.length); };
   while(estimateSessionSec(w)>hi&&w.exercises.length>floor&&guard++<30){
-    // drop the least important: last isolation, else last accessory, else last non-compound
+    // Drop the least important first: last isolation, else last accessory. Core is
+    // deliberately excluded from this explicit priority — it's the thing we now
+    // guarantee/scale into every session (see generate()'s "guaranteed ab work" +
+    // grow-phase core scaling), so trimming it away here would silently undo that.
+    // It can still go via the generic non-compound fallback below as a genuine last
+    // resort, but only once isolation and accessory are both fully exhausted.
     let idx=-1;
-    for(const role of ["isolation","accessory","core"]){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role===role){ idx=i; break; } } if(idx>=0) break; }
+    for(const role of ["isolation","accessory"]){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role===role){ idx=i; break; } } if(idx>=0) break; }
     if(idx<0){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role!=="compound"){ idx=i; break; } } }
     if(idx<0) break;
     w.exercises.splice(idx,1); regroup();
@@ -1742,12 +1782,20 @@ function fitToDuration(w,duration){
 function condProtoMin(c){ if(c.estMin) return c.estMin; const p=String(c.proto||""); let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
   m=p.match(/(\d+)\s*(?:\u00d7|x)\s*(\d+)\s*s\b/i); if(m) return Math.round((+m[1]*+m[2]*2)/60);
   const r=condRounds(p); return Math.max(3,Math.round(r*1.2)); }
+// Programmed rest undercounts real recovery need at working RPE. Logged sessions at
+// RPE 8-10 show accessory/isolation rest running ~2.1-2.4x the prescribed value
+// (JM press 0:45→~1:34 avg, close-grip bench 0:45→~1:50 avg, lateral raise 0:40→~1:31 avg).
+// Compounds already carry a longer base rest (90-180s) and aren't scaled here for lack
+// of matching overshoot data. This affects planning/estimation only — the live rest
+// timer during a workout still counts down the programmed value as prescribed.
+const REST_REALISM={compound:1,accessory:2.2,isolation:2.2,core:1.15};
+function realRestSec(e){ return (e.restSec||60)*(REST_REALISM[e.role]||1); }
 function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id===id);
   (w.groups||[]).forEach(g=>{ const mem=(g.items||[]).map(exOf).filter(Boolean); if(!mem.length) return;
     const rounds=Math.max(...mem.map(e=>(e.sets||[]).filter(s=>!s.drop).length),0);
     const work=mem.reduce((a,e)=>a+((e.metric==="time")?50:40),0);
     const trans=mem.length>1?(mem.length-1)*15:0;
-    const rest=Math.max(...mem.map(e=>e.restSec||60));
+    const rest=Math.max(...mem.map(e=>realRestSec(e)));
     t+=rounds*(work+trans+rest); });
   (w.conditioning||[]).forEach(c=>{ t+=condProtoMin(c)*60; });
   return t; }
