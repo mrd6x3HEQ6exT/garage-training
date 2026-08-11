@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.14";
+const BUILD="2026.08.15";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -921,6 +921,11 @@ const GOALS={
   lean:{name:"Get lean",blurb:"Moderate reps, short rest, circuits — keeps muscle while you lean out.",circuit:true,
     scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["10–12",45],core:["12–15",40]}},
   weight:{name:"Reduce bodyweight",blurb:"Higher reps, short rest, circuits. Add cardio yourself, or run it as its own session.",circuit:true,
+    // Measured, not guessed — but only at 45 min, which is the only duration there's a
+    // completed session to measure: ran ~4.8 min/exercise even before equipment-changeover
+    // time. Not extrapolated to 30/60 min — there's no evidence the same rate holds there,
+    // and a first attempt at scaling it linearly undershot both by 30%+.
+    maxExercisesAt45:9,
     scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["10–12",40],core:["12–20",35]}},
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
@@ -1327,9 +1332,14 @@ function generate(focusKey,duration,mode){
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const recent=recentExerciseIds(3);
   const sCount=(()=>{ const base=STRENGTH_COUNT[duration]; const g=goalDef(); const sc=g.scheme||{};
-    // average seconds per set for this goal (work + rest), weighted toward accessories
+    // average seconds per set for this goal (work + rest), weighted toward accessories.
+    // A pure core-focus session is 100% core-role exercises, so it should budget off
+    // core's own rest value, not the compound/accessory blend everything else uses —
+    // under goals with long compound/accessory rest (e.g. "strong": 120-180s), that blend
+    // was massively underbudgeting a core day (3 exercises for 30 min of ab work).
     const cRest=(sc.compound&&sc.compound[1])||90, aRest=(sc.accessory&&sc.accessory[1])||70;
-    const perSet=40+(cRest*0.35+aRest*0.65);
+    const coreRest=(sc.core&&sc.core[1])||45;
+    const perSet=focusKey==="core"?(40+coreRest):(40+(cRest*0.35+aRest*0.65));
     const grouped=!!g.circuit&&!g.straight;             // circuits overlap rest
     const eff=grouped?perSet*0.62:perSet;
     const setsPerEx=3.15;
@@ -1337,7 +1347,10 @@ function generate(focusKey,duration,mode){
     let n=Math.round(budget/(eff*setsPerEx));
     const condMin=((g.cond&&g.cond[duration])||0)*6*60; // finishers eat time too
     if(condMin) n=Math.round((budget-condMin)/(eff*setsPerEx));
-    return Math.max(3,Math.min(12,n)); })();
+    // Only applies at 45 min (the only duration with real evidence) and skips the core
+    // focus (core exercises run cheaper than the push/pull/legs mix the number came from).
+    const durCap=(g.maxExercisesAt45&&duration===45&&focusKey!=="core")?g.maxExercisesAt45:12;
+    return Math.max(3,Math.min(durCap,n)); })();
   const isCore=focusKey==="core";
   const chosen=[]; let add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
   const rmap=readiness();
@@ -1430,7 +1443,10 @@ function generate(focusKey,duration,mode){
   let guard=0;
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
     let cands;
-    if(isCore){ cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")); if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
+    if(isCore){ cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&!simBlocked.has(e.id));
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")); // relax sim-block if that's the only blocker
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")&&!simBlocked.has(e.id));
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
     else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)); // relax exposure caps before pattern limit
       if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
@@ -1466,7 +1482,7 @@ function generate(focusKey,duration,mode){
   // grow toward the target while candidates remain
   const target=duration*60;
   let wo=assemble(chosen); let grow=0;
-  while(estimateSessionSec(wo)<target*0.92&&chosen.length<14&&grow++<20){
+  while(estimateSessionSec(wo)<target*0.92&&chosen.length<((g.maxExercisesAt45&&duration===45&&!isCore)?g.maxExercisesAt45:14)&&grow++<20){
     // As a session grows beyond its base size, keep core work scaling with it instead of
     // staying pinned at the single guaranteed exercise added above. Target roughly 1 core
     // exercise per 4 total, capped at 3 so a push/pull/leg day never turns into a core day.
@@ -1497,7 +1513,13 @@ function generate(focusKey,duration,mode){
 // Sequence groups so you stay at one station and ramp plates down instead of walking the gym.
 const _roleRank={compound:0,accessory:1,isolation:2,core:3};
 function groupStationRank(g){ let req=new Set(); let core=false; g.items.forEach(id=>{ const e=exById(id); if(!e) return; (e.requires||[]).forEach(x=>req.add(x)); if((e.primary||[]).includes("core")) core=true; });
-  if(core) return 6; // core finisher last
+  // Core used to rank dead last ("finisher"), which meant a session running long always
+  // sacrificed core first — that's exactly what happened in your Aug 5 completed session
+  // (Circuit C, containing bb_ohp + pallof, never started). Rank 4 keeps core after the
+  // main barbell/landmine/EZ-bar/dumbbell work (so it's still not pre-fatiguing the lifts
+  // that need core bracing) but ahead of cable work, so if anything gets cut to a time
+  // overrun it's the cable accessory group, not core.
+  if(core) return 4;
   if(req.has("barbell")||req.has("trapbar")||req.has("rack")) return 0; // rack/barbell cluster first
   if(req.has("landmine")) return 1;
   if(req.has("ezbar")) return 2;
@@ -1505,9 +1527,22 @@ function groupStationRank(g){ let req=new Set(); let core=false; g.items.forEach
   return 3; // dumbbell / band / bodyweight
 }
 function orderGroupsEfficient(groups){
-  return groups.map((g,i)=>{ const rank=groupStationRank(g); const roleMin=Math.min(...g.items.map(id=>{ const e=exById(id); return e?(_roleRank[e.role]??2):2; })); return {g,rank,roleMin,i}; })
+  const ordered=groups.map((g,i)=>{ const rank=groupStationRank(g); const roleMin=Math.min(...g.items.map(id=>{ const e=exById(id); return e?(_roleRank[e.role]??2):2; })); return {g,rank,roleMin,i}; })
     .sort((a,b)=> a.rank-b.rank || a.roleMin-b.roleMin || a.i-b.i)
     .map(x=>x.g);
+  // Rank 4 only pushes core ahead of cable (rank 5) — a session with no cable work has
+  // nothing above core, so it lands last anyway by default, not by design. Guarantee it
+  // directly instead of hoping the equipment mix cooperates: if the final group has core,
+  // swap in the nearest earlier non-core group so core is never the thing a time overrun
+  // cuts, regardless of what stations happen to be in the session.
+  if(ordered.length>1){ const li=ordered.length-1;
+    const hasCore=g=>g.items.some(id=>{ const e=exById(id); return e&&(e.primary||[]).includes("core"); });
+    if(hasCore(ordered[li])){
+      let swapWith=-1; for(let j=li-1;j>=0;j--){ if(!hasCore(ordered[j])){ swapWith=j; break; } }
+      if(swapWith>=0){ const tmp=ordered[li]; ordered[li]=ordered[swapWith]; ordered[swapWith]=tmp; }
+    }
+  }
+  return ordered;
 }
 function normalizeGroupSets(w){
   (w.groups||[]).forEach(g=>{ if(g.items.length<2) return;
@@ -1790,13 +1825,33 @@ function condProtoMin(c){ if(c.estMin) return c.estMin; const p=String(c.proto||
 // timer during a workout still counts down the programmed value as prescribed.
 const REST_REALISM={compound:1,accessory:2.2,isolation:2.2,core:1.15};
 function realRestSec(e){ return (e.restSec||60)*(REST_REALISM[e.role]||1); }
+// Between-group equipment changeover. Rest and work were the only costed items — moving
+// from one station to a completely different one (e.g. landmine/cable/dumbbell circuit
+// to a barbell rack) was counted as free. This is a flat, UNCALIBRATED estimate — the app
+// doesn't yet log the gap between exercises, only rest within one — so 45s is a reasoned
+// guess (walking + basic re-setup), not a measured number. It also only fires on a full
+// station swap: going back to the same barbell for a heavier lift (a real cost — see the
+// Aug 5 session's 95lb→155lb jump) isn't detected here, since that's a load change on the
+// same equipment, not a different one. Revisit both once real transition timestamps exist.
+const STATION_CHANGE_SEC=45;
+// "bench" and "plates" are shared by nearly every station (barbell bench, DB bench, cable
+// bench, EZ-bar work all use a bench) — including them in the overlap check meant almost
+// every group pairing "overlapped" via bench alone, masking real transitions like barbell
+// rack -> dumbbell/cable/landmine hub. Excluded so overlap reflects the actual destination
+// equipment, not the furniture most exercises happen to share.
+const CHANGEOVER_IGNORE=new Set(["bench","plates"]);
 function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id===id);
+  let prevStations=null;
   (w.groups||[]).forEach(g=>{ const mem=(g.items||[]).map(exOf).filter(Boolean); if(!mem.length) return;
     const rounds=Math.max(...mem.map(e=>(e.sets||[]).filter(s=>!s.drop).length),0);
     const work=mem.reduce((a,e)=>a+((e.metric==="time")?50:40),0);
     const trans=mem.length>1?(mem.length-1)*15:0;
     const rest=Math.max(...mem.map(e=>realRestSec(e)));
-    t+=rounds*(work+trans+rest); });
+    const stations=new Set(); mem.forEach(e=>{ const ex=exById(e.id); (ex&&ex.requires||[]).forEach(s=>{ if(!CHANGEOVER_IGNORE.has(s)) stations.add(s); }); });
+    let changeover=0;
+    if(prevStations&&stations.size){ const overlap=[...stations].some(s=>prevStations.has(s)); if(!overlap) changeover=STATION_CHANGE_SEC; }
+    if(stations.size) prevStations=stations;
+    t+=changeover+rounds*(work+trans+rest); });
   (w.conditioning||[]).forEach(c=>{ t+=condProtoMin(c)*60; });
   return t; }
 function condMinutes(w){ let m=0; (w.conditioning||[]).forEach(c=>{ const done=(c.sets||[]).filter(s=>s.done);
