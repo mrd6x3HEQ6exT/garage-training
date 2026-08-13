@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.18";
+const BUILD="2026.08.21";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1218,10 +1218,30 @@ function platesPerSide(total,bar){
 /* recovery readiness with RPE weighting */
 const RD_CAP={sore:0.12,worn:0.5};
 function rdOv(){ const o=STATE.settings.rdOverride||{}; const now=Date.now(); let changed=false;
-  Object.keys(o).forEach(m=>{ if(now-(o[m].ts||0)>48*3600000){ delete o[m]; changed=true; } });
+  Object.keys(o).forEach(m=>{ const eh=o[m].expiryHours; if(eh!=null&&now-(o[m].ts||0)>eh*3600000){ delete o[m]; changed=true; } });
   if(changed) pSet(); return o; }
-function rdCycle(m){ if(!STATE.settings.rdOverride) STATE.settings.rdOverride={}; const o=STATE.settings.rdOverride; const cur=o[m]&&(Date.now()-o[m].ts<=48*3600000)?o[m].lvl:null;
-  if(cur==null) o[m]={lvl:"worn",ts:Date.now()}; else if(cur==="worn") o[m]={lvl:"sore",ts:Date.now()}; else delete o[m]; pSet(); }
+function rdCycle(m){ if(!STATE.settings.rdOverride) STATE.settings.rdOverride={}; const o=STATE.settings.rdOverride; const eh=o[m]&&o[m].expiryHours; const cur=o[m]&&(eh==null||Date.now()-o[m].ts<=eh*3600000)?o[m].lvl:null;
+  // Was: null->worn->sore->clear only — no way to mark a muscle MORE recovered than the
+  // computed value, only less. Added "fresh" as the first step of the cycle so tapping can
+  // raise readiness too, not just lower it. A pre-existing "custom" override (set via the
+  // long-press sheet) is treated as already past "fresh" — next tap moves it to "worn".
+  if(cur==null) o[m]={lvl:"fresh",ts:Date.now(),expiryHours:48};
+  else if(cur==="fresh"||cur==="custom") o[m]={lvl:"worn",ts:Date.now(),expiryHours:48};
+  else if(cur==="worn") o[m]={lvl:"sore",ts:Date.now(),expiryHours:48};
+  else delete o[m]; pSet(); }
+function openRdSheet(m){ const ov=rdOv(); const o=ov[m];
+  const pct = o ? (o.lvl==="fresh"?100:o.lvl==="custom"?o.pct:o.lvl==="worn"?50:o.lvl==="sore"?12:Math.round(readiness()[m]*100)) : Math.round(readiness()[m]*100);
+  const exp = o&&o.expiryHours!==undefined ? o.expiryHours : 48;
+  renderRdSheet(m,pct,exp); }
+function renderRdSheet(m,pct,exp){ const mm=document.getElementById("modal");
+  const expBtn=(h,label)=>`<button class="chip ${exp===h?"on":""}" data-action="rdexpiry" data-m="${m}" data-h="${h===null?"never":h}">${label}</button>`;
+  mm.innerHTML=`<div class="mcard"><div class="mh">${esc(MUSCLE_LABEL[m]||m)} readiness</div>
+    <div class="row" style="gap:12px;align-items:center;margin-top:6px"><input type="range" min="0" max="100" step="5" value="${pct}" data-range="rdcustom" data-m="${m}" style="flex:1"><span class="mono" id="rdCustomLbl" style="min-width:42px;text-align:right;color:var(--ink)">${pct}%</span></div>
+    <div class="eyebrow" style="margin:14px 0 6px">How long should this stick?</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">${expBtn(24,"24h")}${expBtn(48,"48h")}${expBtn(72,"72h")}${expBtn(null,"Until cleared")}</div>
+    <div class="divider"></div>
+    <div class="row" style="gap:8px"><button class="btn ghost sm" data-action="rdreset" data-m="${m}">Reset</button><button class="btn sm" data-action="rddone" style="margin-left:auto">Done</button></div></div>`;
+  mm.classList.add("show"); }
 function readiness(){
   const now=Date.now(); const last={}, lastRpe={};
   for(const w of STATE.workouts){ // newest first
@@ -1240,7 +1260,11 @@ function readiness(){
     const days=(now-last[m])/86400000;
     out[m]=Math.max(0,Math.min(1, days/((RECOVERY_DAYS[m]||2)*mult)));
   }
-  const _ov=rdOv(); Object.keys(_ov).forEach(k=>{ if(out[k]!=null) out[k]=Math.min(out[k],RD_CAP[_ov[k].lvl]); else out[k]=RD_CAP[_ov[k].lvl]; }); return out;
+  const _ov=rdOv(); Object.keys(_ov).forEach(k=>{ const lvl=_ov[k].lvl;
+    if(lvl==="fresh"){ out[k]=1; } // raises readiness regardless of the computed value — "worn"/"sore" only cap it, this overrides it
+    else if(lvl==="custom"){ out[k]=Math.max(0,Math.min(1,(_ov[k].pct||0)/100)); } // exact value from the long-press sheet, also a direct override
+    else { if(out[k]!=null) out[k]=Math.min(out[k],RD_CAP[lvl]); else out[k]=RD_CAP[lvl]; } });
+  return out;
 }
 function lastFocus(){ return STATE.workouts.length?STATE.workouts[0].focus:null; }
 function recommendFocus(){
@@ -1778,7 +1802,21 @@ document.getElementById("modal").addEventListener("click",e=>{ const m=e.current
   else if(a==="copyurl"){ toast(copyText(ac.dataset.url)?"Link copied — paste in your browser":"Press-and-hold the link below to copy"); }
   else if(a==="copydata"){ const out=document.getElementById("syncOut"); toast(copyText(out?out.textContent:"")?"Data copied — paste it on your other device":"Press-and-hold the box to select & copy"); }
   else if(a==="importdata"){ const ta=document.getElementById("syncIn"); if(importData(ta?ta.value:"")){ m.classList.remove("show"); STATE.tab="log"; render(); toast("Imported & merged"); } else toast("Couldn’t read that — check the pasted text"); }
+  else if(a==="rdexpiry"){ const mu=ac.dataset.m; if(!STATE.settings.rdOverride) STATE.settings.rdOverride={};
+    const hv=ac.dataset.h==="never"?null:+ac.dataset.h;
+    const existing=STATE.settings.rdOverride[mu];
+    const pct=existing?(existing.lvl==="fresh"?100:existing.lvl==="custom"?existing.pct:existing.lvl==="worn"?50:existing.lvl==="sore"?12:Math.round(readiness()[mu]*100)):Math.round(readiness()[mu]*100);
+    STATE.settings.rdOverride[mu]={lvl:"custom",pct,ts:Date.now(),expiryHours:hv}; pSet();
+    renderRdSheet(mu,pct,hv); }
+  else if(a==="rdreset"){ const mu=ac.dataset.m; if(STATE.settings.rdOverride) delete STATE.settings.rdOverride[mu]; pSet(); m.classList.remove("show"); renderToday(); }
+  else if(a==="rddone"){ m.classList.remove("show"); renderToday(); }
   else if(a==="closemodal"){ m.classList.remove("show"); } });
+document.getElementById("modal").addEventListener("input",e=>{ const inp=e.target; if(inp.dataset.range!=="rdcustom") return;
+  const mu=inp.dataset.m, pct=Math.max(0,Math.min(100,+inp.value||0));
+  if(!STATE.settings.rdOverride) STATE.settings.rdOverride={};
+  const existing=STATE.settings.rdOverride[mu]; const exp=existing&&existing.expiryHours!==undefined?existing.expiryHours:48;
+  STATE.settings.rdOverride[mu]={lvl:"custom",pct,ts:Date.now(),expiryHours:exp}; pSet();
+  const lbl=document.getElementById("rdCustomLbl"); if(lbl) lbl.textContent=pct+"%"; });
 
 /* ---------------- Render ---------------- */
 const view=document.getElementById("view"), toastEl=document.getElementById("toast"); let toastT;
@@ -1943,10 +1981,12 @@ function renderToday(){
   if(feat("deload")){ const dl=deloadCheck(); if(dl) html+=`<div class="panel backup-nudge" style="border-color:#5a4a36"><div><b style="color:var(--mid)">Deload hint</b><small>${esc(dl)}</small></div></div>`; }
   if(ub>=4) html+=`<div class="panel backup-nudge"><div><b>Back up your training</b><small>${ub} session${ub===1?"":"s"} logged since your last backup. One tap saves a file you can keep in Drive — don’t risk losing your log to a cleared cache.</small></div><button class="btn primary sm" data-action="export">Back up now</button></div>`;
   { const ov=rdOv();
-  html+=`<div class="panel"><div class="spread"><span class="eyebrow">Recovery readiness</span><span class="hint">tap a muscle: ✋ worn → sore → clear</span></div><div class="stack-grid">`;
+  html+=`<div class="panel"><div class="spread"><span class="eyebrow">Recovery readiness</span><span class="hint">tap: fresh → worn → sore, tap again to clear · long-press: exact %</span></div><div class="stack-grid">`;
   for(const m of MUSCLE_ORDER){ const v=r[m], lit=Math.round(v*8), col=v>=.75?"var(--ready)":v>=.4?"var(--mid)":"var(--cold)"; let p="";
     for(let i=0;i<8;i++) p+=`<div class="pl ${i<lit?"lit":""}" style="--seg-c:${col}"></div>`;
-    const o=ov[m]; html+=`<div class="mstack" data-action="rdcycle" data-m="${m}" style="cursor:pointer"><div class="plates">${p}</div><div class="mlabel">${o?"✋ ":""}${MUSCLE_LABEL[m]}</div><div class="mval" ${o?`style="color:${o.lvl==="sore"?"var(--cold)":"var(--mid)"}"`:""}>${o?o.lvl:Math.round(v*100)}</div></div>`; }
+    const o=ov[m]; const ovCol=o?(o.lvl==="sore"?"var(--cold)":o.lvl==="fresh"?"var(--ready)":o.lvl==="custom"?(o.pct>=75?"var(--ready)":o.pct>=40?"var(--mid)":"var(--cold)"):"var(--mid)"):"";
+    const ovLabel=o?(o.lvl==="custom"?o.pct+"%":o.lvl):"";
+    html+=`<div class="mstack" data-action="rdcycle" data-m="${m}" style="cursor:pointer"><div class="plates">${p}</div><div class="mlabel">${o?"✋ ":""}${MUSCLE_LABEL[m]}</div><div class="mval" ${o?`style="color:${ovCol}"`:""}>${o?ovLabel:Math.round(v*100)}</div></div>`; }
   html+=`</div>${Object.keys(ov).length?`<div class="hint" style="margin-top:7px">✋ manual — the generator steers around these; auto-clears after 48 h.</div>`:""}</div>`; }
 
   html+=`<div class="panel"><div class="eyebrow" style="margin-bottom:9px">Today’s session</div>
@@ -2544,7 +2584,14 @@ const pEq=()=>saveKey("gym_equipment",STATE.equipment), pSet=()=>saveKey("gym_se
 /* ---------------- Events ---------------- */
 document.querySelector("nav").addEventListener("click",e=>{ const b=e.target.closest("button[data-tab]"); if(!b) return; STATE.tab=b.dataset.tab; render(); });
 
+let RD_LP={timer:null,fired:false};
+view.addEventListener("pointerdown",e=>{ const el=e.target.closest(".mstack[data-m]"); if(!el) return;
+  RD_LP.fired=false; clearTimeout(RD_LP.timer);
+  RD_LP.timer=setTimeout(()=>{ RD_LP.fired=true; if(navigator.vibrate) navigator.vibrate(12); openRdSheet(el.dataset.m); },500); });
+["pointerup","pointercancel","pointerleave"].forEach(evt=>view.addEventListener(evt,()=>{ clearTimeout(RD_LP.timer); }));
+view.addEventListener("contextmenu",e=>{ if(e.target.closest(".mstack[data-m]")) e.preventDefault(); });
 view.addEventListener("click",e=>{
+  if(RD_LP.fired){ RD_LP.fired=false; e.preventDefault(); e.stopPropagation(); return; } // long-press just opened the sheet — don't also run the tap-cycle
   const pp=e.target.closest("[data-prog-p]"); if(pp){ UI.progPeriod=pp.dataset.progP; renderProgress(); return; }
   const seg=e.target.closest("#focusSeg button,#durSeg button,#modeSeg button");
   if(seg){ if(seg.dataset.focus) STATE.settings._focus=seg.dataset.focus; if(seg.dataset.dur){ STATE.settings.duration=+seg.dataset.dur; pSet(); } if(seg.dataset.mode){ STATE.settings.mode=seg.dataset.mode; pSet(); }
