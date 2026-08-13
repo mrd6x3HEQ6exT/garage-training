@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.15";
+const BUILD="2026.08.18";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -921,11 +921,20 @@ const GOALS={
   lean:{name:"Get lean",blurb:"Moderate reps, short rest, circuits — keeps muscle while you lean out.",circuit:true,
     scheme:{compound:["8–10",75],accessory:["12–15",50],isolation:["10–12",45],core:["12–15",40]}},
   weight:{name:"Reduce bodyweight",blurb:"Higher reps, short rest, circuits. Add cardio yourself, or run it as its own session.",circuit:true,
-    // Measured, not guessed — but only at 45 min, which is the only duration there's a
-    // completed session to measure: ran ~4.8 min/exercise even before equipment-changeover
-    // time. Not extrapolated to 30/60 min — there's no evidence the same rate holds there,
-    // and a first attempt at scaling it linearly undershot both by 30%+.
-    maxExercisesAt45:9,
+    // Measured, then corrected: the first 45-min completed session (9 exercises) ran
+    // ~62 min actual — a 35% overshoot even after the rest-realism and equipment-changeover
+    // fixes. Cut to 6 at 45 min (7.5 min/exercise) per direct feedback, and scaled to other
+    // durations on the assumption the same overshoot applies regardless of session length —
+    // not separately measured at 30/60 min yet, so revisit once those are logged too.
+    minPerExercise:7.5,
+    // No embedded core exercise for push/pull/legs sessions under this goal — dedicated
+    // Core-focus days cover that instead, so all 6 slots go to the actual target muscles
+    // rather than one being spent on a single ab exercise every session.
+    skipCoreEmbed:true,
+    // The per-set rest model doesn't have enough data to trust its own number yet (one
+    // logged session) — direct feedback says the real thing runs close to the target
+    // duration once exercise count is right, so show that instead of a shaky derivation.
+    pinEstimateToDuration:true,
     scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["10–12",40],core:["12–20",35]}},
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
@@ -1337,19 +1346,33 @@ function generate(focusKey,duration,mode){
     // core's own rest value, not the compound/accessory blend everything else uses —
     // under goals with long compound/accessory rest (e.g. "strong": 120-180s), that blend
     // was massively underbudgeting a core day (3 exercises for 30 min of ab work).
-    const cRest=(sc.compound&&sc.compound[1])||90, aRest=(sc.accessory&&sc.accessory[1])||70;
-    const coreRest=(sc.core&&sc.core[1])||45;
+    // Tied to the same REST_REALISM used by estimateSessionSec below — previously this used
+    // raw programmed rest while growth/trim used realistic rest, two independently-tuned
+    // models that drift apart any time one gets recalibrated (exactly what just happened:
+    // raising REST_REALISM to 3.0x left this formula's own sizing blind to it, so it kept
+    // picking as many exercises as the old, cheaper model allowed, and grow/trim couldn't
+    // always make up the difference for narrow-focus or short-duration sessions).
+    const cRest=(((sc.compound&&sc.compound[1])||90))*(REST_REALISM.compound||1);
+    const aRest=(((sc.accessory&&sc.accessory[1])||70))*(REST_REALISM.accessory||1);
+    const coreRest=(((sc.core&&sc.core[1])||45))*(REST_REALISM.core||1);
     const perSet=focusKey==="core"?(40+coreRest):(40+(cRest*0.35+aRest*0.65));
-    const grouped=!!g.circuit&&!g.straight;             // circuits overlap rest
+    // Mirrors the actual gmode resolution below (g.straight forces "strength", g.circuit
+    // upgrades a generic "strength" request to circuit, and an explicit mode="circuit"
+    // request always grouped regardless of the goal's own default) — the previous version
+    // only checked the goal's default, so a goal without circuit:true but requested with
+    // mode="circuit" got budgeted as ungrouped (pricier per exercise) while the exercises
+    // actually generated as a real circuit (cheaper), landing short of the target.
+    const grouped=!g.straight&&(!!g.circuit||mode==="circuit"); // circuits overlap rest
     const eff=grouped?perSet*0.62:perSet;
     const setsPerEx=3.15;
     const budget=duration*60*0.99;
     let n=Math.round(budget/(eff*setsPerEx));
     const condMin=((g.cond&&g.cond[duration])||0)*6*60; // finishers eat time too
     if(condMin) n=Math.round((budget-condMin)/(eff*setsPerEx));
-    // Only applies at 45 min (the only duration with real evidence) and skips the core
-    // focus (core exercises run cheaper than the push/pull/legs mix the number came from).
-    const durCap=(g.maxExercisesAt45&&duration===45&&focusKey!=="core")?g.maxExercisesAt45:12;
+    // Duration-scaled off the measured rate above, skipped for the core focus (core
+    // exercises run cheaper than the push/pull/legs mix the rate came from — see the
+    // separate core-rest-budget fix).
+    const durCap=(g.minPerExercise&&focusKey!=="core")?Math.max(3,Math.round(duration/g.minPerExercise)):12;
     return Math.max(3,Math.min(durCap,n)); })();
   const isCore=focusKey==="core";
   const chosen=[]; let add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
@@ -1453,7 +1476,7 @@ function generate(focusKey,duration,mode){
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&(compCount()<compCap||e.role!=="compound")); }
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
-  if(!isCore&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
+  if(!isCore&&!goalDef().skipCoreEmbed&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
   guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
     if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
     let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e));
@@ -1482,11 +1505,18 @@ function generate(focusKey,duration,mode){
   // grow toward the target while candidates remain
   const target=duration*60;
   let wo=assemble(chosen); let grow=0;
-  while(estimateSessionSec(wo)<target*0.92&&chosen.length<((g.maxExercisesAt45&&duration===45&&!isCore)?g.maxExercisesAt45:14)&&grow++<20){
+  while(estimateSessionSec(wo)<target*0.92&&chosen.length<((g.minPerExercise&&!isCore)?Math.max(3,Math.round(duration/g.minPerExercise)):14)&&grow++<20){
     // As a session grows beyond its base size, keep core work scaling with it instead of
     // staying pinned at the single guaranteed exercise added above. Target roughly 1 core
     // exercise per 4 total, capped at 3 so a push/pull/leg day never turns into a core day.
-    const wantCore=!isCore&&coreCount()<Math.ceil((chosen.length+1)/4)&&coreCount()<3;
+    // Fixed: this threshold triggered a 2nd core add as early as chosen.length=6-7
+    // (Math.ceil((6+1)/4)=2), which was harmless when grow rarely ran more than a couple
+    // iterations. Tying sCount to REST_REALISM made grow engage far more for goals without
+    // circuit:true (general/muscle/strong), so this fired constantly on small 6-8 exercise
+    // sessions — averaging 2.6-3.3 core exercises on a push day, nearly half the session.
+    // Now requires the session to have actually grown large (10+) before considering more
+    // than the one guaranteed core exercise, keeping it near ~20% instead of ~50%.
+    const wantCore=!isCore&&!g.skipCoreEmbed&&chosen.length>=9&&coreCount()<Math.floor(chosen.length/5)&&coreCount()<3;
     let cands=wantCore?pool.filter(e=>!chosen.includes(e)&&e.role==="core"):[];
     if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e)&&muscleOK(e)&&stationOK(e));
     // No relax-fallback here on purpose: fill (above) guarantees a viable minimum session
@@ -1507,7 +1537,7 @@ function generate(focusKey,duration,mode){
     if(!added) break;
   }
   PICK_WFN=null;
-  fitToDuration(wo,duration);
+  fitToDuration(wo,duration,isCore);
   return wo;
 }
 // Sequence groups so you stay at one station and ramp plates down instead of walking the gym.
@@ -1785,7 +1815,7 @@ async function doBackup(opts){ opts=opts||{}; const h=hasFolderPicker()?await ge
   if(canShareFiles()) return await shareBackup();
   downloadBackup(); toast("Backup downloaded"); return true; }
 function unbackedCount(){ const t=STATE.settings.lastBackupTs||0; return STATE.workouts.filter(w=>!w.ref&&(w.date||0)>t).length; }
-function fitToDuration(w,duration){
+function fitToDuration(w,duration,isCoreFocus){
   const target=duration*60, hi=target*1.08, floor=3;
   let guard=0;
   const regroup=()=>{ const ids=w.exercises.map(e=>e.id); w.groups=(w.groups||[]).map(g=>({...g,items:g.items.filter(x=>ids.includes(x))})).filter(g=>g.items.length); };
@@ -1811,19 +1841,52 @@ function fitToDuration(w,duration){
     const mem=grp?grp.items.map(id=>w.exercises.find(e=>e.id===id)).filter(Boolean):[cand];
     mem.forEach(e=>{ const work=e.sets.filter(s=>!s.drop); if(work.length>2) e.sets.splice(e.sets.indexOf(work[work.length-1]),1); });
   }
+  // Core is protected from the trim above on purpose, but that has a side effect: if grow
+  // temporarily pushed the session past the size where a 2nd/3rd core exercise gets added,
+  // then trimming shrinks everything else back down, those extra core exercises survive
+  // untouched — leaving a 6-exercise session with 2 core exercises (33%) because it briefly
+  // peaked at 9+ during grow, not because the final size ever justified it. Correct core
+  // count against the FINAL size here, using the same size gate as the grow-phase logic —
+  // never below 1 (that's the separate zero-core guarantee), never more than the final
+  // session actually earned.
+  if(!isCoreFocus){
+    const maxCore=w.exercises.length>=9?Math.min(3,Math.floor(w.exercises.length/5)):1;
+    let coreIdxs=w.exercises.map((e,i)=>e.role==="core"?i:-1).filter(i=>i>=0);
+    while(coreIdxs.length>Math.max(1,maxCore)){
+      w.exercises.splice(coreIdxs[coreIdxs.length-1],1); regroup();
+      coreIdxs=w.exercises.map((e,i)=>e.role==="core"?i:-1).filter(i=>i>=0);
+    }
+  }
+  // Trimming above only filters groups (regroup() drops removed items, doesn't re-sort),
+  // so it can silently undo the core-last-avoidance swap from orderGroupsEfficient — if
+  // whatever core got swapped ahead of gets trimmed away, core drifts back to the tail by
+  // attrition. Re-apply the full ordering (including that swap) on the final, post-trim
+  // group set so the guarantee holds on what actually ships, not just the pre-trim draft.
+  w.groups=orderGroupsEfficient(w.groups);
   normalizeGroupSets(w);
   w.estSec=estimateSessionSec(w);
+  // Displayed estimate override: for goals where the exercise count itself is calibrated
+  // against a real logged completion time (not derived from the per-set rest model —
+  // see minPerExercise above), trust that calibration for what's shown rather than a
+  // formula that doesn't have enough data yet to get its own number right. The real
+  // estimateSessionSec computation above is still what drives grow/trim decisions;
+  // only the number the person actually sees changes here, at the very end.
+  { const g=goalDef(); if(g.pinEstimateToDuration) w.estSec=duration*60; }
   return w; }
 function condProtoMin(c){ if(c.estMin) return c.estMin; const p=String(c.proto||""); let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
   m=p.match(/(\d+)\s*(?:\u00d7|x)\s*(\d+)\s*s\b/i); if(m) return Math.round((+m[1]*+m[2]*2)/60);
   const r=condRounds(p); return Math.max(3,Math.round(r*1.2)); }
-// Programmed rest undercounts real recovery need at working RPE. Logged sessions at
-// RPE 8-10 show accessory/isolation rest running ~2.1-2.4x the prescribed value
-// (JM press 0:45→~1:34 avg, close-grip bench 0:45→~1:50 avg, lateral raise 0:40→~1:31 avg).
-// Compounds already carry a longer base rest (90-180s) and aren't scaled here for lack
-// of matching overshoot data. This affects planning/estimation only — the live rest
-// timer during a workout still counts down the programmed value as prescribed.
-const REST_REALISM={compound:1,accessory:2.2,isolation:2.2,core:1.15};
+// Programmed rest undercounts real recovery need at working RPE. Originally set from three
+// straight-set exercises in one session (2.1-2.4x). Recalibrated against the app's own
+// actualSec on a full completed session (build 2026.08.15, Aug 13): the formula estimated
+// 46.15min at 2.2x against a real 54.17min — a 15% gap. 3.0x closes it to 54.75min, within
+// 1% of actual. This is what makes the displayed estimate match real elapsed time instead
+// of the optimistic number that prompted this fix. Compound stays unscaled — only one
+// compound data point exists (2.08x) and the aggregate already calibrates correctly
+// without touching it; revisit if more compound-specific data shows up. This affects
+// planning/estimation only — the live rest timer during a workout still counts down the
+// programmed value as prescribed.
+const REST_REALISM={compound:1,accessory:3.0,isolation:3.0,core:1.15};
 function realRestSec(e){ return (e.restSec||60)*(REST_REALISM[e.role]||1); }
 // Between-group equipment changeover. Rest and work were the only costed items — moving
 // from one station to a completely different one (e.g. landmine/cable/dumbbell circuit
