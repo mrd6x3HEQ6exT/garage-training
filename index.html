@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.21";
+const BUILD="2026.08.23";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -601,7 +601,7 @@ const EXERCISES=[
   X("ww","Hanging windshield wiper","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"Hang, legs up, rotate side to side. Advanced obliques."}),
   X("standing_oblique","Standing DB oblique crunch","core","core",["core"],[],["dumbbells"],[],{cue:"Bell in one hand, bend toward that hip, crunch back up.",unilateral:true}),
   X("oh_carry","Overhead carry","carry","core",["core"],["shoulders"],["dumbbells"],[],{cue:"Bells locked out overhead, ribs down, walk tall.",metric:"carry"}),
-  X("frontrack_carry","Front-rack carry","carry","core",["core"],["quads"],["kettlebell"],[],{cue:"Bells racked at the shoulders, braced, controlled steps.",metric:"carry"}),
+  X("frontrack_carry","Front-rack carry","carry","core",["core"],["quads"],["kettlebell"],[],{cue:"Bells racked at the shoulders, braced, controlled steps.",metric:"carry",pair:"kettlebell"}),
   /* ---- more core ---- */
   X("bicycle","Bicycle crunch","core","core",["core"],[],[],[],{cue:"Opposite elbow to knee, slow and controlled, fully extend the other leg."}),
   X("flutter","Flutter kicks","core","core",["core"],[],[],[],{cue:"Legs straight just off the floor, small fast alternating kicks. Hold for time.",metric:"time"}),
@@ -611,7 +611,7 @@ const EXERCISES=[
   X("dragon_flag","Dragon flag","core","core",["core"],[],["bench"],["bench"],{cue:"Grip the bench overhead, raise the whole body to vertical, lower slow and straight. Advanced."}),
   /* ---- thrusters (batch) ---- */
   X("bb_thruster","Barbell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Front-rack squat, then ride the drive up into an overhead press in one motion."}),
-  X("kb_thruster","Double kettlebell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["kettlebell"],[],{cue:"Bells in the front rack, squat, then explode up and press overhead."}),
+  X("kb_thruster","Double kettlebell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["kettlebell"],[],{cue:"Bells in the front rack, squat, then explode up and press overhead.",pair:"kettlebell"}),
   /* ---- more core (batch) ---- */
   X("l_sit","L-sit hold","core","core",["core"],["quads"],["dipstation"],["dipstation"],{cue:"Support on the dip bars, press down, lift the legs to an L and hold.",metric:"time",altReq:["pullupbar"]}),
   X("bear_crawl","Bear crawl","core","core",["core"],["shoulders"],[],[],{cue:"Knees hovering an inch off the floor, crawl with opposite hand/foot, hips low.",metric:"time"}),
@@ -1071,7 +1071,17 @@ async function boot(){
 
 /* ---------------- Helpers ---------------- */
 function ownedCaps(){ const s=new Set(); STATE.equipment.filter(e=>e.on).forEach(e=>(e.caps||[]).forEach(c=>s.add(c))); return s; }
-function exAvailable(e,owned){ if(e.requires.every(r=>owned.has(r))) return true; if(e.altReq&&e.altReq.every(r=>owned.has(r))) return true; return false; }
+function exAvailable(e,owned){
+  const baseOK = e.requires.every(r=>owned.has(r)) || (e.altReq&&e.altReq.every(r=>owned.has(r)));
+  if(!baseOK) return false;
+  // Some exercises need TWO of the same implement simultaneously (double kettlebell
+  // thruster, front-rack carry with a bell in each hand) — "requires" only tracks
+  // whether you own at least one, so these were indistinguishable from single-implement
+  // exercises. e.pair=<cap> requires at least 2 separately-owned, switched-on equipment
+  // entries providing that capability, not just the capability being present once.
+  if(e.pair){ const cnt=(STATE.equipment||[]).filter(x=>x.on&&(x.caps||[]).includes(e.pair)).length; if(cnt<2) return false; }
+  return true;
+}
 function exById(id){ return EXERCISES.find(e=>e.id===id); }
 function loadsFor(cap){ const e=STATE.equipment.find(x=>x.on&&(x.caps||[]).includes(cap)&&x.loads); return e?e.loads:null; }
 function snap(val,cap){ const loads=loadsFor(cap); if(!loads||val==null) return val; return loads.reduce((a,b)=>Math.abs(b-val)<Math.abs(a-val)?b:a); }
@@ -1396,7 +1406,7 @@ function generate(focusKey,duration,mode){
     // Duration-scaled off the measured rate above, skipped for the core focus (core
     // exercises run cheaper than the push/pull/legs mix the rate came from — see the
     // separate core-rest-budget fix).
-    const durCap=(g.minPerExercise&&focusKey!=="core")?Math.max(3,Math.round(duration/g.minPerExercise)):12;
+    const durCap=g.minPerExercise?Math.max(3,Math.round(duration/g.minPerExercise)):12;
     return Math.max(3,Math.min(durCap,n)); })();
   const isCore=focusKey==="core";
   const chosen=[]; let add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
@@ -1529,7 +1539,7 @@ function generate(focusKey,duration,mode){
   // grow toward the target while candidates remain
   const target=duration*60;
   let wo=assemble(chosen); let grow=0;
-  while(estimateSessionSec(wo)<target*0.92&&chosen.length<((g.minPerExercise&&!isCore)?Math.max(3,Math.round(duration/g.minPerExercise)):14)&&grow++<20){
+  while(estimateSessionSec(wo)<target*0.92&&chosen.length<(g.minPerExercise?Math.max(3,Math.round(duration/g.minPerExercise)):14)&&grow++<20){
     // As a session grows beyond its base size, keep core work scaling with it instead of
     // staying pinned at the single guaranteed exercise added above. Target roughly 1 core
     // exercise per 4 total, capped at 3 so a push/pull/leg day never turns into a core day.
@@ -2623,7 +2633,12 @@ view.addEventListener("click",e=>{
       inp.addEventListener("change",()=>{ const f=inp.files&&inp.files[0]; if(!f){ return; } const rd=new FileReader(); rd.onload=()=>{ if(importData(String(rd.result))){ STATE.tab="log"; render(); toast("Imported & merged from file"); } else toast("Couldn’t read that file"); }; rd.readAsText(f); inp.value=""; }); }
     inp.click(); return; }
   if(a==="grest"){ const gi=+act.dataset.gi; const g=STATE.current.groups[gi];
-    if(g){ g.items.forEach(id=>{ const ex=STATE.current.exercises.find(e=>e.id===id); if(ex){ const s=ex.sets.find(x=>!x.done); if(s) s.done=true; } }); pCur(); renderToday(); }
+    if(g){ const doneCounts=g.items.map(id=>{ const ex=STATE.current.exercises.find(e=>e.id===id); return ex?ex.sets.filter(s=>s.done).length:0; });
+      const round=Math.min(...doneCounts); // the round currently in progress for this group
+      g.items.forEach(id=>{ const ex=STATE.current.exercises.find(e=>e.id===id); if(!ex) return;
+        if(ex.sets.filter(s=>s.done).length>round) return; // already ahead (manually completed this round) — don't advance again
+        const s=ex.sets.find(x=>!x.done); if(s) s.done=true; });
+      pCur(); renderToday(); }
     startRest(restForKey(act.dataset.key,+act.dataset.sec),act.dataset.name,act.dataset.key); return; }
   if(a==="reloadapp"){ toast("Fetching the latest…"); try{ if("serviceWorker" in navigator){ navigator.serviceWorker.getRegistrations().then(rs=>{ rs.forEach(r=>r.update()); setTimeout(()=>location.reload(),400); }).catch(()=>location.reload()); } else location.reload(); }catch(e){ location.reload(); } return; }
   if(a==="ungroup"){ const gi=+act.dataset.gi; const g=STATE.current.groups[gi]; if(!g||g.items.length<2) return; const straight=g.items.map(id=>({type:"straight",items:[id]})); STATE.current.groups.splice(gi,1,...straight); pCur(); renderToday(); toast("Split into straight sets"); return; }
