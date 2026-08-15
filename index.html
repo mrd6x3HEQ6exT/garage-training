@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.23";
+const BUILD="2026.08.25";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1348,6 +1348,52 @@ function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filt
   const wf=PICK_WFN||(e=>recW(e.id));
   let tot=0; const wts=pool.map(e=>{ const w=Math.max(0.0001,wf(e)); tot+=w; return w; }); if(tot<=0) return pool[Math.floor(Math.random()*pool.length)];
   let r=Math.random()*tot; for(let i=0;i<pool.length;i++){ r-=wts[i]; if(r<=0) return pool[i]; } return pool[pool.length-1]; }
+const SIM_GROUPS=[
+  // barbell/DB pressing families
+  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb"],
+  ["bb_ohp","bb_pin_ohp","bb_seated_ohp","db_ohp","db_ohp_st","arnold","bb_push_press","z_press"],
+  // squats
+  ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat"],
+  // hinges / deadlifts
+  ["deadlift","sumo_dl","trap_dl","bb_rdl","bb_pause_dl","bb_block_pull","bb_deficit_dl","rack_pull","trap_rdl","db_rdl","lm_rdl","kb_dl"],
+  // lunges & single-leg
+  ["rev_lunge","walk_lunge","curtsy_lunge","lm_rev_lunge","step_up","ghr_rev_lunge","ghr_lat_lunge","ghr_curtsy","bss"],
+  // shrugs
+  ["bb_bb_shrug","db_shrug","trap_shrug"],
+  // triceps extensions
+  ["oh_ext","cable_oh_ext","skull","kickback_tri","pushdown"],
+  // biceps curls
+  ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl"],
+  // chest flyes
+  ["cable_fly","cable_cross_high","incline_db_fly","db_fly_floor"],
+  // rows
+  ["lm_row","trap_row","pendlay","bb_yates_row","db_row","low_row","cs_row"],
+  // lat/vertical pulls — machine/cable only (pull-up bar work is its own family below,
+  // since bodyweight pull-ups are rep-capped by strength, not load, and stack fatigue
+  // on the same joints/grip differently than a lat pulldown does)
+  ["pulldown","ng_pulldown","cable_lat"],
+  // pull-up bar — every bodyweight vertical-pull variant on the bar. User-requested hard
+  // cap: at most one of these per session, enforced here (blocks co-occurrence in the
+  // generator) and in swapCandidates (blocks swapping IN a second one).
+  ["pullup","chinup","pullup_neutral","pullup_neutral_wide","pullup_wide","pullup_angled",
+   "pullup_inner","pullup_globe_sm","pullup_globe_lg","pullup_band","pullup_negative",
+   "pullup_lsit","pullup_archer","pullup_typewriter","scap_pullup","dead_hang"],
+  // carries
+  ["farmer","suitcase","oh_carry","frontrack_carry"],
+  // planks / anti-extension
+  ["plank","side_plank","ghr_bodysaw"],
+  // crunch family
+  ["cable_crunch","reverse_crunch","standing_oblique","decline_situp","vup"],
+  // hanging core
+  ["hlr","hang_knee","toes_to_bar","ww","hang_oblique"],
+  // GHR curls
+  ["ghr_curl","ghr_curl_cable","ghr_curl_band","ghr_curl_sl","ghr_bridge_curl"],
+  // GHR rollouts
+  ["ghr_rollout","ghr_rollout_stand","ghr_rollout_cable"],
+  // calf
+  ["calf_db","sl_calf","bb_calf_raise"],
+];
+function simFamilyOf(id){ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; }
 function generate(focusKey,duration,mode){
   const f=FOCI[focusKey], owned=ownedCaps();
   const blocked=new Set(STATE.settings.blocked||[]);
@@ -1416,46 +1462,8 @@ function generate(focusKey,duration,mode){
   const patVariety=e=>{ const n=recentPats[e.pattern]||0; return n>=2?0.35:n===1?0.7:1; };
   const compCap=duration>=45?2:1;
   pool.forEach(e=>{ delete e._dropPct; delete e._tech; });
-  const SIM_GROUPS=[
-  // barbell/DB pressing families
-  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb"],
-  ["bb_ohp","bb_pin_ohp","bb_seated_ohp","db_ohp","db_ohp_st","arnold","bb_push_press","z_press"],
-  // squats
-  ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat"],
-  // hinges / deadlifts
-  ["deadlift","sumo_dl","trap_dl","bb_rdl","bb_pause_dl","bb_block_pull","bb_deficit_dl","rack_pull","trap_rdl","db_rdl","lm_rdl","kb_dl"],
-  // lunges & single-leg
-  ["rev_lunge","walk_lunge","curtsy_lunge","lm_rev_lunge","step_up","ghr_rev_lunge","ghr_lat_lunge","ghr_curtsy","bss"],
-  // shrugs
-  ["bb_bb_shrug","db_shrug","trap_shrug"],
-  // triceps extensions
-  ["oh_ext","cable_oh_ext","skull","kickback_tri","pushdown"],
-  // biceps curls
-  ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl"],
-  // chest flyes
-  ["cable_fly","cable_cross_high","incline_db_fly","db_fly_floor"],
-  // rows
-  ["lm_row","trap_row","pendlay","bb_yates_row","db_row","low_row","cs_row"],
-  // lat/vertical pulls
-  ["pulldown","ng_pulldown","cable_lat","pullup","chinup","pullup_neutral","pullup_wide","pullup_globe_lg","pullup_globe_sm"],
-  // carries
-  ["farmer","suitcase","oh_carry","frontrack_carry"],
-  // planks / anti-extension
-  ["plank","side_plank","ghr_bodysaw"],
-  // crunch family
-  ["cable_crunch","reverse_crunch","standing_oblique","decline_situp","vup"],
-  // hanging core
-  ["hlr","hang_knee","toes_to_bar","ww","hang_oblique"],
-  // GHR curls
-  ["ghr_curl","ghr_curl_cable","ghr_curl_band","ghr_curl_sl","ghr_bridge_curl"],
-  // GHR rollouts
-  ["ghr_rollout","ghr_rollout_stand","ghr_rollout_cable"],
-  // calf
-  ["calf_db","sl_calf","bb_calf_raise"],
-];
-  const simOf=id=>{ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; };
   const simBlocked=new Set();
-  const _add0=add; add=(e)=>{ if(!e) return; if(simBlocked.has(e.id)) return; _add0(e); simOf(e.id).forEach(x=>simBlocked.add(x)); };
+  const _add0=add; add=(e)=>{ if(!e) return; if(simBlocked.has(e.id)) return; _add0(e); simFamilyOf(e.id).forEach(x=>simBlocked.add(x)); };
   // Per-muscle and per-equipment exposure tracking. Nothing previously tracked how many
   // times a muscle (or, for isolation work, a piece of equipment) had already been hit
   // while filling a session — SIM_GROUPS only blocks exact lift-family duplicates, and
@@ -1507,7 +1515,13 @@ function generate(focusKey,duration,mode){
     else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)); // relax exposure caps before pattern limit
       if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&(compCount()<compCap||e.role!=="compound")); }
+      // Was: this last-resort tier also dropped patOK entirely (not just the exposure caps
+      // above it), so a thin candidate pool (e.g. many blocked exercises) could blow the
+      // pattern limit the same way the muscle-exposure cap used to fail open — 3 vert_pull
+      // pull-up-bar exercises got through this exact path. patOK stays a hard requirement
+      // even here; if that leaves zero candidates, the loop settles for fewer exercises
+      // rather than violating the limit (same principle as the muscle-cap fix).
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&(compCount()<compCap||e.role!=="compound")); }
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
   if(!isCore&&!goalDef().skipCoreEmbed&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
@@ -1653,7 +1667,26 @@ function buildLoggable(e){
   const req=e.requires||[]; const bandKind=req.includes("resistancebands")?"power":req.includes("hipbands")?"hip":null;
   const prevBand=(prev&&prev.band)?prev.band:null;
   if(bandKind) sets.forEach(s=>{ if(s.band==null) s.band=prevBand||null; });
-  return {id:e.id,name:e.name,role:e.role,planSets,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabel,metric,scaledFrom,
+  // If real history got carried forward as-is (no weight to scale — bodyweight movement,
+  // scaledFrom stayed null) and the person's actual reps sit below the goal's blanket
+  // target, the printed scheme was still showing the unreachable target (e.g. "10–12")
+  // while the real planned numbers were well under it (e.g. 6,6,2,3) — the target range
+  // only makes sense when weight is adjustable to hit it. Show what's actually planned.
+  let repLabelFinal=repLabel;
+  if(metric==="reps"&&!scaledFrom&&psets&&rng){
+    // Only for genuinely bodyweight movements. Two conditions, both required:
+    // 1) the exercise doesn't require a loadable implement (kb_thruster requires a
+    //    kettlebell — its reps always depend on the weight chosen, so low logged reps
+    //    with blank weight fields mean lazy logging, not a bodyweight capacity ceiling;
+    //    audit caught exactly this: its label got overridden to "4 × 6")
+    // 2) no weight or band recorded in the carried history or the planned sets
+    const LOAD_IMPL=["barbell","dumbbells","kettlebell","ezbar","trapbar","plates","cable_high","cable_low","landmine"];
+    const bwStation=!(e.requires||[]).some(r=>LOAD_IMPL.includes(r));
+    const noLoadLogged=psets.every(s=>!(parseFloat(s.w)>0)&&!s.band)&&sets.every(s=>!(parseFloat(s.w)>0));
+    const realReps=sets.filter(s=>!s.drop).map(s=>parseInt(s.reps,10)).filter(n=>isFinite(n)&&n>0);
+    if(bwStation&&noLoadLogged&&realReps.length===sc.sets&&Math.max(...realReps)<lo){ const mn=Math.min(...realReps),mx=Math.max(...realReps); repLabelFinal=mn===mx?String(mn):(mn+"–"+mx); }
+  }
+  return {id:e.id,name:e.name,role:e.role,planSets,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabelFinal,metric,scaledFrom,
     rest:fmt(restSec),restSec,cue:e.cue,tech:e._tech||null,dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:null,sets,
     _prev:prev?prev.sets.filter(s=>!s.drop).map(s=>({w:s.w,reps:s.reps})):null};
 }
@@ -1687,7 +1720,12 @@ function swapCandidates(exData,w){
   const group=w.groups.find(g=>g.items.includes(exData.id)); const groupStations=[]; const others=[];
   if(group) group.items.filter(id=>id!==exData.id).forEach(id=>{ const o=exById(id); if(!o) return; others.push(o); exStations(o).forEach(s=>groupStations.push(s)); });
   const inWO=new Set(w.exercises.map(e=>e.id)); const blocked=new Set(STATE.settings.blocked||[]);
-  const cands=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&e.id!==exData.id&&!inWO.has(e.id)&&!blocked.has(e.id)&&!stationConflict(groupStations,e)&&capOK(others,e));
+  // Family exclusivity (SIM_GROUPS) previously only applied during automated generation —
+  // a swap could still bring in a second exercise from the same family (e.g. a second
+  // pull-up-bar variant) since nothing here checked it. Block any candidate that shares a
+  // family with something ELSE already in the session (excluding the slot being replaced).
+  const simBlockedIds=new Set(); [...inWO].filter(id=>id!==exData.id).forEach(id=>simFamilyOf(id).forEach(x=>simBlockedIds.add(x)));
+  const cands=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&e.id!==exData.id&&!inWO.has(e.id)&&!blocked.has(e.id)&&!stationConflict(groupStations,e)&&capOK(others,e)&&!simBlockedIds.has(e.id));
   const bm=new Set([...base.primary,...base.secondary]);
   function score(e){ let s=0; if(e.pattern===base.pattern)s+=3; if(e.role===base.role)s+=1; e.primary.forEach(m=>{if(bm.has(m))s+=2;}); e.secondary.forEach(m=>{if(bm.has(m))s+=1;}); return s; }
   function why(e){ const sh=e.primary.filter(m=>bm.has(m)).map(m=>MUSCLE_LABEL[m]); return (e.pattern===base.pattern?"same movement":sh.length?sh.join("/"):e.role); }

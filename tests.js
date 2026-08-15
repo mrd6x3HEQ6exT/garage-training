@@ -209,6 +209,43 @@ T("regression "+runs+" runs: conflicts", conflicts===0, conflicts);
 T("regression: uneven groups", uneven===0, uneven);
 T("regression: compound cap", overComp===0, overComp);
 T("regression: render errors", rerr===0, rerr);
+// --- SIM_GROUPS family exclusivity: never 2 exercises from the same family in one session ---
+{ let famViol=0;
+  for(const g of Object.keys(GOALS)){ STATE.settings.goal=g;
+    for(const f of ["push","pull","legs_quad","legs_post","core"]){ for(let i=0;i<4;i++){
+      const w=generate(f,45,"circuit");
+      for(const fam of SIM_GROUPS){ if(w.exercises.filter(e=>fam.includes(e.id)).length>1) famViol++; } } } }
+  T("family exclusivity: no 2 same-family exercises in one session", famViol===0, famViol); }
+// --- pull-up-bar cap: at most 1 bar exercise per session, and swaps never offer a 2nd ---
+{ STATE.settings.goal="weight"; const bar=SIM_GROUPS.find(f=>f.includes("pullup"));
+  let over=0, swapLeak=0;
+  for(let i=0;i<10;i++){ const w=generate("pull",45,"circuit");
+    const inBar=w.exercises.filter(e=>bar.includes(e.id));
+    if(inBar.length>1) over++;
+    if(inBar.length===1){ const other=w.exercises.find(e=>!bar.includes(e.id));
+      if(other&&swapCandidates(other,w).some(c=>bar.includes(c.id))) swapLeak++; } }
+  T("pull-up bar: max 1 per session", over===0, over);
+  T("pull-up bar: swap never offers a 2nd", swapLeak===0, swapLeak); }
+// --- pair equipment: double-KB exercises need 2 owned kettlebell entries ---
+{ const kb2=STATE.equipment.find(x=>x.id==="kb2"); const was=kb2?kb2.on:null;
+  if(kb2) kb2.on=false;
+  const own1=ownedCaps();
+  T("pair: kb_thruster unavailable with 1 KB", !exAvailable(ob("kb_thruster"),own1));
+  T("pair: frontrack_carry unavailable with 1 KB", !exAvailable(ob("frontrack_carry"),own1));
+  T("pair: single-KB swing still available", exAvailable(ob("kb_swing"),own1));
+  if(kb2){ kb2.on=true;
+    T("pair: kb_thruster available with 2 KBs", exAvailable(ob("kb_thruster"),ownedCaps()));
+    kb2.on=was; } }
+// --- bodyweight rep-label override: fires only on bodyweight-station exercises ---
+{ const LOAD_IMPL=["barbell","dumbbells","kettlebell","ezbar","trapbar","plates","cable_high","cable_low","landmine"];
+  let firedOnLoaded=0;
+  EXERCISES.filter(e=>e.type==="strength"&&(e.requires||[]).some(r=>LOAD_IMPL.includes(r))).forEach(e=>{
+    try{ const l=buildLoggable(e); if(!l) return;
+      const shown=String((l.scheme||"").split("× ")[1]||"").trim();
+      const goalRng=((goalDef().scheme||{})[e.role]||[""])[0];
+      if(goalRng&&shown&&shown!==goalRng&&l.metric==="reps") firedOnLoaded++;
+    }catch(err){} });
+  T("rep-label override never fires on load-implement exercises", firedOnLoaded===0, firedOnLoaded); }
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));
