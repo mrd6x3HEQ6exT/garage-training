@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.25";
+const BUILD="2026.08.30";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -473,6 +473,7 @@ function X(id,name,pattern,role,primary,secondary,requires,stations,opts){
 }
 const EXERCISES=[
   X("bb_bench","Barbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Shoulder blades pinned, bar to mid-chest."}),
+  X("bb_decl","Decline bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Bench declined ~15–20°, bar to lower chest."}),
   X("bb_incl","Barbell incline press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Bench ~30°, bar to upper chest."}),
   X("db_bench","Dumbbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["dumbbells","bench"],["bench"],{cue:"Wrists stacked over elbows."}),
   X("db_incl","Dumbbell incline press","horiz_push","accessory",["chest"],["shoulders","triceps"],["dumbbells","bench"],["bench"],{cue:"Control the stretch at the bottom."}),
@@ -488,6 +489,7 @@ const EXERCISES=[
   X("cable_lat","Cable lateral raise","vert_push","isolation",["shoulders"],[],["cable_low"],["cable_low"],{cue:"Constant tension across the body.",unilateral:true}),
   X("face_pull","Cable face pull","horiz_pull","accessory",["shoulders"],["back"],["cable_high"],["cable_high"],{cue:"Pull to forehead, thumbs back."}),
   X("rear_fly","DB rear-delt fly","horiz_pull","isolation",["shoulders"],["back"],["dumbbells"],[],{cue:"Chest on incline bench, light load."}),
+  X("iyt_raise","I-Y-T raise","horiz_pull","accessory",["back"],["shoulders"],["dumbbells","bench"],["bench"],{cue:"Prone on incline bench, light DBs, cycle I-Y-T arm positions."}),
   X("pushdown","Cable triceps pushdown","arms","isolation",["triceps"],[],["cable_high"],["cable_high"],{cue:"Rope, elbows pinned, spread at the bottom."}),
   X("oh_ext","DB overhead extension","arms","isolation",["triceps"],[],["dumbbells"],[],{cue:"Deep stretch behind the head."}),
   X("skull","EZ-bar skullcrusher","arms","isolation",["triceps"],[],["ezbar","bench"],["bench","ezbar"],{cue:"Lower to the forehead, elbows still."}),
@@ -519,15 +521,14 @@ const EXERCISES=[
   X("trap_row","Trap-bar row","horiz_pull","accessory",["back"],["biceps"],["trapbar"],["trapbar"],{cue:"Hinge and row to the belt line."}),
   X("ez_curl","EZ-bar curl","arms","isolation",["biceps"],[],["ezbar"],["ezbar"],{cue:"Elbows fixed, no swing."}),
   X("db_curl","Dumbbell curl","arms","isolation",["biceps"],[],["dumbbells"],[],{cue:"Supinate hard at the top."}),
+  X("bb_curl","Barbell curl","arms","isolation",["biceps"],[],["barbell","plates"],["barbell"],{cue:"Elbows pinned, no swing."}),
   X("hammer","Hammer curl","arms","isolation",["biceps"],[],["dumbbells"],[],{cue:"Neutral grip, hits the brachialis."}),
   X("cable_curl","Cable curl","arms","isolation",["biceps"],[],["cable_low"],["cable_low"],{cue:"Constant tension throughout."}),
   X("bb_squat","Barbell back squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Brace, hips and knees together, depth."}),
   X("front_squat","Barbell front squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Elbows high, upright torso."}),
+  X("zercher","Zercher squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar in elbow crooks, upright torso, brace hard."}),
   X("trap_squat","Trap-bar squat","squat","compound",["quads"],["glutes","hams"],["trapbar"],["trapbar"],{cue:"Knees track over toes, tall finish."}),
   X("goblet","Goblet squat","squat","accessory",["quads"],["glutes","core"],["kettlebell"],[],{cue:"Elbows inside knees, sit tall.",altReq:["dumbbells"]}),
-  X("bss","Bulgarian split squat","lunge","accessory",["quads"],["glutes"],["dumbbells","bench"],["bench"],{cue:"Rear foot on bench, drop straight down.",unilateral:true}),
-  X("walk_lunge","Walking lunge","lunge","accessory",["quads"],["glutes","hams"],["dumbbells"],[],{cue:"Long stride, knee kisses the floor.",unilateral:true}),
-  X("step_up","DB step-up","lunge","accessory",["quads"],["glutes"],["dumbbells","bench"],["bench"],{cue:"Drive through the top heel.",unilateral:true}),
   X("lm_squat","Landmine squat","squat","accessory",["quads"],["glutes","core"],["landmine"],["landmine"],{cue:"Hug the sleeve, heels on the wedge.",loadCap:"wedge"}),
   X("heel_squat","Heel-elevated goblet squat","squat","accessory",["quads"],["glutes"],["dumbbells","wedge"],[],{cue:"Wedge under heels for quad bias."}),
   X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes"],["barbell","plates"],["barbell"],{cue:"Neutral spine, push the floor away."}),
@@ -542,7 +543,6 @@ const EXERCISES=[
   X("db_thrust","DB hip thrust","hinge","accessory",["glutes"],["hams"],["dumbbells","bench"],["bench"],{cue:"Pause and squeeze at the top."}),
   X("pull_through","Cable pull-through","hinge","accessory",["glutes"],["hams"],["cable_low"],["cable_low"],{cue:"Hinge away, snap hips to lockout."}),
   X("kickback","Cable glute kickback","hinge","isolation",["glutes"],[],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, drive heel back and up.",unilateral:true}),
-  X("band_walk","Banded lateral walk","lunge","isolation",["glutes"],[],["hipbands"],[],{cue:"Band above knees, stay low, tension on."}),
   X("calf_db","Standing DB calf raise","squat","isolation",["calves"],[],["dumbbells"],[],{cue:"Full stretch, pause at the top.",loadCap:"wedge"}),
   /* ---- core / abs (expanded) ---- */
   X("hlr","Hanging leg raise","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"No swing, curl the pelvis up."}),
@@ -568,6 +568,7 @@ const EXERCISES=[
   X("arnold","Arnold press","vert_push","accessory",["shoulders"],["triceps"],["dumbbells","bench"],["bench"],{cue:"Rotate palms from facing you to forward as you press."}),
   X("z_press","Z press","vert_push","accessory",["shoulders"],["triceps","core"],["barbell","plates"],["barbell"],{cue:"Seated on the floor, legs out, strict overhead press."}),
   X("front_raise","DB front raise","vert_push","isolation",["shoulders"],[],["dumbbells"],[],{cue:"Raise straight in front to shoulder height, no swing."}),
+  X("cable_yraise","Cable Y-raise","vert_push","isolation",["shoulders"],[],["cable_low"],["cable_low"],{cue:"Arms form a Y, raise to shoulder height, thumbs up."}),
   X("cable_upright","Cable upright row","vert_push","accessory",["shoulders"],["back"],["cable_low"],["cable_low"],{cue:"Low cable, lead with the elbows to chest height."}),
   X("band_pull_apart","Band pull-apart","horiz_pull","isolation",["shoulders"],["back"],["resistancebands"],[],{cue:"Arms straight, pull the band apart, squeeze the rear delts."}),
   X("bench_dip","Bench dip","horiz_push","accessory",["triceps"],["chest"],["bench"],["bench"],{cue:"Hands on the bench, dip and press; plate on lap for load.",loadCap:"dumbbells"}),
@@ -583,10 +584,7 @@ const EXERCISES=[
   X("spider_curl","Spider curl","arms","isolation",["biceps"],[],["ezbar","bench"],["bench","ezbar"],{cue:"Chest on incline bench, arms hang, strict curls."}),
   X("reverse_curl","Reverse curl","arms","isolation",["biceps"],[],["ezbar"],["ezbar"],{cue:"Overhand grip — forearms and brachialis."}),
   X("box_squat","Box squat","squat","compound",["quads"],["glutes"],["barbell","plates","rack","bench"],["barbell","rack","bench"],{cue:"Squat back to lightly touch the bench, stay tight, drive up."}),
-  X("rev_lunge","Reverse lunge","lunge","accessory",["quads"],["glutes","hams"],["dumbbells"],[],{cue:"Step back, drop the knee, drive through the front heel.",unilateral:true}),
   X("sissy_squat","Sissy squat","squat","accessory",["quads"],[],[],[],{cue:"Hold for balance, rise on the toes and lean back, knees forward. Slow."}),
-  X("lm_rev_lunge","Landmine reverse lunge","lunge","accessory",["quads"],["glutes"],["landmine"],["landmine"],{cue:"Bar at the chest, step back into a lunge, drive up.",unilateral:true}),
-  X("curtsy_lunge","Curtsy lunge","lunge","accessory",["glutes"],["quads"],["dumbbells"],[],{cue:"Step behind and across, drop down, return. Side-glute focus.",unilateral:true}),
   X("sl_rdl","Single-leg RDL","hinge","accessory",["hams"],["glutes"],["dumbbells"],[],{cue:"Balance on one leg, hinge, free leg floats back, flat back.",unilateral:true}),
   X("good_morning","Good morning","hinge","accessory",["hams"],["glutes","back"],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar on the back, soft knees, hinge forward flat-backed, drive hips."}),
   X("sumo_dl","Sumo deadlift","hinge","compound",["hams"],["glutes","quads","back"],["barbell","plates"],["barbell"],{cue:"Wide stance, toes out, grip inside the knees, push the floor."}),
@@ -626,9 +624,6 @@ const EXERCISES=[
   X("ghr_curl_band","Banded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","resistancebands"],["ghr"],{cue:"Band anchored behind the roller. Resistance climbs as the heels come in."}),
   X("ghr_bridge_curl","GHR bridge + curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Bridge the hips up and hold, then curl the heels in. Glutes stay locked."}),
   X("ghr_slideout","GHR eccentric slide-out","hinge","accessory",["hams"],["glutes","core"],["ghr"],["ghr"],{cue:"Hips high, extend the legs out slowly, reset. All eccentric — go slower than feels necessary."}),
-  X("ghr_lat_lunge","GHR lateral slide lunge","lunge","accessory",["quads"],["glutes","hams"],["ghr"],["ghr"],{unilateral:true,cue:"Slide one foot out sideways, sit into the standing leg, pull back."}),
-  X("ghr_rev_lunge","GHR reverse slide lunge","lunge","accessory",["quads"],["glutes"],["ghr"],["ghr"],{unilateral:true,cue:"Slide one foot straight back into a lunge, then pull it home. Zero impact."}),
-  X("ghr_curtsy","GHR curtsy slide lunge","lunge","accessory",["glutes"],["quads"],["ghr"],["ghr"],{unilateral:true,cue:"Slide the foot back and across behind you. Hammers the glute medius."}),
   X("ghr_rollout","GHR kneeling rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Hands on the roller, kneel tall. Roll out only as far as the ribs stay down."}),
   X("ghr_rollout_stand","GHR standing rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"The kneeling rollout from your feet. Advanced — earn it first."}),
   X("ghr_rollout_cable","Cable-loaded GHR rollout","core","core",["core"],["shoulders"],["ghr","cable_low"],["ghr","cable_low"],{cue:"Strap to the low pulley so the stack fights the roll-out."}),
@@ -967,7 +962,7 @@ function exInjuryHits(e){ const inj=STATE.settings.injuries||[]; if(!inj.length)
   if(inj.includes("hip")&&(pat==="hinge"||pat==="squat"||pat==="lunge")) out.push("hip");
   if(inj.includes("knee")&&(pat==="squat"||pat==="lunge")) out.push("knee");
   return out; }
-function injFactor(e){ return (feat("injury")&&exInjuryHits(e).length)?0.15:1; }
+function injFactor(e){ return (feat("injury")&&exInjuryHits(e).length)?0.10:1; }
 function schemeFor(role){ const base=SCHEME[role]||SCHEME.accessory; const g=goalDef(); if(g.scheme&&g.scheme[role]){ const a=g.scheme[role]; return {sets:base.sets,reps:a[0],rest:fmt(a[1]),restSec:a[1]}; } return base; }
 const PLATE_SIZES=[45,25,10,5,2.5];
 const POWER_BANDS=[
@@ -1252,8 +1247,19 @@ function renderRdSheet(m,pct,exp){ const mm=document.getElementById("modal");
     <div class="divider"></div>
     <div class="row" style="gap:8px"><button class="btn ghost sm" data-action="rdreset" data-m="${m}">Reset</button><button class="btn sm" data-action="rddone" style="margin-left:auto">Done</button></div></div>`;
   mm.classList.add("show"); }
+// Cumulative-fatigue tuning. Starting values, not derived from data — chosen to make
+// repeated same-muscle training trend red over ~3-4 sessions instead of flat-lining at
+// the single-session floor. Tunable against real logged data later (see queue history).
+const FATIGUE_MULT=0.80;      // each prior in-window session on a muscle multiplies its readiness
+const FATIGUE_LOAD_TRIGGER=0.4; // readiness below this reduces prescribed load (buildLoggable)
+// Fatigue accumulates over a WIDER window than recovery. If the lookback equalled the
+// recovery window (e.g. chest 2.5d), training every 2 days ages each prior session out
+// before the next lands, so nothing ever stacks — the exact bug this replaced. A fixed
+// multi-day lookback lets repeated sessions pile up: train chest every 2 days and 3-4
+// sessions fall inside a 7-day window, compounding the penalty toward red.
+const FATIGUE_WINDOW_DAYS=10;
 function readiness(){
-  const now=Date.now(); const last={}, lastRpe={};
+  const now=Date.now(); const last={}, lastRpe={}, inWindowHits={};
   for(const w of STATE.workouts){ // newest first
     for(const ex of w.exercises){
       if(!(ex.sets&&ex.sets.some(s=>s.done))) continue;
@@ -1263,12 +1269,28 @@ function readiness(){
       }
     }
   }
+  // Count how many DISTINCT prior training days hit each muscle while still inside its
+  // recovery window (i.e. sessions stacked on top of each other before recovery). This is
+  // what the old model completely ignored — it only ever looked at the single most recent
+  // session, so hammering a muscle 10x in a row read identical to training it once.
+  for(const m of MUSCLE_ORDER){
+    const win=FATIGUE_WINDOW_DAYS*86400000; const seenDays=new Set(); let hits=0;
+    for(const w of STATE.workouts){
+      if(now-w.date>win) break; // workouts are newest-first; once outside the window, stop
+      let touches=false;
+      for(const ex of w.exercises){ if(!(ex.sets&&ex.sets.some(s=>s.done))) continue; if((ex.muscles||[]).includes(m)){ touches=true; break; } }
+      if(touches){ const dk=Math.floor(w.date/86400000); if(!seenDays.has(dk)){ seenDays.add(dk); hits++; } }
+    }
+    inWindowHits[m]=Math.max(0,hits-1); // the most recent session is the baseline; extras stack fatigue
+  }
   const out={};
   for(const m of MUSCLE_ORDER){
     if(last[m]==null){ out[m]=1; continue; }
     const r=lastRpe[m]; const mult=r>=9?1.25:r>=8?1.1:(r&&r<=6)?0.85:1;
     const days=(now-last[m])/86400000;
-    out[m]=Math.max(0,Math.min(1, days/((RECOVERY_DAYS[m]||2)*mult)));
+    let v=Math.max(0,Math.min(1, days/((RECOVERY_DAYS[m]||2)*mult)));
+    v*=Math.pow(FATIGUE_MULT, inWindowHits[m]||0); // cumulative fatigue: each extra in-window session compounds
+    out[m]=Math.max(0,Math.min(1,v));
   }
   const _ov=rdOv(); Object.keys(_ov).forEach(k=>{ const lvl=_ov[k].lvl;
     if(lvl==="fresh"){ out[k]=1; } // raises readiness regardless of the computed value — "worn"/"sore" only cap it, this overrides it
@@ -1278,9 +1300,18 @@ function readiness(){
 }
 function lastFocus(){ return STATE.workouts.length?STATE.workouts[0].focus:null; }
 function recommendFocus(){
-  const r=readiness(), lf=lastFocus(); let best=null,bestScore=-1;
+  const r=readiness(), lf=lastFocus();
+  // Core is on a fixed rotation cadence rather than competing on readiness score: it
+  // recovers in ~1.5 days, so if it were scored like the others it would almost always
+  // win and get recommended constantly. Instead, surface it when it hasn't appeared in
+  // the last 3 lifting sessions — roughly once per push/pull/legs cycle — so it's a
+  // regular part of the rotation without crowding out the muscle groups.
+  const recentLift=STATE.workouts.filter(w=>!w.ref&&!(FOCI[w.focus]||{}).cardio).slice(0,3);
+  const coreRecent=recentLift.some(w=>w.focus==="core");
+  if(recentLift.length>=3&&!coreRecent&&lf!=="core") return "core";
+  let best=null,bestScore=-1;
   for(const key of Object.keys(FOCI)){
-    if(key==="core"||FOCI[key].cardio) continue; // core + cardio/hiit are opt-in, not auto-recommended
+    if(key==="core"||FOCI[key].cardio) continue; // core handled above; cardio/hiit still opt-in
     const f=FOCI[key];
     const avg=f.muscles.reduce((a,m)=>a+(r[m]!=null?r[m]:1),0)/f.muscles.length;
     const score=avg-(key===lf?0.6:0);
@@ -1339,8 +1370,13 @@ function renderMuscleMap(w){
 function recFlag(id){ return (STATE.settings.recWeights||{})[id]||0; }
 function recW(id){ const w=recFlag(id); return w===1?3:w===-1?0.34:1; }
 let PICK_WFN=null;
-function exReadinessFactor(e,focusMuscles,r){ const fset=new Set(focusMuscles||[]);
-  const pen=m=>{ if(fset.has(m)) return 1; const rd=r[m]!=null?r[m]:1; return rd<0.4?0.12:rd<0.75?0.5:1; };
+function exReadinessFactor(e,focusMuscles,r){
+  // Was: if(fset.has(m)) return 1 — meant readiness was IGNORED for the current focus's
+  // own muscles, i.e. exactly the muscles being trained that day. Red chest on a push day
+  // did nothing. Removed the exemption: a fresh muscle still gets no penalty (rd near 1
+  // naturally returns ~1 here), a red one now biases selection toward lighter/isolation
+  // picks over another heavy compound, same as it already did for off-focus muscles.
+  const pen=m=>{ const rd=r[m]!=null?r[m]:1; return rd<0.4?0.12:rd<0.75?0.5:1; };
   let factor=1; (e.primary||[]).forEach(m=>{ factor*=pen(m); });
   (e.secondary||[]).forEach(m=>{ const f=pen(m); factor*=(1-(1-f)*0.5); });
   return Math.max(0.02,factor); }
@@ -1350,20 +1386,22 @@ function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filt
   let r=Math.random()*tot; for(let i=0;i<pool.length;i++){ r-=wts[i]; if(r<=0) return pool[i]; } return pool[pool.length-1]; }
 const SIM_GROUPS=[
   // barbell/DB pressing families
-  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb"],
+  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb","bb_decl"],
   ["bb_ohp","bb_pin_ohp","bb_seated_ohp","db_ohp","db_ohp_st","arnold","bb_push_press","z_press"],
   // squats
-  ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat"],
+  ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat","zercher"],
   // hinges / deadlifts
   ["deadlift","sumo_dl","trap_dl","bb_rdl","bb_pause_dl","bb_block_pull","bb_deficit_dl","rack_pull","trap_rdl","db_rdl","lm_rdl","kb_dl"],
   // lunges & single-leg
-  ["rev_lunge","walk_lunge","curtsy_lunge","lm_rev_lunge","step_up","ghr_rev_lunge","ghr_lat_lunge","ghr_curtsy","bss"],
+  // lunges & single-leg — family removed 2026.08.29 (all lunge-pattern exercises deleted
+  // from the app at user request, knee pain). Kept as an empty placeholder comment so the
+  // history is clear; no members remain.
   // shrugs
   ["bb_bb_shrug","db_shrug","trap_shrug"],
   // triceps extensions
   ["oh_ext","cable_oh_ext","skull","kickback_tri","pushdown"],
   // biceps curls
-  ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl"],
+  ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl","bb_curl"],
   // chest flyes
   ["cable_fly","cable_cross_high","incline_db_fly","db_fly_floor"],
   // rows
@@ -1513,23 +1551,22 @@ function generate(focusKey,duration,mode){
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")&&!simBlocked.has(e.id));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
     else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e));
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)); // relax exposure caps before pattern limit
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)); // relax STATION before muscle cap — muscle cap stays hard (user: no clustering)
       if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
-      // Was: this last-resort tier also dropped patOK entirely (not just the exposure caps
-      // above it), so a thin candidate pool (e.g. many blocked exercises) could blow the
-      // pattern limit the same way the muscle-exposure cap used to fail open — 3 vert_pull
-      // pull-up-bar exercises got through this exact path. patOK stays a hard requirement
-      // even here; if that leaves zero candidates, the loop settles for fewer exercises
-      // rather than violating the limit (same principle as the muscle-cap fix).
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&(compCount()<compCap||e.role!=="compound")); }
+      // muscleOK is kept as a hard requirement through every tier now. Previously the last
+      // resort dropped it, which let a 5th exercise pile onto one muscle whenever the pool
+      // was thin (common after unpinning bench). If honoring the cap leaves no candidates,
+      // the loop settles for fewer exercises rather than clustering — same principle already
+      // applied to the pattern limit above.
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&(compCount()<compCap||e.role!=="compound")); }
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
   if(!isCore&&!goalDef().skipCoreEmbed&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
   guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
     if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
     let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e));
-    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id));
-    const e=pickFrom(fresh.length?fresh:cands,recent); if(!e) break; const before=chosen.length; add(e); if(chosen.length===before&&!fresh.length) break; }
+    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)); // relax station, NOT the muscle cap (user: no clustering)
+    const e=pickFrom(fresh.length?fresh:(cands.filter(muscleOK).length?cands.filter(muscleOK):[]),recent); if(!e) break; const before=chosen.length; add(e); if(chosen.length===before&&!fresh.length) break; }
 
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const conds=[];
@@ -1663,6 +1700,14 @@ function buildLoggable(e){
     let w=src?src.w:"", rp=src?src.reps:"";
     if(src&&metric==="reps"&&!src.band){ const nw=scaleW(src.w,src.reps); if(nw!=null){ if(!scaledFrom) scaledFrom={w:src.w,reps:src.reps}; w=String(nw); rp=lo?String(lo):""; } }
     sets.push({w,reps:rp,done:false,band:src?(src.band||null):null}); }
+  // Readiness previously had zero effect on prescribed load anywhere in the app — it only
+  // changed the display color and the focus recommendation. If the exercise's primary
+  // muscle is red (<0.4 readiness), knock 10% off the working weight actually loaded,
+  // same threshold/magnitude as the injury down-weight below for consistency. Only
+  // applies to weighted, reps-based work with a real number to cut — bodyweight/band/carry
+  // exercises are untouched (nothing to reduce that isn't already handled by rep count).
+  if(metric==="reps"){ const rdMap=readiness(); const primaryRd=Math.min(1,...(e.primary||[]).map(m=>rdMap[m]!=null?rdMap[m]:1));
+    if(primaryRd<FATIGUE_LOAD_TRIGGER){ sets.forEach(s=>{ const wv=parseFloat(s.w); if(isFinite(wv)&&wv>0&&!s.band){ const nw=round5(wv*0.9); if(nw>0) s.w=String(nw); } }); } }
   if(dropPct){ const base=Math.max(0,...sets.map(s=>parseFloat(s.w)||0)); sets.push({w:base>0?round5(base*(1-dropPct)):"",reps:"",done:false,drop:true}); }
   const req=e.requires||[]; const bandKind=req.includes("resistancebands")?"power":req.includes("hipbands")?"hip":null;
   const prevBand=(prev&&prev.band)?prev.band:null;
