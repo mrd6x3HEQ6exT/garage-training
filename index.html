@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.08.30";
+const BUILD="2026.09.01";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -474,6 +474,7 @@ function X(id,name,pattern,role,primary,secondary,requires,stations,opts){
 const EXERCISES=[
   X("bb_bench","Barbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Shoulder blades pinned, bar to mid-chest."}),
   X("bb_decl","Decline bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Bench declined ~15–20°, bar to lower chest."}),
+  X("db_decl","Dumbbell decline press","horiz_push","accessory",["chest"],["triceps","shoulders"],["dumbbells","bench"],["bench"],{cue:"Bench declined ~15–20°, DBs to lower chest, control the stretch."}),
   X("bb_incl","Barbell incline press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Bench ~30°, bar to upper chest."}),
   X("db_bench","Dumbbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["dumbbells","bench"],["bench"],{cue:"Wrists stacked over elbows."}),
   X("db_incl","Dumbbell incline press","horiz_push","accessory",["chest"],["shoulders","triceps"],["dumbbells","bench"],["bench"],{cue:"Control the stretch at the bottom."}),
@@ -481,7 +482,7 @@ const EXERCISES=[
   X("lm_press","Landmine press","vert_push","accessory",["shoulders"],["chest","triceps"],["landmine"],["landmine"],{cue:"Press up and slightly forward; brace.",unilateral:true}),
   X("dips","Chest dips","horiz_push","compound",["chest"],["triceps","shoulders"],["dipstation"],["dipstation"],{cue:"Lean forward for chest emphasis.",loadCap:"vest"}),
   X("pushup","Weighted push-up","horiz_push","accessory",["chest"],["triceps","core"],[],[],{cue:"Add the vest; body in one line.",loadCap:"vest"}),
-  X("cable_fly","Cable fly","horiz_push","isolation",["chest"],[],["cable_low"],["cable_low"],{cue:"Slight elbow bend, hug the midline."}),
+  X("cable_fly","Cable fly","horiz_push","isolation",["chest"],[],["cable_low","dualcable"],["cable_low"],{cue:"Slight elbow bend, hug the midline."}),
   X("bb_ohp","Barbell overhead press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates"],["barbell"],{cue:"Squeeze glutes, bar travels past the chin."}),
   X("db_ohp","Dumbbell shoulder press","vert_push","compound",["shoulders"],["triceps"],["dumbbells","bench"],["bench"],{cue:"Seated, back supported."}),
   X("db_ohp_st","Standing DB press","vert_push","accessory",["shoulders"],["triceps","core"],["dumbbells"],[],{cue:"No leg drive — strict."}),
@@ -552,6 +553,9 @@ const EXERCISES=[
   X("pallof","Pallof press","core","core",["core"],[],["resistancebands"],[],{cue:"Band pegged at chest height — press straight out and resist the pull trying to rotate you."}),
   X("lm_twist","Landmine rotation","core","core",["core"],["shoulders"],["landmine"],["landmine"],{cue:"Pivot the feet, control the arc."}),
   X("decline_situp","Weighted decline sit-up","core","core",["core"],[],["bench"],["bench"],{cue:"Bench on decline, hold a plate or DB.",loadCap:"dumbbells"}),
+  X("decline_rev_crunch","Decline reverse crunch","core","core",["core"],[],["bench"],["bench"],{cue:"Head-up on the decline, curl hips toward the high end, lower-ab focus."}),
+  X("decline_leg_raise","Decline leg raise","core","core",["core"],[],["bench"],["bench"],{cue:"Head-up on the decline, grip behind head, raise legs under control."}),
+  X("decline_twist","Decline oblique twist","core","core",["core"],[],["bench"],["bench"],{cue:"Seated on the decline, rotate side to side; hold a plate or DB to load.",loadCap:"dumbbells"}),
   X("reverse_crunch","Reverse crunch","core","core",["core"],[],[],[],{cue:"Curl hips off the floor, knees to chest."}),
   X("russian","Russian twist","core","core",["core"],[],["kettlebell"],[],{cue:"Lean back, rotate side to side.",altReq:["dumbbells"]}),
   X("side_plank","Weighted side plank","core","core",["core"],[],[],[],{cue:"Stack hips, add the vest for load.",loadCap:"vest",metric:"time"}),
@@ -562,7 +566,7 @@ const EXERCISES=[
   X("farmer","Farmer carry","carry","accessory",["core"],["back","glutes"],["dumbbells"],[],{cue:"Tall, braced, quick steps.",altReq:["trapbar"],metric:"carry"}),
   /* ---- added variety ---- */
   X("incline_db_fly","Incline DB fly","horiz_push","isolation",["chest"],[],["dumbbells","bench"],["bench"],{cue:"Slight elbow bend, open wide for a stretch, hug back together."}),
-  X("cable_cross_high","High cable crossover","horiz_push","isolation",["chest"],[],["cable_high"],["cable_high"],{cue:"High pulleys, sweep down and together at the hips."}),
+  X("cable_cross_high","High cable crossover","horiz_push","isolation",["chest"],[],["cable_high","dualcable"],["cable_high"],{cue:"High pulleys, sweep down and together at the hips."}),
   X("feet_up_pushup","Feet-elevated push-up","horiz_push","accessory",["chest"],["triceps","core"],["bench"],["bench"],{cue:"Feet on bench, upper-chest bias. Add the vest.",loadCap:"vest"}),
   X("db_fly_floor","Floor DB fly","horiz_push","isolation",["chest"],[],["dumbbells"],[],{cue:"On the floor; upper arms tap down, hug up."}),
   X("arnold","Arnold press","vert_push","accessory",["shoulders"],["triceps"],["dumbbells","bench"],["bench"],{cue:"Rotate palms from facing you to forward as you press."}),
@@ -1386,7 +1390,7 @@ function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filt
   let r=Math.random()*tot; for(let i=0;i<pool.length;i++){ r-=wts[i]; if(r<=0) return pool[i]; } return pool[pool.length-1]; }
 const SIM_GROUPS=[
   // barbell/DB pressing families
-  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb","bb_decl"],
+  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb","bb_decl","db_decl"],
   ["bb_ohp","bb_pin_ohp","bb_seated_ohp","db_ohp","db_ohp_st","arnold","bb_push_press","z_press"],
   // squats
   ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat","zercher"],
