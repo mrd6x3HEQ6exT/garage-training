@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="2026.09.01";
+const BUILD="v21";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -540,6 +540,7 @@ const EXERCISES=[
   X("ghr","Glute-ham raise","hinge","accessory",["hams"],["glutes"],["bench","resistancebands"],["bench"],{cue:"Feet anchored under the bench, loop a band for assistance, lower slow and pull yourself back up.",metric:"reps"}),
   X("nordic","Nordic curl","hinge","accessory",["hams"],["glutes"],["bench"],["bench"],{cue:"Ankles pinned under the bench leg roller. Resist the fall as long as you can; a chest band can assist."}),
   X("kb_swing","Kettlebell swing","hinge","accessory",["glutes"],["hams","core"],["kettlebell"],[],{cue:"Hips snap, float to chest height."}),
+  X("sl_bridge_pullover","SL alternating glute bridge KB pullover","hinge","accessory",["glutes","core"],["hams","back"],["kettlebell"],[],{cue:"One foot planted in a glute bridge, KB pullover overhead while bracing against pelvis drop; alternate legs.",prefBias:2.5}),
   X("hip_thrust","Barbell hip thrust","hinge","compound",["glutes"],["hams"],["barbell","plates","bench"],["barbell","bench"],{cue:"Shoulders on bench, ribs down, squeeze."}),
   X("db_thrust","DB hip thrust","hinge","accessory",["glutes"],["hams"],["dumbbells","bench"],["bench"],{cue:"Pause and squeeze at the top."}),
   X("pull_through","Cable pull-through","hinge","accessory",["glutes"],["hams"],["cable_low"],["cable_low"],{cue:"Hinge away, snap hips to lockout."}),
@@ -992,7 +993,7 @@ const PLATE_VIS={45:{c:"var(--p45)",h:118,w:17},25:{c:"var(--p25)",h:94,w:15},10
 /* ---------------- State ---------------- */
 let STATE={
   equipment:DEFAULT_EQUIPMENT.map(e=>({...e})),
-  settings:{daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true},
+  settings:{daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true,barbellReloadSec:120,stationChangeSec:60},
   workouts:[], current:null, tab:"today",
 };
 const UI={hardDay:false,cardioB:{open:false,machine:null,movement:null,mode:null,p:{}},openSwap:new Set(),openPlates:new Set(),openWarmup:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month"};
@@ -1500,6 +1501,10 @@ function generate(focusKey,duration,mode){
   const chosen=[]; let add=e=>{ if(e&&!chosen.includes(e)) chosen.push(e); };
   const rmap=readiness();
   const barbellBias=e=>{ const r=e.requires||[]; if(r.includes("barbell")||r.includes("trapbar")) return 1.2; if(r.includes("rack")) return 1.1; return 1; };
+  // Per-exercise user preference multiplier (default 1). Set via a `prefBias` field on the
+  // exercise to make a specific movement surface more (or less) often than average without
+  // hard-pinning it. Added for the single-leg alternating glute-bridge KB pullover at 2.5×.
+  const prefBias=e=>e.prefBias||1;
   const recentPats=recentPatterns(2);
   const patVariety=e=>{ const n=recentPats[e.pattern]||0; return n>=2?0.35:n===1?0.7:1; };
   const compCap=duration>=45?2:1;
@@ -1533,7 +1538,7 @@ function generate(focusKey,duration,mode){
   const patCount=p=>chosen.filter(x=>x.pattern===p).length;
   const patLimit=sCount>=8?3:2;
   const patOK=e=>e.role==="core"||e.pattern==="core"||patCount(e.pattern)<patLimit;
-  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e);
+  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*prefBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
   // PINNED FIRST — before anchors, so a pinned lift always gets its slot and is never
@@ -2023,23 +2028,20 @@ function condProtoMin(c){ if(c.estMin) return c.estMin; const p=String(c.proto||
 // programmed value as prescribed.
 const REST_REALISM={compound:1,accessory:3.0,isolation:3.0,core:1.15};
 function realRestSec(e){ return (e.restSec||60)*(REST_REALISM[e.role]||1); }
-// Between-group equipment changeover. Rest and work were the only costed items — moving
-// from one station to a completely different one (e.g. landmine/cable/dumbbell circuit
-// to a barbell rack) was counted as free. This is a flat, UNCALIBRATED estimate — the app
-// doesn't yet log the gap between exercises, only rest within one — so 45s is a reasoned
-// guess (walking + basic re-setup), not a measured number. It also only fires on a full
-// station swap: going back to the same barbell for a heavier lift (a real cost — see the
-// Aug 5 session's 95lb→155lb jump) isn't detected here, since that's a load change on the
-// same equipment, not a different one. Revisit both once real transition timestamps exist.
-const STATION_CHANGE_SEC=45;
-// "bench" and "plates" are shared by nearly every station (barbell bench, DB bench, cable
-// bench, EZ-bar work all use a bench) — including them in the overlap check meant almost
-// every group pairing "overlapped" via bench alone, masking real transitions like barbell
-// rack -> dumbbell/cable/landmine hub. Excluded so overlap reflects the actual destination
-// equipment, not the furniture most exercises happen to share.
+// Between-exercise setup cost. Two real costs the old model missed or undercharged:
+//  1) STATION change (walking to a different hub: rack -> cable -> landmine). Flat, was 45s.
+//  2) BARBELL RELOAD — the big one. Going from one barbell lift to another (even the SAME
+//     bar) means: strip plates, check the next weight, reposition the bar / J-hooks / rack
+//     height, load new plates, reset safety straps. On a barbell-preferred garage setup
+//     that's the dominant time sink, and the old model charged it NOTHING because it only
+//     looked at whether the STATION differed — same barbell = "no change" = free. Wrong.
+// Both are now user-set in Setup (barbellReloadSec / stationChangeSec) instead of a baked-in
+// guess — the person knows their real teardown time; the app shouldn't pretend to.
 const CHANGEOVER_IGNORE=new Set(["bench","plates"]);
+function barbellReloadSec(){ const v=STATE.settings&&STATE.settings.barbellReloadSec; return (typeof v==="number"&&v>=0)?v:120; }
+function stationChangeSec(){ const v=STATE.settings&&STATE.settings.stationChangeSec; return (typeof v==="number"&&v>=0)?v:60; }
 function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id===id);
-  let prevStations=null;
+  let prevStations=null, seenBarbell=false;
   (w.groups||[]).forEach(g=>{ const mem=(g.items||[]).map(exOf).filter(Boolean); if(!mem.length) return;
     const rounds=Math.max(...mem.map(e=>(e.sets||[]).filter(s=>!s.drop).length),0);
     const work=mem.reduce((a,e)=>a+((e.metric==="time")?50:40),0);
@@ -2047,9 +2049,15 @@ function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id
     const rest=Math.max(...mem.map(e=>realRestSec(e)));
     const stations=new Set(); mem.forEach(e=>{ const ex=exById(e.id); (ex&&ex.requires||[]).forEach(s=>{ if(!CHANGEOVER_IGNORE.has(s)) stations.add(s); }); });
     let changeover=0;
-    if(prevStations&&stations.size){ const overlap=[...stations].some(s=>prevStations.has(s)); if(!overlap) changeover=STATION_CHANGE_SEC; }
+    if(prevStations&&stations.size){ const overlap=[...stations].some(s=>prevStations.has(s)); if(!overlap) changeover=stationChangeSec(); }
+    // Barbell reload: charge for every barbell exercise in this group that requires the
+    // bar, once we've already used a barbell earlier in the session (the first barbell lift
+    // is set up during warm-up, so it's the transitions between bar lifts that cost).
+    let reloads=0;
+    mem.forEach(e=>{ const ex=exById(e.id); const needsBar=ex&&(ex.requires||[]).includes("barbell");
+      if(needsBar){ if(seenBarbell) reloads++; seenBarbell=true; } });
     if(stations.size) prevStations=stations;
-    t+=changeover+rounds*(work+trans+rest); });
+    t+=changeover+reloads*barbellReloadSec()+rounds*(work+trans+rest); });
   (w.conditioning||[]).forEach(c=>{ t+=condProtoMin(c)*60; });
   return t; }
 function condMinutes(w){ let m=0; (w.conditioning||[]).forEach(c=>{ const done=(c.sets||[]).filter(s=>s.done);
@@ -2462,6 +2470,8 @@ function renderSettings(){
     <div class="frow"><label>Experience<small>Sets rep ranges and drop set / tempo cues.</small></label><select class="in" data-set="experience">${["beginner","intermediate","advanced"].map(x=>`<option value="${x}" ${x===s.experience?"selected":""}>${x[0].toUpperCase()+x.slice(1)}</option>`).join("")}</select></div>
     <div class="frow"><label>Heart-rate zones<small>Max HR and resting HR — zones use heart-rate reserve. Z2 (easy) is currently ${zTxt(2)}.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="hrMax" value="${s.hrMax||144}" style="width:64px"><span class="hint">max</span><input class="in" type="number" inputmode="numeric" data-set="hrRest" value="${s.hrRest||43}" style="width:64px"><span class="hint">rest</span></span></div>
     <div class="frow"><label>Sled lane length<small>Your one-way push distance — the sled builder's default.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="sledLane" value="${s.sledLane||60}" style="width:76px"><span class="hint">ft</span></span></div>
+    <div class="frow"><label>Barbell reload time<small>Real seconds to change a barbell between lifts: strip, check, reposition, load, reset safeties. The session estimate uses this for every barbell lift after the first.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="barbellReloadSec" value="${s.barbellReloadSec!=null?s.barbellReloadSec:120}" style="width:76px"><span class="hint">sec</span></span></div>
+    <div class="frow"><label>Station change time<small>Seconds to move between different stations (rack → cable → landmine, etc.).</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="stationChangeSec" value="${s.stationChangeSec!=null?s.stationChangeSec:60}" style="width:76px"><span class="hint">sec</span></span></div>
     <div class="frow"><label>Keep screen awake<small>Holds the screen on during an active workout (where the device allows it).</small></label><div class="sw ${s.keepAwake?"on":""}" data-action="togglewake"></div></div>
     <div class="frow"><label>Rest-timer alarm<small>Loud, cutting alarm when a rest period ends. Slide up for a noisy garage, then tap Test. (Your phone's media volume also has to be up.)</small></label><select class="in" data-set="alarmSound">${ALARM_SOUNDS.map(a=>`<option value="${a[0]}" ${a[0]===(s.alarmSound||"buzzer")?"selected":""}>${a[1]}</option>`).join("")}</select></div>
     <div class="row" style="gap:12px;align-items:center;margin-top:-2px"><input type="range" min="15" max="100" step="5" value="${Math.round((s.alarmVol!=null?s.alarmVol:0.9)*100)}" data-range="alarmvol" style="flex:1"><span class="mono" id="alarmVolLbl" style="min-width:42px;text-align:right;color:var(--ink)">${Math.round((s.alarmVol!=null?s.alarmVol:0.9)*100)}%</span><button class="btn sm" data-action="testalarm">Test</button></div></div>`;
@@ -2657,7 +2667,7 @@ function importData(json){
   if(d.settings){
     STATE.settings.pinned=[...new Set([...(STATE.settings.pinned||[]),...(d.settings.pinned||[])])];
     STATE.settings.blocked=[...new Set([...(STATE.settings.blocked||[]),...(d.settings.blocked||[])])];
-    ["daysPerWeek","duration","mode","experience","goal","alarmVol","alarmSound","sledLane","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
+    ["daysPerWeek","duration","mode","experience","goal","alarmVol","alarmSound","sledLane","barbellReloadSec","stationChangeSec","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
     if(d.settings.recWeights) STATE.settings.recWeights=Object.assign(STATE.settings.recWeights||{},d.settings.recWeights);
     if(d.settings.exNotes) STATE.settings.exNotes=Object.assign(STATE.settings.exNotes||{},d.settings.exNotes);
     if(d.settings.restOverrides) STATE.settings.restOverrides=Object.assign(STATE.settings.restOverrides||{},d.settings.restOverrides);
@@ -2873,6 +2883,8 @@ view.addEventListener("input",e=>{
   if(inp.dataset.set==="hrRest"){ STATE.settings.hrRest=Math.max(30,Math.min(110,+inp.value||43)); pSet(); renderSettings(); return; }
   if(inp.dataset.set==="autoBackup"){ STATE.settings.autoBackup=inp.value; pSet(); renderSettings(); return; }
   if(inp.dataset.set==="sledLane"){ STATE.settings.sledLane=Math.max(5,Math.min(2000,+inp.value||60)); pSet(); return; }
+  if(inp.dataset.set==="barbellReloadSec"){ STATE.settings.barbellReloadSec=Math.max(0,Math.min(600,+inp.value||120)); pSet(); return; }
+  if(inp.dataset.set==="stationChangeSec"){ STATE.settings.stationChangeSec=Math.max(0,Math.min(600,+inp.value||60)); pSet(); return; }
   if((inp.dataset.ck||inp.dataset.cf)&&STATE.current){ const row=inp.closest(".setrow"); const c=STATE.current.conditioning[+row.dataset.ci]; if(!c.sets) c.sets=[mkCondSet(c.fields)]; const s=c.sets[+row.dataset.cset]; if(inp.dataset.ck==="w"){ s.w=inp.value; } else { if(!s.vals) s.vals={}; s.vals[inp.dataset.cf]=inp.value; } pCur(); return; }
   if(inp.dataset.field==="note"&&STATE.current){ STATE.current.note=inp.value; pCur(); return; }
   if(inp.dataset.range==="alarmvol"){ STATE.settings.alarmVol=Math.max(0.15,Math.min(1,(+inp.value||90)/100)); const lbl=document.getElementById("alarmVolLbl"); if(lbl) lbl.textContent=Math.round(STATE.settings.alarmVol*100)+"%"; pSet(); return; }
