@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v22";
+const BUILD="v23";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -540,7 +540,7 @@ const EXERCISES=[
   X("ghr","Glute-ham raise","hinge","accessory",["hams"],["glutes"],["bench","resistancebands"],["bench"],{cue:"Feet anchored under the bench, loop a band for assistance, lower slow and pull yourself back up.",metric:"reps"}),
   X("nordic","Nordic curl","hinge","accessory",["hams"],["glutes"],["bench"],["bench"],{cue:"Ankles pinned under the bench leg roller. Resist the fall as long as you can; a chest band can assist."}),
   X("kb_swing","Kettlebell swing","hinge","accessory",["glutes"],["hams","core"],["kettlebell"],[],{cue:"Hips snap, float to chest height."}),
-  X("sl_bridge_pullover","SL alternating glute bridge KB pullover","hinge","accessory",["glutes","core"],["hams","back"],["kettlebell"],[],{cue:"One foot planted in a glute bridge, KB pullover overhead while bracing against pelvis drop; alternate legs.",prefBias:2.5}),
+  X("sl_bridge_pullover","SL alternating glute bridge KB pullover","hinge","accessory",["glutes","core"],["hams","back"],["kettlebell"],[],{cfx:"antiext",cue:"One foot planted in a glute bridge, KB pullover overhead while bracing against pelvis drop; alternate legs.",prefBias:2.5}),
   X("hip_thrust","Barbell hip thrust","hinge","compound",["glutes"],["hams"],["barbell","plates","bench"],["barbell","bench"],{cue:"Shoulders on bench, ribs down, squeeze."}),
   X("db_thrust","DB hip thrust","hinge","accessory",["glutes"],["hams"],["dumbbells","bench"],["bench"],{cue:"Pause and squeeze at the top."}),
   X("pull_through","Cable pull-through","hinge","accessory",["glutes"],["hams"],["cable_low"],["cable_low"],{cue:"Hinge away, snap hips to lockout."}),
@@ -566,30 +566,30 @@ const EXERCISES=[
   X("bb_wrist_curl","Barbell reverse wrist curl","arms","isolation",["forearms"],[],["barbell","plates"],["barbell"],{cue:"Palms down, curl the wrists up. Trains the extensors most people never work."}),
   X("plate_pinch","Plate pinch hold","carry","isolation",["forearms"],[],["plates"],[],{cue:"Pinch two plates smooth-side-out and hold. Pure grip.",metric:"time"}),
   /* ---- core / abs (expanded) ---- */
-  X("hlr","Hanging leg raise","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"No swing, curl the pelvis up."}),
-  X("hang_knee","Hanging knee raise","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"Knees to chest, control the lower."}),
-  X("cable_crunch","Cable crunch","core","core",["core"],[],["cable_high"],["cable_high"],{cue:"Round the spine, hips stay put."}),
-  X("woodchop","Cable woodchopper","core","core",["core"],["shoulders"],["cable_high"],["cable_high"],{cue:"High to low, rotate through the trunk.",unilateral:true}),
-  X("pallof","Pallof press","core","core",["core"],[],["resistancebands"],[],{cue:"Band pegged at chest height — press straight out and resist the pull trying to rotate you."}),
+  X("hlr","Hanging leg raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"No swing, curl the pelvis up."}),
+  X("hang_knee","Hanging knee raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"Knees to chest, control the lower."}),
+  X("cable_crunch","Cable crunch","core","core",["core"],[],["cable_high"],["cable_high"],{cfx:"flexion",cue:"Round the spine, hips stay put."}),
+  X("woodchop","Cable woodchopper","core","core",["core"],["shoulders"],["cable_high"],["cable_high"],{cfx:"rotation",cue:"High to low, rotate through the trunk.",unilateral:true}),
+  X("pallof","Pallof press","core","core",["core"],[],["resistancebands"],[],{cfx:"antirot",cue:"Band pegged at chest height — press straight out and resist the pull trying to rotate you."}),
   // --- Anti-rotation core ---
   // Audit gap: anti-rotation is one of the best-evidenced core categories (resisting rotation
   // is what actually protects the spine day to day) and the app had essentially ONE exercise
   // for it. Everything else was flexion, rotation, or planks.
-  X("pallof_kneel","Half-kneeling Pallof press","core","core",["core"],["glutes"],["cable_low"],["cable_low"],{cue:"Half-kneeling kills the leg drive — pure anti-rotation. Press out, resist the twist.",unilateral:true}),
-  X("sa_cable_press","Single-arm cable press","core","core",["core"],["chest","shoulders"],["cable_low"],["cable_low"],{cue:"Standing, press one arm forward — the load tries to rotate you and the core has to stop it.",unilateral:true}),
-  X("lm_twist","Landmine rotation","core","core",["core"],["shoulders"],["landmine"],["landmine"],{cue:"Pivot the feet, control the arc."}),
-  X("decline_situp","Weighted decline sit-up","core","core",["core"],[],["bench"],["bench"],{cue:"Bench on decline, hold a plate or DB.",loadCap:"dumbbells"}),
-  X("decline_rev_crunch","Decline reverse crunch","core","core",["core"],[],["bench"],["bench"],{cue:"Head-up on the decline, curl hips toward the high end, lower-ab focus."}),
-  X("decline_leg_raise","Decline leg raise","core","core",["core"],[],["bench"],["bench"],{cue:"Head-up on the decline, grip behind head, raise legs under control."}),
-  X("decline_twist","Decline oblique twist","core","core",["core"],[],["bench"],["bench"],{cue:"Seated on the decline, rotate side to side; hold a plate or DB to load.",loadCap:"dumbbells"}),
-  X("reverse_crunch","Reverse crunch","core","core",["core"],[],[],[],{cue:"Curl hips off the floor, knees to chest."}),
-  X("russian","Russian twist","core","core",["core"],[],["kettlebell"],[],{cue:"Lean back, rotate side to side.",altReq:["dumbbells"]}),
-  X("side_plank","Weighted side plank","core","core",["core"],[],[],[],{cue:"Stack hips, add the vest for load.",loadCap:"vest",metric:"time"}),
-  X("copenhagen","Copenhagen plank","core","core",["core"],["glutes"],["bench"],["bench"],{cue:"Top foot on bench, drive the hip up.",unilateral:true,metric:"time"}),
-  X("hollow","Hollow body hold","core","core",["core"],[],[],[],{cue:"Low back glued down, ribs in.",metric:"time"}),
-  X("plank","Weighted plank","core","core",["core"],[],[],[],{cue:"Vest on the back; squeeze everything.",loadCap:"vest",metric:"time"}),
-  X("suitcase","Suitcase carry","carry","core",["core"],["back"],["kettlebell"],[],{cue:"One bell, fight the lean. Per side.",unilateral:true,altReq:["dumbbells"],metric:"carry"}),
-  X("farmer","Farmer carry","carry","accessory",["core"],["back","glutes"],["dumbbells"],[],{cue:"Tall, braced, quick steps.",altReq:["trapbar"],metric:"carry"}),
+  X("pallof_kneel","Half-kneeling Pallof press","core","core",["core"],["glutes"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Half-kneeling kills the leg drive — pure anti-rotation. Press out, resist the twist.",unilateral:true}),
+  X("sa_cable_press","Single-arm cable press","core","core",["core"],["chest","shoulders"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Standing, press one arm forward — the load tries to rotate you and the core has to stop it.",unilateral:true}),
+  X("lm_twist","Landmine rotation","core","core",["core"],["shoulders"],["landmine"],["landmine"],{cfx:"rotation",cue:"Pivot the feet, control the arc."}),
+  X("decline_situp","Weighted decline sit-up","core","core",["core"],[],["bench"],["bench"],{cfx:"flexion",cue:"Bench on decline, hold a plate or DB.",loadCap:"dumbbells"}),
+  X("decline_rev_crunch","Decline reverse crunch","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Head-up on the decline, curl hips toward the high end, lower-ab focus."}),
+  X("decline_leg_raise","Decline leg raise","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Head-up on the decline, grip behind head, raise legs under control."}),
+  X("decline_twist","Decline oblique twist","core","core",["core"],[],["bench"],["bench"],{cfx:"rotation",cue:"Seated on the decline, rotate side to side; hold a plate or DB to load.",loadCap:"dumbbells"}),
+  X("reverse_crunch","Reverse crunch","core","core",["core"],[],[],[],{cfx:"hipflex",cue:"Curl hips off the floor, knees to chest."}),
+  X("russian","Russian twist","core","core",["core"],[],["kettlebell"],[],{cfx:"rotation",cue:"Lean back, rotate side to side.",altReq:["dumbbells"]}),
+  X("side_plank","Weighted side plank","core","core",["core"],[],[],[],{cfx:"antilat",cue:"Stack hips, add the vest for load.",loadCap:"vest",metric:"time"}),
+  X("copenhagen","Copenhagen plank","core","core",["core"],["glutes"],["bench"],["bench"],{cfx:"antilat",cue:"Top foot on bench, drive the hip up.",unilateral:true,metric:"time"}),
+  X("hollow","Hollow body hold","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Low back glued down, ribs in.",metric:"time"}),
+  X("plank","Weighted plank","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Vest on the back; squeeze everything.",loadCap:"vest",metric:"time"}),
+  X("suitcase","Suitcase carry","carry","core",["core"],["back"],["kettlebell"],[],{cfx:"antilat",cue:"One bell, fight the lean. Per side.",unilateral:true,altReq:["dumbbells"],metric:"carry"}),
+  X("farmer","Farmer carry","carry","accessory",["core"],["back","glutes"],["dumbbells"],[],{cfx:"braced",cue:"Tall, braced, quick steps.",altReq:["trapbar"],metric:"carry"}),
   /* ---- added variety ---- */
   X("incline_db_fly","Incline DB fly","horiz_push","isolation",["chest"],[],["dumbbells","bench"],["bench"],{cue:"Slight elbow bend, open wide for a stretch, hug back together."}),
   X("cable_cross_high","High cable crossover","horiz_push","isolation",["chest"],[],["cable_high","dualcable"],["cable_high"],{cue:"High pulleys, sweep down and together at the hips."}),
@@ -623,30 +623,30 @@ const EXERCISES=[
   X("frog_pump","Frog pump","hinge","isolation",["glutes"],[],["dumbbells"],[],{cue:"Soles together, knees out, drive the hips up for high reps."}),
   X("kb_dl","Kettlebell deadlift","hinge","accessory",["hams"],["glutes","back"],["kettlebell"],[],{cue:"Bell between the feet, hinge, grip, stand tall."}),
   X("sl_calf","Single-leg calf raise","squat","isolation",["calves"],[],["dumbbells"],[],{cue:"One foot on a plate, rise high, pause, full stretch.",unilateral:true,loadCap:"wedge"}),
-  X("toes_to_bar","Toes-to-bar","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"Hang, brace, bring the toes up to the bar; control down."}),
-  X("vup","V-up","core","core",["core"],[],[],[],{cue:"Lift legs and torso together into a V, reach for the toes."}),
-  X("deadbug","Dead bug","core","core",["core"],[],[],[],{cue:"Back pinned down, lower opposite arm and leg slowly."}),
-  X("ww","Hanging windshield wiper","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"Hang, legs up, rotate side to side. Advanced obliques."}),
-  X("standing_oblique","Standing DB oblique crunch","core","core",["core"],[],["dumbbells"],[],{cue:"Bell in one hand, bend toward that hip, crunch back up.",unilateral:true}),
-  X("oh_carry","Overhead carry","carry","core",["core"],["shoulders"],["dumbbells"],[],{cue:"Bells locked out overhead, ribs down, walk tall.",metric:"carry"}),
-  X("frontrack_carry","Front-rack carry","carry","core",["core"],["quads"],["kettlebell"],[],{cue:"Bells racked at the shoulders, braced, controlled steps.",metric:"carry",pair:"kettlebell"}),
+  X("toes_to_bar","Toes-to-bar","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"Hang, brace, bring the toes up to the bar; control down."}),
+  X("vup","V-up","core","core",["core"],[],[],[],{cfx:"hipflex",cue:"Lift legs and torso together into a V, reach for the toes."}),
+  X("deadbug","Dead bug","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Back pinned down, lower opposite arm and leg slowly."}),
+  X("ww","Hanging windshield wiper","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"rotation",cue:"Hang, legs up, rotate side to side. Advanced obliques."}),
+  X("standing_oblique","Standing DB oblique crunch","core","core",["core"],[],["dumbbells"],[],{cfx:"rotation",cue:"Bell in one hand, bend toward that hip, crunch back up.",unilateral:true}),
+  X("oh_carry","Overhead carry","carry","core",["core"],["shoulders"],["dumbbells"],[],{cfx:"braced",cue:"Bells locked out overhead, ribs down, walk tall.",metric:"carry"}),
+  X("frontrack_carry","Front-rack carry","carry","core",["core"],["quads"],["kettlebell"],[],{cfx:"braced",cue:"Bells racked at the shoulders, braced, controlled steps.",metric:"carry",pair:"kettlebell"}),
   /* ---- more core ---- */
-  X("bicycle","Bicycle crunch","core","core",["core"],[],[],[],{cue:"Opposite elbow to knee, slow and controlled, fully extend the other leg."}),
-  X("flutter","Flutter kicks","core","core",["core"],[],[],[],{cue:"Legs straight just off the floor, small fast alternating kicks. Hold for time.",metric:"time"}),
-  X("hollow_rock","Hollow rock","core","core",["core"],[],[],[],{cue:"Hold the hollow position and rock back and forth keeping the low back glued down."}),
-  X("bird_dog","Bird dog","core","core",["core"],["glutes"],[],[],{cue:"On all fours, extend opposite arm and leg, pause, switch. Keep the hips level."}),
-  X("renegade_row","Renegade row","core","accessory",["core"],["back"],["dumbbells"],[],{cue:"Top of a push-up on the bells; row one then the other while resisting rotation."}),
-  X("dragon_flag","Dragon flag","core","core",["core"],[],["bench"],["bench"],{cue:"Grip the bench overhead, raise the whole body to vertical, lower slow and straight. Advanced."}),
+  X("bicycle","Bicycle crunch","core","core",["core"],[],[],[],{cfx:"rotation",cue:"Opposite elbow to knee, slow and controlled, fully extend the other leg."}),
+  X("flutter","Flutter kicks","core","core",["core"],[],[],[],{cfx:"hipflex",cue:"Legs straight just off the floor, small fast alternating kicks. Hold for time.",metric:"time"}),
+  X("hollow_rock","Hollow rock","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Hold the hollow position and rock back and forth keeping the low back glued down."}),
+  X("bird_dog","Bird dog","core","core",["core"],["glutes"],[],[],{cfx:"antirot",cue:"On all fours, extend opposite arm and leg, pause, switch. Keep the hips level."}),
+  X("renegade_row","Renegade row","core","accessory",["core"],["back"],["dumbbells"],[],{cfx:"antirot",cue:"Top of a push-up on the bells; row one then the other while resisting rotation."}),
+  X("dragon_flag","Dragon flag","core","core",["core"],[],["bench"],["bench"],{cfx:"antiext",cue:"Grip the bench overhead, raise the whole body to vertical, lower slow and straight. Advanced."}),
   /* ---- thrusters (batch) ---- */
   X("bb_thruster","Barbell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Front-rack squat, then ride the drive up into an overhead press in one motion."}),
   X("kb_thruster","Double kettlebell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["kettlebell"],[],{cue:"Bells in the front rack, squat, then explode up and press overhead.",pair:"kettlebell"}),
   /* ---- more core (batch) ---- */
-  X("l_sit","L-sit hold","core","core",["core"],["quads"],["dipstation"],["dipstation"],{cue:"Support on the dip bars, press down, lift the legs to an L and hold.",metric:"time",altReq:["pullupbar"]}),
-  X("bear_crawl","Bear crawl","core","core",["core"],["shoulders"],[],[],{cue:"Knees hovering an inch off the floor, crawl with opposite hand/foot, hips low.",metric:"time"}),
-  X("db_side_bend","DB side bend","core","core",["core"],[],["dumbbells"],[],{cue:"Bell in one hand, bend sideways toward that hip, then contract the obliques back up.",unilateral:true}),
-  X("hang_oblique","Hanging oblique raise","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"Hang and raise the knees up and to one side, alternating. Hits the obliques."}),
-  X("plank_saw","Plank saw","core","core",["core"],["shoulders"],[],[],{cue:"Forearm plank; rock the whole body forward and back so the shoulders pass the elbows.",metric:"time"}),
-  X("jackknife","Bench jackknife","core","core",["core"],[],["bench"],["bench"],{cue:"Sit on the bench end, lean back, then draw the knees and chest together and extend back out."}),
+  X("l_sit","L-sit hold","core","core",["core"],["quads"],["dipstation"],["dipstation"],{cfx:"antiext",cue:"Support on the dip bars, press down, lift the legs to an L and hold.",metric:"time",altReq:["pullupbar"]}),
+  X("bear_crawl","Bear crawl","core","core",["core"],["shoulders"],[],[],{cfx:"antiext",cue:"Knees hovering an inch off the floor, crawl with opposite hand/foot, hips low.",metric:"time"}),
+  X("db_side_bend","DB side bend","core","core",["core"],[],["dumbbells"],[],{cfx:"antilat",cue:"Bell in one hand, bend sideways toward that hip, then contract the obliques back up.",unilateral:true}),
+  X("hang_oblique","Hanging oblique raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"rotation",cue:"Hang and raise the knees up and to one side, alternating. Hits the obliques."}),
+  X("plank_saw","Plank saw","core","core",["core"],["shoulders"],[],[],{cfx:"antiext",cue:"Forearm plank; rock the whole body forward and back so the shoulders pass the elbows.",metric:"time"}),
+  X("jackknife","Bench jackknife","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Sit on the bench end, lean back, then draw the knees and chest together and extend back out."}),
   /* ---- REP glute-ham roller (wheeled roller + foot tray) ---- */
   X("ghr_curl","GHR supine leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Feet on the tray, hips locked high. Curl the heels in without letting the hips sag."}),
   // --- Spinal extension / lower back isolation ---
@@ -661,15 +661,15 @@ const EXERCISES=[
   X("ghr_curl_band","Banded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","resistancebands"],["ghr"],{cue:"Band anchored behind the roller. Resistance climbs as the heels come in."}),
   X("ghr_bridge_curl","GHR bridge + curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Bridge the hips up and hold, then curl the heels in. Glutes stay locked."}),
   X("ghr_slideout","GHR eccentric slide-out","hinge","accessory",["hams"],["glutes","core"],["ghr"],["ghr"],{cue:"Hips high, extend the legs out slowly, reset. All eccentric — go slower than feels necessary."}),
-  X("ghr_rollout","GHR kneeling rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Hands on the roller, kneel tall. Roll out only as far as the ribs stay down."}),
-  X("ghr_rollout_stand","GHR standing rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"The kneeling rollout from your feet. Advanced — earn it first."}),
-  X("ghr_rollout_cable","Cable-loaded GHR rollout","core","core",["core"],["shoulders"],["ghr","cable_low"],["ghr","cable_low"],{cue:"Strap to the low pulley so the stack fights the roll-out."}),
-  X("ghr_bodysaw","GHR body saw","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Forearm plank, feet on the tray. Saw back and forth. Hips never drop."}),
-  X("ghr_tuck","GHR knee tuck","core","core",["core"],["quads"],["ghr"],["ghr"],{cue:"Plank, feet on the tray. Tuck the knees in, extend back out slowly."}),
-  X("ghr_pike","GHR pike","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cue:"Plank, legs straight, drive the hips up into an inverted V, then lower."}),
-  X("ghr_oblique_tuck","GHR oblique tuck","core","core",["core"],[],["ghr"],["ghr"],{cue:"Plank, tuck the knees diagonally toward one elbow, alternate."}),
-  X("ghr_knee_raise_band","Banded GHR knee raise","core","core",["core"],["quads"],["ghr","resistancebands"],["ghr"],{cue:"Band around the roller and feet. Raise the knees against the band, lower slow."}),
-  X("ghr_climber","GHR mountain climber","core","core",["core"],["quads"],["ghr"],["ghr"],{cue:"Plank, feet on the tray. Drive the knees in fast, hips flat."}),
+  X("ghr_rollout","GHR kneeling rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"antiext",cue:"Hands on the roller, kneel tall. Roll out only as far as the ribs stay down."}),
+  X("ghr_rollout_stand","GHR standing rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"antiext",cue:"The kneeling rollout from your feet. Advanced — earn it first."}),
+  X("ghr_rollout_cable","Cable-loaded GHR rollout","core","core",["core"],["shoulders"],["ghr","cable_low"],["ghr","cable_low"],{cfx:"antiext",cue:"Strap to the low pulley so the stack fights the roll-out."}),
+  X("ghr_bodysaw","GHR body saw","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"antiext",cue:"Forearm plank, feet on the tray. Saw back and forth. Hips never drop."}),
+  X("ghr_tuck","GHR knee tuck","core","core",["core"],["quads"],["ghr"],["ghr"],{cfx:"hipflex",cue:"Plank, feet on the tray. Tuck the knees in, extend back out slowly."}),
+  X("ghr_pike","GHR pike","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"hipflex",cue:"Plank, legs straight, drive the hips up into an inverted V, then lower."}),
+  X("ghr_oblique_tuck","GHR oblique tuck","core","core",["core"],[],["ghr"],["ghr"],{cfx:"rotation",cue:"Plank, tuck the knees diagonally toward one elbow, alternate."}),
+  X("ghr_knee_raise_band","Banded GHR knee raise","core","core",["core"],["quads"],["ghr","resistancebands"],["ghr"],{cfx:"hipflex",cue:"Band around the roller and feet. Raise the knees against the band, lower slow."}),
+  X("ghr_climber","GHR mountain climber","core","core",["core"],["quads"],["ghr"],["ghr"],{cfx:"antiext",cue:"Plank, feet on the tray. Drive the knees in fast, hips flat."}),
   /* ---- rack & barbell variations (efficiency batch) ---- */
   X("bb_pause_bench","Barbell pause bench","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Lower to the chest, pause 1–2s dead-stop, then drive. Kills the bounce and builds off-chest power."}),
   X("bb_spoto","Spoto press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Stop the bar ~1 inch off the chest, hold, then press. Constant tension, no touch."}),
@@ -1578,7 +1578,20 @@ function generate(focusKey,duration,mode){
   const patCount=p=>chosen.filter(x=>x.pattern===p).length;
   const patLimit=sCount>=8?3:2;
   const patOK=e=>e.role==="core"||e.pattern==="core"||patCount(e.pattern)<patLimit;
-  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*prefBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e);
+  // CORE FUNCTION variety. Every core exercise shares pattern "core", so patOK/patVariety
+  // above are explicitly exempt for them — which meant a core day had NO variety control at
+  // all and could stack 4-6 movements doing the same job (measured: sessions of 6 with only
+  // 3 distinct functions, e.g. four different anti-extension planks). Each core exercise now
+  // carries a cfx tag (antiext / antirot / antilat / rotation / hipflex / flexion) and the
+  // same two-tier treatment the other patterns get: a hard cap plus a soft down-weight.
+  // Cap is 2 per function (3 on long sessions) — enough for a deliberate pairing, not enough
+  // to fill a session with one category.
+  const cfxOf=e=>e.cfx||null;
+  const cfxCount=fx=>chosen.filter(x=>cfxOf(x)===fx).length;
+  const cfxLimit=sCount>=8?3:2;
+  const cfxOK=e=>{ const fx=cfxOf(e); return !fx||cfxCount(fx)<cfxLimit; };
+  const cfxVariety=e=>{ const fx=cfxOf(e); if(!fx) return 1; const n=cfxCount(fx); return n>=2?0.2:n===1?0.55:1; };
+  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*prefBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e)*cfxVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
   // PINNED FIRST — before anchors, so a pinned lift always gets its slot and is never
@@ -1595,9 +1608,12 @@ function generate(focusKey,duration,mode){
   let guard=0;
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
     let cands;
-    if(isCore){ cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&!simBlocked.has(e.id));
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")); // relax sim-block if that's the only blocker
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")&&!simBlocked.has(e.id));
+    if(isCore){ cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&!simBlocked.has(e.id)&&cfxOK(e));
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&cfxOK(e)); // relax sim-block before the function cap
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")&&!simBlocked.has(e.id)&&cfxOK(e));
+      // Function cap only drops here, once no exercise in ANY under-used function is left —
+      // same principle as the muscle cap: settle for fewer/repeat only as a true last resort.
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&!simBlocked.has(e.id));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
     else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)); // relax STATION before muscle cap — muscle cap stays hard (user: no clustering)
@@ -1613,8 +1629,9 @@ function generate(focusKey,duration,mode){
   if(!isCore&&!goalDef().skipCoreEmbed&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
   guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
     if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
-    let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e));
-    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)); // relax station, NOT the muscle cap (user: no clustering)
+    let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e)&&cfxOK(e));
+    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&cfxOK(e)); // relax station, NOT the muscle cap or core-function cap
+    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)); // last resort: allow a repeat function rather than a short session
     const e=pickFrom(fresh.length?fresh:(cands.filter(muscleOK).length?cands.filter(muscleOK):[]),recent); if(!e) break; const before=chosen.length; add(e); if(chosen.length===before&&!fresh.length) break; }
 
   const condPool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
@@ -1652,7 +1669,7 @@ function generate(focusKey,duration,mode){
     // than the one guaranteed core exercise, keeping it near ~20% instead of ~50%.
     const wantCore=!isCore&&!g.skipCoreEmbed&&chosen.length>=9&&coreCount()<Math.floor(chosen.length/5)&&coreCount()<3;
     let cands=wantCore?pool.filter(e=>!chosen.includes(e)&&e.role==="core"):[];
-    if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e)&&muscleOK(e)&&stationOK(e));
+    if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e)&&muscleOK(e)&&stationOK(e)&&cfxOK(e));
     // No relax-fallback here on purpose: fill (above) guarantees a viable minimum session
     // and is allowed to repeat a muscle if the pool forces it, but grow is pure padding —
     // once every remaining candidate would break the exposure caps, stop rather than force
