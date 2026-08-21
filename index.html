@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v23";
+const BUILD="v26";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -465,6 +465,12 @@ const DEFAULT_EQUIPMENT=[
   {id:"hip", cat:"Accessories",name:"Hip bands (light/med/hard)",note:"glute work",caps:["hipbands"],on:true},
   {id:"band",cat:"Accessories",name:"REP resistance bands",note:"X-light → heavy",caps:["resistancebands"],on:true},
   {id:"wedge",cat:"Accessories",name:"Power Press squat wedge block",note:"heel elevation",caps:["wedge"],on:true},
+  // Smith ships OFF — not delivered yet. Every Smith-preferred lift also lists its barbell
+  // requirements, so with this off they all still generate on the free bar; turning it on
+  // just switches the preferred implement, cue, and (cheaper) changeover cost.
+  {id:"smith",cat:"Rack & bench",name:"REP Smith machine rack attachment",note:'outside the rack · 450 lb · integrated safeties · 78" usable clearance',caps:["smith"],on:false,bar:33},
+  {id:"latbar",cat:"Cable",name:'REP 48" lat bar',note:"wide pronated grip — the multi-grip attachment is neutral only",caps:["latbar"],on:true},
+  {id:"blocks",cat:"Accessories",name:"Pulling blocks / platform",note:"raises you for full-ROM Smith deadlifts + hip thrusts",caps:["blocks"],on:true},
 ];
 
 /* ---------------- Exercises ---------------- */
@@ -472,77 +478,52 @@ function X(id,name,pattern,role,primary,secondary,requires,stations,opts){
   return Object.assign({id,name,pattern,role,type:"strength",primary,secondary:secondary||[],requires,stations:stations||[],cue:""},opts||{});
 }
 const EXERCISES=[
-  X("bb_bench","Barbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Shoulder blades pinned, bar to mid-chest."}),
-  X("bb_decl","Decline bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Bench declined ~15–20°, bar to lower chest."}),
-  X("db_decl","Dumbbell decline press","horiz_push","accessory",["chest"],["triceps","shoulders"],["dumbbells","bench"],["bench"],{cue:"Bench declined ~15–20°, DBs to lower chest, control the stretch."}),
-  X("bb_incl","Barbell incline press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Bench ~30°, bar to upper chest."}),
+  X("bb_bench","Barbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{prefEquip:"smith",prefName:"Smith bench press",prefCue:"Guided bar path — safeties set just below chest so you can press to failure alone.",cue:"Shoulder blades pinned, bar to mid-chest."}),
+  X("bb_decl","Decline bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","bench","rack"],["barbell","bench"],{prefEquip:"smith",prefName:"Smith decline press",prefCue:"Bench declined ~15–20°, guided path.",cue:"Bench declined ~15–20°, bar to lower chest."}),
+  X("bb_incl","Barbell incline press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","bench","rack"],["barbell","bench"],{prefEquip:"smith",prefName:"Smith incline press",prefCue:"Bench at 30°, guided path, safeties under the bottom position.",cue:"Bench ~30°, bar to upper chest."}),
   X("db_bench","Dumbbell bench press","horiz_push","compound",["chest"],["triceps","shoulders"],["dumbbells","bench"],["bench"],{cue:"Wrists stacked over elbows."}),
   X("db_incl","Dumbbell incline press","horiz_push","accessory",["chest"],["shoulders","triceps"],["dumbbells","bench"],["bench"],{cue:"Control the stretch at the bottom."}),
-  X("db_floor","Dumbbell floor press","horiz_push","accessory",["chest"],["triceps"],["dumbbells"],[],{cue:"Triceps lightly tap the floor each rep."}),
   X("lm_press","Landmine press","vert_push","accessory",["shoulders"],["chest","triceps"],["landmine"],["landmine"],{cue:"Press up and slightly forward; brace.",unilateral:true}),
   X("dips","Chest dips","horiz_push","compound",["chest"],["triceps","shoulders"],["dipstation"],["dipstation"],{cue:"Lean forward for chest emphasis.",loadCap:"vest"}),
-  X("pushup","Weighted push-up","horiz_push","accessory",["chest"],["triceps","core"],[],[],{cue:"Add the vest; body in one line.",loadCap:"vest"}),
-  X("cable_fly","Cable fly","horiz_push","isolation",["chest"],[],["cable_low","dualcable"],["cable_low"],{cue:"Slight elbow bend, hug the midline."}),
   X("bb_ohp","Barbell overhead press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates"],["barbell"],{cue:"Squeeze glutes, bar travels past the chin."}),
   X("db_ohp","Dumbbell shoulder press","vert_push","compound",["shoulders"],["triceps"],["dumbbells","bench"],["bench"],{cue:"Seated, back supported."}),
-  X("db_ohp_st","Standing DB press","vert_push","accessory",["shoulders"],["triceps","core"],["dumbbells"],[],{cue:"No leg drive — strict."}),
   X("lat_raise","Dumbbell lateral raise","vert_push","isolation",["shoulders"],[],["dumbbells"],[],{cue:"Lead with elbows, soft at the top."}),
-  X("cable_lat","Cable lateral raise","vert_push","isolation",["shoulders"],[],["cable_low"],["cable_low"],{cue:"Constant tension across the body.",unilateral:true}),
   X("face_pull","Cable face pull","horiz_pull","accessory",["shoulders"],["back"],["cable_high"],["cable_high"],{cue:"Pull to forehead, thumbs back."}),
   X("rear_fly","DB rear-delt fly","horiz_pull","isolation",["shoulders"],["back"],["dumbbells"],[],{cue:"Chest on incline bench, light load."}),
   X("iyt_raise","I-Y-T raise","horiz_pull","accessory",["back"],["shoulders"],["dumbbells","bench"],["bench"],{cue:"Prone on incline bench, light DBs, cycle I-Y-T arm positions."}),
-  X("pushdown","Cable triceps pushdown","arms","isolation",["triceps"],[],["cable_high"],["cable_high"],{cue:"Rope, elbows pinned, spread at the bottom."}),
+  X("pushdown","Cable pushdown (rope)","arms","isolation",["triceps"],[],["cable_high"],["cable_high"],{cue:"Elbows pinned, spread the rope at the bottom."}),
   X("oh_ext","DB overhead extension","arms","isolation",["triceps"],[],["dumbbells"],[],{cue:"Deep stretch behind the head."}),
-  X("skull","EZ-bar skullcrusher","arms","isolation",["triceps"],[],["ezbar","bench"],["bench","ezbar"],{cue:"Lower to the forehead, elbows still."}),
-  X("cgbp","Close-grip bench press","horiz_push","accessory",["triceps"],["chest"],["barbell","plates","bench","rack"],["barbell","bench"],{cue:"Shoulder-width grip, elbows tucked."}),
+  X("skull","Barbell skullcrusher","arms","isolation",["triceps"],[],["barbell","plates","bench"],["barbell","bench"],{cue:"Lower to the forehead, elbows still, press back."}),
+  X("cgbp","Close-grip bench press","horiz_push","accessory",["triceps"],["chest"],["barbell","plates","bench","rack"],["barbell","bench"],{prefEquip:"smith",prefName:"Smith close-grip bench",prefCue:"Hands just inside shoulder width, elbows tucked, guided path.",cue:"Shoulder-width grip, elbows tucked."}),
   X("pullup","Pull-up","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Full hang to chin over bar.",loadCap:"vest"}),
   X("chinup","Chin-up","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Supinated grip, drive elbows down.",loadCap:"vest"}),
   /* ---- globe side-mount pull-up bar (outside the rack) ---- */
   X("pullup_neutral","Neutral-grip pull-up (close)","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Palms facing on the close neutral handles. Easiest on the shoulders, big on the lats and arms.",loadCap:"vest"}),
   X("pullup_neutral_wide","Neutral-grip pull-up (wide)","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Wide neutral handles. Shifts the work outward across the upper back.",loadCap:"vest"}),
   X("pullup_wide","Wide-grip pull-up","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Hands out on the straight bar. Lats do more, arms do less. Pull the elbows down and in.",loadCap:"vest"}),
-  X("pullup_angled","Angled-grip pull-up","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"The 30° drop grips. A comfortable middle between pronated and neutral.",loadCap:"vest"}),
-  X("pullup_inner","Inner-grip pull-up","vert_pull","compound",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"The 80° inner tubes — narrow and near-vertical. Heavy biceps and lower-lat bias.",loadCap:"vest"}),
-  X("pullup_globe_sm","Small-globe pull-up","vert_pull","accessory",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Hang from the 3.1\" globes. Grip fails long before the back does — that\u2019s the point.",loadCap:"vest"}),
-  X("pullup_globe_lg","Large-globe pull-up","vert_pull","accessory",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"The 4\" globes. Brutal grip demand; expect a fraction of your normal reps.",loadCap:"vest"}),
-  X("pullup_band","Band-assisted pull-up","vert_pull","accessory",["back"],["biceps"],["pullupbar","resistancebands"],["pullupbar"],{cue:"Band under the knees or feet. A lighter band = less help = harder."}),
-  X("pullup_negative","Eccentric pull-up","vert_pull","accessory",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Jump or step to the top, then lower for 5 seconds. The fastest way to earn a first pull-up."}),
-  X("pullup_lsit","L-sit pull-up","vert_pull","accessory",["back"],["core","biceps"],["pullupbar"],["pullupbar"],{cue:"Legs held straight out in front the whole rep. Pull-up plus a hard core hold."}),
-  X("pullup_archer","Archer pull-up","vert_pull","accessory",["back"],["biceps"],["pullupbar"],["pullupbar"],{unilateral:true,cue:"Pull to one hand while the other arm stays straight. A step toward a one-arm pull-up."}),
-  X("pullup_typewriter","Typewriter pull-up","vert_pull","accessory",["back"],["biceps"],["pullupbar"],["pullupbar"],{cue:"Pull to the top, then slide side to side along the bar staying high. Advanced."}),
-  X("scap_pullup","Scapular pull-up","vert_pull","accessory",["back"],[],["pullupbar"],["pullupbar"],{cue:"Dead hang, arms straight. Pull the shoulder blades down and back only \u2014 no elbow bend."}),
-  X("dead_hang","Dead hang","vert_pull","accessory",["back"],[],["pullupbar"],["pullupbar"],{metric:"time",cue:"Just hang. Grip, shoulders, and spine decompression. Time it."}),
-  X("pulldown","Lat pulldown","vert_pull","compound",["back"],["biceps"],["cable_high"],["cable_high"],{cue:"Bar to upper chest, lead with elbows."}),
-  X("bb_row","Barbell bent row","horiz_pull","compound",["back"],["biceps"],["barbell","plates"],["barbell"],{cue:"Hinge ~45°, bar to lower ribs."}),
-  X("pendlay","Pendlay row","horiz_pull","compound",["back"],["biceps"],["barbell","plates"],["barbell"],{cue:"Dead-stop each rep, explosive."}),
+  X("pulldown","Lat pulldown (wide, pronated)","vert_pull","compound",["back"],["biceps"],["cable_high","latbar"],["cable_high"],{cue:"Wide pronated grip on the 48-inch bar, drive the elbows down and back."}),
+  X("bb_row","Barbell bent row","horiz_pull","compound",["back"],["biceps"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith bent row",prefCue:"Hinged over, guided path — lets you overload the row without fighting balance.",cue:"Hinge ~45°, bar to lower ribs."}),
+  X("pendlay","Pendlay row","horiz_pull","compound",["back"],["biceps"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith Pendlay row",prefCue:"Dead stop each rep from the blocks, guided path.",cue:"Dead-stop each rep, explosive."}),
   X("db_row","One-arm DB row","horiz_pull","accessory",["back"],["biceps"],["dumbbells","bench"],["bench"],{cue:"Hand on bench, drive elbow to hip.",unilateral:true}),
   X("low_row","Seated cable low row","horiz_pull","compound",["back"],["biceps"],["cable_low"],["cable_low"],{cue:"Tall chest, squeeze shoulder blades."}),
   X("lm_row","Landmine row","horiz_pull","accessory",["back"],["biceps"],["landmine"],["landmine"],{cue:"Meadows or T-bar grip, full stretch."}),
   X("cs_row","Chest-supported DB row","horiz_pull","accessory",["back"],["biceps"],["dumbbells","bench"],["bench"],{cue:"Incline bench, no body english."}),
   X("trap_row","Trap-bar row","horiz_pull","accessory",["back"],["biceps"],["trapbar"],["trapbar"],{cue:"Hinge and row to the belt line."}),
-  X("ez_curl","EZ-bar curl","arms","isolation",["biceps"],[],["ezbar"],["ezbar"],{cue:"Elbows fixed, no swing."}),
   X("db_curl","Dumbbell curl","arms","isolation",["biceps"],[],["dumbbells"],[],{cue:"Supinate hard at the top."}),
-  X("bb_curl","Barbell curl","arms","isolation",["biceps"],[],["barbell","plates"],["barbell"],{cue:"Elbows pinned, no swing."}),
   X("hammer","Hammer curl","arms","isolation",["biceps"],[],["dumbbells"],[],{cue:"Neutral grip, hits the brachialis."}),
   X("cable_curl","Cable curl","arms","isolation",["biceps"],[],["cable_low"],["cable_low"],{cue:"Constant tension throughout."}),
-  X("bb_squat","Barbell back squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Brace, hips and knees together, depth."}),
-  X("front_squat","Barbell front squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Elbows high, upright torso."}),
-  X("zercher","Zercher squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar in elbow crooks, upright torso, brace hard."}),
+  X("bb_squat","Barbell back squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith back squat",prefCue:"Guided path with safeties — the setup that lets you actually train to failure alone.",cue:"Brace, hips and knees together, depth."}),
+  X("front_squat","Barbell front squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith front squat",prefCue:"Bar in the front rack, guided path.",cue:"Elbows high, upright torso."}),
   X("trap_squat","Trap-bar squat","squat","compound",["quads"],["glutes","hams"],["trapbar"],["trapbar"],{cue:"Knees track over toes, tall finish."}),
-  X("goblet","Goblet squat","squat","accessory",["quads"],["glutes","core"],["kettlebell"],[],{cue:"Elbows inside knees, sit tall.",altReq:["dumbbells"]}),
   X("lm_squat","Landmine squat","squat","accessory",["quads"],["glutes","core"],["landmine"],["landmine"],{cue:"Hug the sleeve, heels on the wedge.",loadCap:"wedge"}),
-  X("heel_squat","Heel-elevated goblet squat","squat","accessory",["quads"],["glutes"],["dumbbells","wedge"],[],{cue:"Wedge under heels for quad bias."}),
-  X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes"],["barbell","plates"],["barbell"],{cue:"Neutral spine, push the floor away."}),
+  X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith deadlift",prefCue:"Stand on the blocks so the bar starts at true floor height — otherwise this is a block pull.",cue:"Neutral spine, push the floor away."}),
   X("trap_dl","Trap-bar deadlift","hinge","compound",["hams"],["quads","glutes","back"],["trapbar"],["trapbar"],{cue:"Hips and shoulders rise together."}),
-  X("bb_rdl","Barbell RDL","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Soft knees, push hips back, feel the stretch."}),
-  X("db_rdl","Dumbbell RDL","hinge","accessory",["hams"],["glutes"],["dumbbells"],[],{cue:"Bells close to the legs."}),
+  X("bb_rdl","Barbell RDL","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith RDL",prefCue:"Hinge back, bar close, guided path.",cue:"Soft knees, push hips back, feel the stretch."}),
   X("lm_rdl","Landmine RDL","hinge","accessory",["hams"],["glutes"],["landmine"],["landmine"],{cue:"Hinge with the bar arcing down."}),
-  X("ghr","Glute-ham raise","hinge","accessory",["hams"],["glutes"],["bench","resistancebands"],["bench"],{cue:"Feet anchored under the bench, loop a band for assistance, lower slow and pull yourself back up.",metric:"reps"}),
-  X("nordic","Nordic curl","hinge","accessory",["hams"],["glutes"],["bench"],["bench"],{cue:"Ankles pinned under the bench leg roller. Resist the fall as long as you can; a chest band can assist."}),
-  X("kb_swing","Kettlebell swing","hinge","accessory",["glutes"],["hams","core"],["kettlebell"],[],{cue:"Hips snap, float to chest height."}),
-  X("sl_bridge_pullover","SL alternating glute bridge KB pullover","hinge","accessory",["glutes","core"],["hams","back"],["kettlebell"],[],{cfx:"antiext",cue:"One foot planted in a glute bridge, KB pullover overhead while bracing against pelvis drop; alternate legs.",prefBias:2.5}),
-  X("hip_thrust","Barbell hip thrust","hinge","compound",["glutes"],["hams"],["barbell","plates","bench"],["barbell","bench"],{cue:"Shoulders on bench, ribs down, squeeze."}),
-  X("db_thrust","DB hip thrust","hinge","accessory",["glutes"],["hams"],["dumbbells","bench"],["bench"],{cue:"Pause and squeeze at the top."}),
+  X("ghr","Glute-ham roller","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Full GHR — knee flexion and hip extension together."}),
+  X("nordic","Nordic curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Ankles locked in the GHR, lower under control as slowly as you can, push back up."}),
+  X("sl_bridge_pullover","SL alternating glute bridge KB pullover","core","core",["core"],["glutes","hams","back"],["kettlebell"],[],{cfx:"antiext",cue:"One foot planted in a glute bridge, KB pullover overhead while bracing against pelvis drop; alternate legs."}),
+  X("hip_thrust","Barbell hip thrust","hinge","compound",["glutes"],["hams"],["barbell","plates","bench"],["barbell","bench"],{prefEquip:"smith",prefName:"Smith hip thrust",prefCue:"Bench AND feet on blocks so the hips clear the bar low point — full depth.",cue:"Shoulders on bench, ribs down, squeeze."}),
   X("pull_through","Cable pull-through","hinge","accessory",["glutes"],["hams"],["cable_low"],["cable_low"],{cue:"Hinge away, snap hips to lockout."}),
   X("kickback","Cable glute kickback","hinge","isolation",["glutes"],[],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, drive heel back and up.",unilateral:true}),
   // --- Hip abduction / adduction (glute medius + adductors) ---
@@ -550,53 +531,36 @@ const EXERCISES=[
   // ZERO hip-abduction work — glute medius (the hip stabiliser, distinct from glute max) was
   // untrainable. These use pattern "abduction", deliberately NOT "lunge", so a future
   // pattern-level removal can't silently wipe hip stability work again.
-  X("band_walk_lat","Banded lateral walk","abduction","isolation",["glutes"],[],["hipbands"],[],{cue:"Band above the knees, athletic stance, step sideways without letting the knees cave."}),
   X("cable_abduction","Cable hip abduction","abduction","isolation",["glutes"],[],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, drive the leg out to the side, control the return.",unilateral:true}),
-  X("side_lying_abd","Side-lying hip raise","abduction","isolation",["glutes"],[],[],[],{cue:"On your side, stack the hips, raise the top leg without rolling back.",unilateral:true,loadCap:"hipbands"}),
   X("cable_adduction","Cable hip adduction","abduction","isolation",["glutes"],["quads"],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, pull the leg across the midline against the stack.",unilateral:true}),
-  X("calf_db","Standing DB calf raise","squat","isolation",["calves"],[],["dumbbells"],[],{cue:"Full stretch, pause at the top.",loadCap:"wedge"}),
   // Tibialis: the shin muscle opposing the calf. Audit gap — zero coverage. Worth having for
   // knee/ankle resilience, and it needs no equipment.
-  X("tib_raise","Tibialis raise","calf","isolation",["calves"],[],[],[],{cue:"Heels down, back against a wall, pull the toes up toward the shins. Opposes the calf."}),
   // --- Grip / forearms ---
   // Audit gap: the only grip work was dead hang + farmer carry, both incidental. Every
   // "close-grip"/"neutral-grip" hit was a GRIP VARIATION, not forearm training. Grip is
   // routinely the limiter on deadlifts and rows for a barbell-heavy lifter.
-  X("db_wrist_curl","DB wrist curl","arms","isolation",["forearms"],[],["dumbbells"],[],{cue:"Forearms on the thighs, palms up, curl just the wrists through full range."}),
-  X("bb_wrist_curl","Barbell reverse wrist curl","arms","isolation",["forearms"],[],["barbell","plates"],["barbell"],{cue:"Palms down, curl the wrists up. Trains the extensors most people never work."}),
-  X("plate_pinch","Plate pinch hold","carry","isolation",["forearms"],[],["plates"],[],{cue:"Pinch two plates smooth-side-out and hold. Pure grip.",metric:"time"}),
   /* ---- core / abs (expanded) ---- */
-  X("hlr","Hanging leg raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"No swing, curl the pelvis up."}),
   X("hang_knee","Hanging knee raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"Knees to chest, control the lower."}),
-  X("cable_crunch","Cable crunch","core","core",["core"],[],["cable_high"],["cable_high"],{cfx:"flexion",cue:"Round the spine, hips stay put."}),
-  X("woodchop","Cable woodchopper","core","core",["core"],["shoulders"],["cable_high"],["cable_high"],{cfx:"rotation",cue:"High to low, rotate through the trunk.",unilateral:true}),
-  X("pallof","Pallof press","core","core",["core"],[],["resistancebands"],[],{cfx:"antirot",cue:"Band pegged at chest height — press straight out and resist the pull trying to rotate you."}),
+  X("cable_crunch","Weighted cable crunch","core","core",["core"],[],["cable_high"],["cable_high"],{cfx:"flexion",cue:"Kneeling, rope at the head, crunch the ribs to the hips — hips stay put."}),
+  X("woodchop","High-to-low cable woodchop","core","core",["core"],["shoulders"],["cable_high"],["cable_high"],{cfx:"rotation",cue:"Start high, chop down and across to the opposite hip."}),
   // --- Anti-rotation core ---
   // Audit gap: anti-rotation is one of the best-evidenced core categories (resisting rotation
   // is what actually protects the spine day to day) and the app had essentially ONE exercise
   // for it. Everything else was flexion, rotation, or planks.
-  X("pallof_kneel","Half-kneeling Pallof press","core","core",["core"],["glutes"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Half-kneeling kills the leg drive — pure anti-rotation. Press out, resist the twist.",unilateral:true}),
+  X("pallof_kneel","Half-kneeling Pallof press + overhead reach","core","core",["core"],["glutes","shoulders"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Press out, then reach overhead — resist the twist through the whole path.",unilateral:true}),
   X("sa_cable_press","Single-arm cable press","core","core",["core"],["chest","shoulders"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Standing, press one arm forward — the load tries to rotate you and the core has to stop it.",unilateral:true}),
   X("lm_twist","Landmine rotation","core","core",["core"],["shoulders"],["landmine"],["landmine"],{cfx:"rotation",cue:"Pivot the feet, control the arc."}),
   X("decline_situp","Weighted decline sit-up","core","core",["core"],[],["bench"],["bench"],{cfx:"flexion",cue:"Bench on decline, hold a plate or DB.",loadCap:"dumbbells"}),
-  X("decline_rev_crunch","Decline reverse crunch","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Head-up on the decline, curl hips toward the high end, lower-ab focus."}),
-  X("decline_leg_raise","Decline leg raise","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Head-up on the decline, grip behind head, raise legs under control."}),
-  X("decline_twist","Decline oblique twist","core","core",["core"],[],["bench"],["bench"],{cfx:"rotation",cue:"Seated on the decline, rotate side to side; hold a plate or DB to load.",loadCap:"dumbbells"}),
-  X("reverse_crunch","Reverse crunch","core","core",["core"],[],[],[],{cfx:"hipflex",cue:"Curl hips off the floor, knees to chest."}),
-  X("russian","Russian twist","core","core",["core"],[],["kettlebell"],[],{cfx:"rotation",cue:"Lean back, rotate side to side.",altReq:["dumbbells"]}),
-  X("side_plank","Weighted side plank","core","core",["core"],[],[],[],{cfx:"antilat",cue:"Stack hips, add the vest for load.",loadCap:"vest",metric:"time"}),
-  X("copenhagen","Copenhagen plank","core","core",["core"],["glutes"],["bench"],["bench"],{cfx:"antilat",cue:"Top foot on bench, drive the hip up.",unilateral:true,metric:"time"}),
-  X("hollow","Hollow body hold","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Low back glued down, ribs in.",metric:"time"}),
-  X("plank","Weighted plank","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Vest on the back; squeeze everything.",loadCap:"vest",metric:"time"}),
-  X("suitcase","Suitcase carry","carry","core",["core"],["back"],["kettlebell"],[],{cfx:"antilat",cue:"One bell, fight the lean. Per side.",unilateral:true,altReq:["dumbbells"],metric:"carry"}),
-  X("farmer","Farmer carry","carry","accessory",["core"],["back","glutes"],["dumbbells"],[],{cfx:"braced",cue:"Tall, braced, quick steps.",altReq:["trapbar"],metric:"carry"}),
+  X("decline_leg_raise","Decline leg raise","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Head-up on the decline, grip behind head, raise legs under control. Load with a DB squeezed between the feet or a vest.",loadCap:"dumbbells"}),
+  // Weighted decline core. Audit found only 2 of 4 decline core movements could take load,
+  // and one of those two was an exercise the user didn't want. These are all loadable and
+  // cover three different functions so they don't collapse into one category.
+  X("decline_crunch_wt","Weighted decline crunch","core","core",["core"],[],["bench"],["bench"],{cfx:"flexion",cue:"Plate on the chest, short range — shoulder blades off, ribs to hips. Not a full sit-up.",loadCap:"dumbbells"}),
+  X("decline_russian","Decline Russian twist","core","core",["core"],[],["bench"],["bench"],{cfx:"rotation",cue:"Feet anchored on the decline, torso at 45°, rotate a DB or plate side to side.",loadCap:"dumbbells"}),
+  X("hollow","Weighted hollow body hold","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Low back pinned to the floor, plate held overhead.",metric:"time",loadCap:"plates"}),
   /* ---- added variety ---- */
   X("incline_db_fly","Incline DB fly","horiz_push","isolation",["chest"],[],["dumbbells","bench"],["bench"],{cue:"Slight elbow bend, open wide for a stretch, hug back together."}),
-  X("cable_cross_high","High cable crossover","horiz_push","isolation",["chest"],[],["cable_high","dualcable"],["cable_high"],{cue:"High pulleys, sweep down and together at the hips."}),
-  X("feet_up_pushup","Feet-elevated push-up","horiz_push","accessory",["chest"],["triceps","core"],["bench"],["bench"],{cue:"Feet on bench, upper-chest bias. Add the vest.",loadCap:"vest"}),
   X("db_fly_floor","Floor DB fly","horiz_push","isolation",["chest"],[],["dumbbells"],[],{cue:"On the floor; upper arms tap down, hug up."}),
-  X("arnold","Arnold press","vert_push","accessory",["shoulders"],["triceps"],["dumbbells","bench"],["bench"],{cue:"Rotate palms from facing you to forward as you press."}),
-  X("z_press","Z press","vert_push","accessory",["shoulders"],["triceps","core"],["barbell","plates"],["barbell"],{cue:"Seated on the floor, legs out, strict overhead press."}),
   X("front_raise","DB front raise","vert_push","isolation",["shoulders"],[],["dumbbells"],[],{cue:"Raise straight in front to shoulder height, no swing."}),
   X("cable_yraise","Cable Y-raise","vert_push","isolation",["shoulders"],[],["cable_low"],["cable_low"],{cue:"Arms form a Y, raise to shoulder height, thumbs up."}),
   X("cable_upright","Cable upright row","vert_push","accessory",["shoulders"],["back"],["cable_low"],["cable_low"],{cue:"Low cable, lead with the elbows to chest height."}),
@@ -605,93 +569,58 @@ const EXERCISES=[
   X("cable_oh_ext","Cable overhead extension","arms","isolation",["triceps"],[],["cable_high"],["cable_high"],{cue:"Face away, rope overhead, full elbow extension."}),
   X("kickback_tri","DB triceps kickback","arms","isolation",["triceps"],[],["dumbbells"],[],{cue:"Hinge over, upper arm pinned, extend straight back."}),
   X("sa_pulldown","Straight-arm pulldown","vert_pull","isolation",["back"],[],["cable_high"],["cable_high"],{cue:"Arms nearly straight, drive the bar to your thighs with the lats."}),
-  X("inverted_row","Inverted row","horiz_pull","accessory",["back"],["biceps","core"],["barbell","rack"],["barbell","rack"],{cue:"Bar in the rack, hang under it, pull chest to bar.",loadCap:"vest"}),
-  X("db_shrug","Dumbbell shrug","horiz_pull","isolation",["back"],[],["dumbbells"],[],{cue:"Shrug straight up to the ears, pause, lower slow."}),
-  X("trap_shrug","Trap-bar shrug","horiz_pull","isolation",["back"],[],["trapbar"],["trapbar"],{cue:"Shrug the loaded trap bar straight up, squeeze the traps."}),
+  X("inverted_row","Inverted row","horiz_pull","accessory",["back"],["biceps","core"],["barbell","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith inverted row",prefCue:"Set the bar at any height — far easier to dial in than a rack pin.",cue:"Bar in the rack, hang under it, pull chest to bar.",loadCap:"vest"}),
   X("ng_pulldown","Neutral-grip pulldown","vert_pull","compound",["back"],["biceps"],["cable_high"],["cable_high"],{cue:"Palms-facing handle to the upper chest, elbows lead."}),
   X("incline_curl","Incline DB curl","arms","isolation",["biceps"],[],["dumbbells","bench"],["bench"],{cue:"Lie back, arms hang, curl with elbows behind you for a stretch."}),
   X("conc_curl","Concentration curl","arms","isolation",["biceps"],[],["dumbbells"],[],{cue:"Elbow braced on the thigh, hard peak squeeze."}),
-  X("spider_curl","Spider curl","arms","isolation",["biceps"],[],["ezbar","bench"],["bench","ezbar"],{cue:"Chest on incline bench, arms hang, strict curls."}),
-  X("reverse_curl","Reverse curl","arms","isolation",["biceps"],[],["ezbar"],["ezbar"],{cue:"Overhand grip — forearms and brachialis."}),
-  X("box_squat","Box squat","squat","compound",["quads"],["glutes"],["barbell","plates","rack","bench"],["barbell","rack","bench"],{cue:"Squat back to lightly touch the bench, stay tight, drive up."}),
-  X("sissy_squat","Sissy squat","squat","accessory",["quads"],[],[],[],{cue:"Hold for balance, rise on the toes and lean back, knees forward. Slow."}),
-  X("sl_rdl","Single-leg RDL","hinge","accessory",["hams"],["glutes"],["dumbbells"],[],{cue:"Balance on one leg, hinge, free leg floats back, flat back.",unilateral:true}),
-  X("good_morning","Good morning","hinge","accessory",["hams"],["glutes","back"],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar on the back, soft knees, hinge forward flat-backed, drive hips."}),
-  X("sumo_dl","Sumo deadlift","hinge","compound",["hams"],["glutes","quads","back"],["barbell","plates"],["barbell"],{cue:"Wide stance, toes out, grip inside the knees, push the floor."}),
+  X("box_squat","Box squat","squat","compound",["quads"],["glutes"],["barbell","plates","rack","bench"],["barbell","rack","bench"],{prefEquip:"smith",prefName:"Smith box squat",prefCue:"Squat back to the bench, guided path, stay tight.",cue:"Squat back to lightly touch the bench, stay tight, drive up."}),
+  X("good_morning","Good morning","hinge","accessory",["hams"],["glutes","back"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith good morning",prefCue:"Bar on the back, hinge forward, guided path.",cue:"Bar on the back, soft knees, hinge forward flat-backed, drive hips."}),
   X("trap_rdl","Trap-bar RDL","hinge","accessory",["hams"],["glutes"],["trapbar"],["trapbar"],{cue:"Soft knees, push hips back to a stretch, then stand."}),
-  X("sl_hip_thrust","Single-leg hip thrust","hinge","accessory",["glutes"],["hams"],["bench"],["bench"],{cue:"Shoulders on bench, one foot planted, drive and squeeze.",unilateral:true,loadCap:"dumbbells"}),
-  X("frog_pump","Frog pump","hinge","isolation",["glutes"],[],["dumbbells"],[],{cue:"Soles together, knees out, drive the hips up for high reps."}),
-  X("kb_dl","Kettlebell deadlift","hinge","accessory",["hams"],["glutes","back"],["kettlebell"],[],{cue:"Bell between the feet, hinge, grip, stand tall."}),
-  X("sl_calf","Single-leg calf raise","squat","isolation",["calves"],[],["dumbbells"],[],{cue:"One foot on a plate, rise high, pause, full stretch.",unilateral:true,loadCap:"wedge"}),
-  X("toes_to_bar","Toes-to-bar","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"Hang, brace, bring the toes up to the bar; control down."}),
-  X("vup","V-up","core","core",["core"],[],[],[],{cfx:"hipflex",cue:"Lift legs and torso together into a V, reach for the toes."}),
-  X("deadbug","Dead bug","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Back pinned down, lower opposite arm and leg slowly."}),
-  X("ww","Hanging windshield wiper","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"rotation",cue:"Hang, legs up, rotate side to side. Advanced obliques."}),
-  X("standing_oblique","Standing DB oblique crunch","core","core",["core"],[],["dumbbells"],[],{cfx:"rotation",cue:"Bell in one hand, bend toward that hip, crunch back up.",unilateral:true}),
-  X("oh_carry","Overhead carry","carry","core",["core"],["shoulders"],["dumbbells"],[],{cfx:"braced",cue:"Bells locked out overhead, ribs down, walk tall.",metric:"carry"}),
-  X("frontrack_carry","Front-rack carry","carry","core",["core"],["quads"],["kettlebell"],[],{cfx:"braced",cue:"Bells racked at the shoulders, braced, controlled steps.",metric:"carry",pair:"kettlebell"}),
   /* ---- more core ---- */
-  X("bicycle","Bicycle crunch","core","core",["core"],[],[],[],{cfx:"rotation",cue:"Opposite elbow to knee, slow and controlled, fully extend the other leg."}),
-  X("flutter","Flutter kicks","core","core",["core"],[],[],[],{cfx:"hipflex",cue:"Legs straight just off the floor, small fast alternating kicks. Hold for time.",metric:"time"}),
-  X("hollow_rock","Hollow rock","core","core",["core"],[],[],[],{cfx:"antiext",cue:"Hold the hollow position and rock back and forth keeping the low back glued down."}),
-  X("bird_dog","Bird dog","core","core",["core"],["glutes"],[],[],{cfx:"antirot",cue:"On all fours, extend opposite arm and leg, pause, switch. Keep the hips level."}),
-  X("renegade_row","Renegade row","core","accessory",["core"],["back"],["dumbbells"],[],{cfx:"antirot",cue:"Top of a push-up on the bells; row one then the other while resisting rotation."}),
   X("dragon_flag","Dragon flag","core","core",["core"],[],["bench"],["bench"],{cfx:"antiext",cue:"Grip the bench overhead, raise the whole body to vertical, lower slow and straight. Advanced."}),
   /* ---- thrusters (batch) ---- */
-  X("bb_thruster","Barbell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Front-rack squat, then ride the drive up into an overhead press in one motion."}),
-  X("kb_thruster","Double kettlebell thruster","squat","compound",["quads","shoulders"],["glutes","triceps","core"],["kettlebell"],[],{cue:"Bells in the front rack, squat, then explode up and press overhead.",pair:"kettlebell"}),
   /* ---- more core (batch) ---- */
-  X("l_sit","L-sit hold","core","core",["core"],["quads"],["dipstation"],["dipstation"],{cfx:"antiext",cue:"Support on the dip bars, press down, lift the legs to an L and hold.",metric:"time",altReq:["pullupbar"]}),
-  X("bear_crawl","Bear crawl","core","core",["core"],["shoulders"],[],[],{cfx:"antiext",cue:"Knees hovering an inch off the floor, crawl with opposite hand/foot, hips low.",metric:"time"}),
-  X("db_side_bend","DB side bend","core","core",["core"],[],["dumbbells"],[],{cfx:"antilat",cue:"Bell in one hand, bend sideways toward that hip, then contract the obliques back up.",unilateral:true}),
-  X("hang_oblique","Hanging oblique raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"rotation",cue:"Hang and raise the knees up and to one side, alternating. Hits the obliques."}),
-  X("plank_saw","Plank saw","core","core",["core"],["shoulders"],[],[],{cfx:"antiext",cue:"Forearm plank; rock the whole body forward and back so the shoulders pass the elbows.",metric:"time"}),
-  X("jackknife","Bench jackknife","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Sit on the bench end, lean back, then draw the knees and chest together and extend back out."}),
   /* ---- REP glute-ham roller (wheeled roller + foot tray) ---- */
-  X("ghr_curl","GHR supine leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Feet on the tray, hips locked high. Curl the heels in without letting the hips sag."}),
   // --- Spinal extension / lower back isolation ---
   // Audit gap: the app had NO dedicated erector work at all. Lower back was only ever a
   // SECONDARY on heavy hinges (deadlift/RDL/good morning), meaning it could never be trained
   // directly or programmed for — you had to load a deadlift to touch it.
-  X("ghr_back_ext","GHR back extension","extension","accessory",["back"],["glutes","hams"],["ghr"],["ghr"],{cue:"Hips on the pad, round down under control, extend to a straight line — don't hyperextend.",loadCap:"plates"}),
-  X("reverse_hyper","Reverse hyperextension","extension","accessory",["back"],["glutes","hams"],["ghr"],["ghr"],{cue:"Torso supported, legs swing down and up. Low spinal load, controlled — no swinging with momentum."}),
-  X("superman","Superman hold","extension","isolation",["back"],["glutes"],[],[],{cue:"Face down, lift chest and thighs off the floor, hold. Bodyweight erector work.",metric:"time"}),
-  X("ghr_curl_sl","GHR single-leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{unilateral:true,cue:"One foot on the tray, other leg lifted. Hips level, curl in."}),
-  X("ghr_curl_cable","Cable-loaded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","cable_low"],["ghr","cable_low"],{cue:"Strap the roller to the low pulley and curl against the stack. Real progressive overload."}),
-  X("ghr_curl_band","Banded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","resistancebands"],["ghr"],{cue:"Band anchored behind the roller. Resistance climbs as the heels come in."}),
-  X("ghr_bridge_curl","GHR bridge + curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Bridge the hips up and hold, then curl the heels in. Glutes stay locked."}),
-  X("ghr_slideout","GHR eccentric slide-out","hinge","accessory",["hams"],["glutes","core"],["ghr"],["ghr"],{cue:"Hips high, extend the legs out slowly, reset. All eccentric — go slower than feels necessary."}),
-  X("ghr_rollout","GHR kneeling rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"antiext",cue:"Hands on the roller, kneel tall. Roll out only as far as the ribs stay down."}),
-  X("ghr_rollout_stand","GHR standing rollout","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"antiext",cue:"The kneeling rollout from your feet. Advanced — earn it first."}),
-  X("ghr_rollout_cable","Cable-loaded GHR rollout","core","core",["core"],["shoulders"],["ghr","cable_low"],["ghr","cable_low"],{cfx:"antiext",cue:"Strap to the low pulley so the stack fights the roll-out."}),
-  X("ghr_bodysaw","GHR body saw","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"antiext",cue:"Forearm plank, feet on the tray. Saw back and forth. Hips never drop."}),
-  X("ghr_tuck","GHR knee tuck","core","core",["core"],["quads"],["ghr"],["ghr"],{cfx:"hipflex",cue:"Plank, feet on the tray. Tuck the knees in, extend back out slowly."}),
-  X("ghr_pike","GHR pike","core","core",["core"],["shoulders"],["ghr"],["ghr"],{cfx:"hipflex",cue:"Plank, legs straight, drive the hips up into an inverted V, then lower."}),
-  X("ghr_oblique_tuck","GHR oblique tuck","core","core",["core"],[],["ghr"],["ghr"],{cfx:"rotation",cue:"Plank, tuck the knees diagonally toward one elbow, alternate."}),
-  X("ghr_knee_raise_band","Banded GHR knee raise","core","core",["core"],["quads"],["ghr","resistancebands"],["ghr"],{cfx:"hipflex",cue:"Band around the roller and feet. Raise the knees against the band, lower slow."}),
-  X("ghr_climber","GHR mountain climber","core","core",["core"],["quads"],["ghr"],["ghr"],{cfx:"antiext",cue:"Plank, feet on the tray. Drive the knees in fast, hips flat."}),
   /* ---- rack & barbell variations (efficiency batch) ---- */
-  X("bb_pause_bench","Barbell pause bench","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Lower to the chest, pause 1–2s dead-stop, then drive. Kills the bounce and builds off-chest power."}),
-  X("bb_spoto","Spoto press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Stop the bar ~1 inch off the chest, hold, then press. Constant tension, no touch."}),
-  X("bb_pin_press","Pin press (chest)","horiz_push","compound",["chest"],["triceps","shoulders"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Set the rack pins at chest height; press from a dead stop off the pins each rep."}),
-  X("bb_floor_press_bb","Barbell floor press","horiz_push","compound",["chest"],["triceps"],["barbell","plates","rack"],["barbell","rack"],{cue:"Lie on the floor, upper arms stop on the deck, press. Triceps and lockout, shoulder-friendly."}),
-  X("bb_larsen","Larsen press","horiz_push","compound",["chest"],["shoulders","triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Legs straight out, feet off the floor — no leg drive, all chest and control."}),
+  X("bb_floor_press_bb","Barbell floor press","horiz_push","compound",["chest"],["triceps"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith floor press",prefCue:"Flat on the floor under the bar — dead-stop at the bottom, no rolling the bar into place.",cue:"Lie on the floor, upper arms stop on the deck, press. Triceps and lockout, shoulder-friendly."}),
   X("bb_push_press","Barbell push press","vert_push","compound",["shoulders"],["triceps","quads"],["barbell","plates","rack"],["barbell","rack"],{cue:"Short dip in the knees, then drive the bar overhead explosively. Move more weight than strict press."}),
-  X("bb_pin_ohp","Overhead pin press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates","rack"],["barbell","rack"],{cue:"Press from pins set at forehead/eye height — dead-stop overhead power out of the sticking point."}),
-  X("bb_seated_ohp","Seated barbell press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"Bench upright in the rack, press strict overhead — no leg drive, pure shoulders."}),
-  X("rack_pull","Rack pull","hinge","compound",["back"],["hams","glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar set at knee height on the pins; pull to lockout. Overload the top of the deadlift, spare the back."}),
-  X("bb_yates_row","Yates row","horiz_pull","compound",["back"],["biceps"],["barbell","plates"],["barbell"],{cue:"Underhand grip, ~45° torso, row to the lower belly. Heavier than a strict Pendlay."}),
-  X("bb_pause_row","Paused barbell row","horiz_pull","accessory",["back"],["biceps"],["barbell","plates"],["barbell"],{cue:"Row to the ribs and pause 1s at the top before lowering. Builds a brutal contraction."}),
-  X("bb_pause_squat","Pause squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Sit to depth, pause 2–3s in the hole, then stand. Kills the bounce, builds bottom-end strength."}),
-  X("bb_pin_squat","Pin squat","squat","compound",["quads"],["glutes"],["barbell","plates","rack"],["barbell","rack"],{cue:"Squat down onto pins set at depth, settle, then drive up from a dead stop."}),
-  X("bb_tempo_squat","Tempo squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Lower for a 4-count, brief pause, stand normally. Control and time under tension."}),
-  X("bb_pause_front","Pause front squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{cue:"Front-rack, sit to depth, pause, drive up tall. Punishes any forward lean."}),
-  X("bb_deficit_dl","Deficit deadlift","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Stand on a 1–2 inch plate; longer pull builds off-the-floor strength. Keep the back flat."}),
-  X("bb_block_pull","Block pull","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Bar on blocks just below the knee; overload the top half of the deadlift."}),
-  X("bb_pause_dl","Paused deadlift","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{cue:"Pause 1–2s just below the knee on the way up. Reinforces position and control."}),
-  X("bb_jm_press","JM press","horiz_push","accessory",["triceps"],["chest"],["barbell","plates","rack","bench"],["barbell","rack"],{cue:"A cross between a close-grip and a skullcrusher — bar tracks to the throat, elbows forward. All triceps."}),
-  X("bb_calf_raise","Barbell calf raise","calf","isolation",["calves"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Bar on the back, balls of the feet on a plate or block, full stretch to full contraction."}),
-  X("bb_bb_shrug","Barbell shrug","horiz_pull","isolation",["back"],[],["barbell","plates","rack"],["barbell","rack"],{cue:"Heavy bar in the rack, shrug straight up to the ears, hold, lower slow. Traps."}),
+  X("bb_seated_ohp","Seated barbell press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith seated overhead press",prefCue:"Seated under the bar — fits the 78-inch clearance where standing does not.",cue:"Bench upright in the rack, press strict overhead — no leg drive, pure shoulders."}),
+  X("rack_pull","Rack pull","hinge","compound",["back"],["hams","glutes"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith rack pull",prefCue:"Set the hooks at knee height, heavy partial pull.",cue:"Bar set at knee height on the pins; pull to lockout. Overload the top of the deadlift, spare the back."}),
+  X("bb_pause_row","Paused barbell row","horiz_pull","accessory",["back"],["biceps"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith paused row",prefCue:"Row to the ribs, 1s pause, guided path.",cue:"Row to the ribs and pause 1s at the top before lowering. Builds a brutal contraction."}),
+  X("bb_calf_raise","Barbell calf raise","calf","isolation",["calves"],[],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith standing calf raise",prefCue:"Bar on the back, balls of the feet on the blocks, full stretch.",cue:"Bar on the back, balls of the feet on a plate or block, full stretch to full contraction."}),
+  X("bb_bb_shrug","Barbell shrug","horiz_pull","isolation",["back"],[],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith shrug",prefCue:"Guided path, straight up, pause at the top.",cue:"Heavy bar in the rack, shrug straight up to the ears, hold, lower slow. Traps."}),
+
+  // ===== PUSH — triceps additions =====
+  X("tricep_dips","Triceps dips","horiz_push","accessory",["triceps"],["chest"],["dipstation"],["dipstation"],{cue:"Torso upright, elbows tight to the ribs — upright is triceps, leaning is chest.",loadCap:"vest"}),
+  X("pushdown_bar","Cable pushdown (straight bar)","arms","isolation",["triceps"],[],["cable_high"],["cable_high"],{cue:"Straight bar, elbows pinned, full lockout."}),
+  X("pushdown_rev","Cable pushdown (reverse grip)","arms","isolation",["triceps"],[],["cable_high"],["cable_high"],{cue:"Underhand grip — biases the long head. Keep it light and strict."}),
+  // ===== LOWER — calves =====
+  X("seated_calf","Seated calf raise","calf","isolation",["calves"],[],["bench","blocks"],["bench"],{prefEquip:"smith",prefName:"Smith seated calf raise",prefCue:"Bar across the knees, balls of the feet on the blocks. Bent knee = soleus.",cue:"Seated, weight across the knees, balls of the feet on the blocks. Bent knee targets the soleus.",loadCap:"dumbbells"}),
+  // ===== CORE — anti-extension =====
+  X("kb_deadbug","Kettlebell dead bug","core","core",["core"],[],["kettlebell"],[],{cfx:"antiext",cue:"Bell pressed straight up, low back flat, extend the opposite arm and leg."}),
+  X("ab_rollout","Ab rollout","core","core",["core"],["back"],["ghr"],["ghr"],{cfx:"antiext",cue:"Roll out on the GHR roller, ribs down, do not let the low back arch."}),
+  X("bench_pullover_hollow","Flat bench pullover to hollow extension","core","core",["core"],["back"],["bench","dumbbells"],["bench"],{cfx:"antiext",cue:"Pullover into a hollow extension without the ribs flaring — one continuous rep.",loadCap:"dumbbells"}),
+  // ===== CORE — anti-rotation =====
+  X("kb_around_world","KB kneeling around-the-world","core","core",["core"],["shoulders"],["kettlebell"],[],{cfx:"antirot",cue:"Tall kneeling, circle the bell around the body without letting the hips twist."}),
+  X("kb_plank_pull","KB plank pull-through","core","core",["core"],["back"],["kettlebell"],[],{cfx:"antirot",cue:"Plank position, drag the bell under you with the opposite hand — hips stay square."}),
+  X("cable_antirot_hold","Standing cable anti-rotation hold","core","core",["core"],[],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Arms locked out at the chest, just resist the pull. Hold, do not press.",metric:"time"}),
+  // ===== CORE — rotation =====
+  X("kneel_woodchop","Kneeling woodchopper","core","core",["core"],["shoulders"],["kettlebell"],[],{cfx:"rotation",cue:"Tall kneeling kills the leg drive — rotate from the trunk, not the hips."}),
+  X("kb_halo_chop","KB halo chop","core","core",["core"],["shoulders"],["kettlebell"],[],{cfx:"rotation",cue:"Halo around the head, then chop down across the body."}),
+  X("kb_side_swing","KB side swing","core","core",["core"],["glutes"],["kettlebell"],[],{cfx:"rotation",cue:"Swing the bell laterally across the body, braced — control the deceleration."}),
+  X("woodchop_low_high","Low-to-high cable woodchop","core","core",["core"],["shoulders"],["cable_low"],["cable_low"],{cfx:"rotation",cue:"Start low, drive up and across to the opposite shoulder."}),
+  // ===== CORE — anti-lateral =====
+  X("kb_oh_march","KB single-arm overhead march","core","core",["core"],["shoulders"],["kettlebell"],[],{cfx:"antilat",cue:"Bell locked out overhead one side only, march — resist the side bend.",metric:"time",unilateral:true}),
+  // ===== CORE — spinal flexion =====
+  X("plate_oh_situp","Plate overhead sit-up","core","core",["core"],[],["plates"],[],{cfx:"flexion",cue:"Plate held overhead the whole rep, arms locked — sit up without letting it drift forward.",loadCap:"plates"}),
+  // ===== CORE — hip flexion =====
+  X("cable_rev_crunch","Cable reverse crunch","core","core",["core"],[],["cable_low"],["cable_low"],{cfx:"hipflex",cue:"Ankles cuffed or feet hooked, curl the pelvis toward the ribs against the stack."}),
+  X("rev_crunch_hold","Weighted reverse crunch hold","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Curl the hips up and HOLD at the top — the hold is the exercise.",metric:"time",loadCap:"dumbbells"}),
+  X("bench_legraise_thrust","Flat bench leg raise + hip thrust","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Legs to vertical, then thrust the hips straight up off the bench.",loadCap:"dumbbells"}),
   {id:"bike_int",name:"Echo Bike intervals",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"6 rounds — 20s all-out / 40s easy",45:"8 rounds — 30s hard / 30s easy",60:"10 rounds — 40s hard / 20s easy"}},
   {id:"bike_ss",name:"Echo Bike steady",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"8 min @ conversational pace",45:"12 min steady RPE 6",60:"18 min steady RPE 6"}},
   {id:"ski_int",name:"SkiErg intervals",type:"conditioning",requires:["skierg"],stations:["skierg"],muscles:["cond"],proto:{30:"8 × 100 m, walk back",45:"10 × 150 m / 45s rest",60:"6 × 250 m / 60s rest"}},
@@ -922,8 +851,11 @@ const MACHINE_FOCI={
 const FOCI={
   push:{name:"Push",muscles:["chest","shoulders","triceps"],anchors:["horiz_push","vert_push"]},
   pull:{name:"Pull",muscles:["back","biceps","forearms"],anchors:["vert_pull","horiz_pull"]},
-  legs_quad:{name:"Lower · Quad",muscles:["quads","glutes","calves"],anchors:["squat"]},
-  legs_post:{name:"Lower · Posterior",muscles:["hams","glutes"],anchors:["hinge"]},
+  // Merged from legs_quad + legs_post. One lower day instead of two: the split meant
+  // glutes and deadlift-pattern work landed twice a cycle and was genuinely beating the
+  // user up. Runs at 60 min (defaultDuration) because one session now has to cover quads,
+  // posterior chain, glutes and calves — 45 min would starve the quad work.
+  lower:{name:"Lower",muscles:["quads","hams","glutes","calves"],anchors:["squat","hinge"],defaultDuration:60},
   core:{name:"Core",muscles:["core"],anchors:[]},
   custom:{name:"Custom",muscles:["chest","back","quads","hams","glutes","shoulders","core"],anchors:[],custom:true},
   cardio:{name:"Cardio",muscles:["cond"],anchors:[],cardio:true,style:"steady"},
@@ -1048,6 +980,14 @@ async function boot(){
     eq.filter(e=>e.custom).forEach(e=>STATE.equipment.push(e));
   }
   if(st) STATE.settings=Object.assign(STATE.settings,st);
+  // Migration: legs_quad + legs_post merged into "lower". Old saved workouts still carry
+  // the retired keys — left alone they'd break focus recency, the planner, and the core
+  // rotation counter (which counts recent lifting sessions by focus). Rewrite in place.
+  const FOCUS_MIGRATE={legs_quad:"lower",legs_post:"lower"};
+  if(Array.isArray(wo)) wo.forEach(w=>{ if(w&&FOCUS_MIGRATE[w.focus]){ w.focus=FOCUS_MIGRATE[w.focus]; w.focusName=(FOCI.lower||{}).name||"Lower"; } });
+  if(cur&&FOCUS_MIGRATE[cur.focus]){ cur.focus=FOCUS_MIGRATE[cur.focus]; cur.focusName=(FOCI.lower||{}).name||"Lower"; }
+  if(STATE.settings._focus&&FOCUS_MIGRATE[STATE.settings._focus]) STATE.settings._focus=FOCUS_MIGRATE[STATE.settings._focus];
+  if(STATE.settings.plan) Object.keys(STATE.settings.plan).forEach(k=>{ const v=STATE.settings.plan[k]; if(FOCUS_MIGRATE[v]) STATE.settings.plan[k]=FOCUS_MIGRATE[v]; });
   if(!STATE.settings.blocked) STATE.settings.blocked=[];
   if(!STATE.settings.pinned) STATE.settings.pinned=[];
   if(!STATE.settings.restOverrides) STATE.settings.restOverrides={};
@@ -1115,6 +1055,19 @@ function exAvailable(e,owned){
   return true;
 }
 function exById(id){ return EXERCISES.find(e=>e.id===id); }
+// ---- Preferred implement, with fallback ----
+// Several lifts are better on the Smith machine (guided path, integrated safeties — the
+// difference between training to failure alone and not) but must still work on the free
+// bar when the Smith is off or absent. e.prefEquip="smith" means: REQUIRE the fallback
+// equipment listed in e.requires (so the exercise is always generatable), but when the
+// preferred capability IS owned, present it as the Smith version — different name, cue,
+// station, and a cheaper changeover (no strap repositioning, just plates + hook height).
+// Deliberately NOT a separate exercise entry: two entries for one movement would collide
+// in SIM_GROUPS, double-count in muscle caps, and split the logged history.
+function prefEquipActive(e){ if(!e||!e.prefEquip) return false;
+  return (STATE.equipment||[]).some(x=>x.on&&(x.caps||[]).includes(e.prefEquip)); }
+function exDisplayName(e){ return prefEquipActive(e)&&e.prefName?e.prefName:e.name; }
+function exDisplayCue(e){ return prefEquipActive(e)&&e.prefCue?e.prefCue:e.cue; }
 function loadsFor(cap){ const e=STATE.equipment.find(x=>x.on&&(x.caps||[]).includes(cap)&&x.loads); return e?e.loads:null; }
 function snap(val,cap){ const loads=loadsFor(cap); if(!loads||val==null) return val; return loads.reduce((a,b)=>Math.abs(b-val)<Math.abs(a-val)?b:a); }
 function startOfWeek(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d.getTime(); }
@@ -1346,13 +1299,26 @@ function recommendFocus(){
   const recentLift=STATE.workouts.filter(w=>!w.ref&&!(FOCI[w.focus]||{}).cardio).slice(0,3);
   const coreRecent=recentLift.some(w=>w.focus==="core");
   if(recentLift.length>=3&&!coreRecent&&lf!=="core") return "core";
-  let best=null,bestScore=-1;
+  let best=null,bestScore=-1,bestStale=-1;
+  // Days since a focus was last actually trained — used to break readiness ties.
+  const staleness=key=>{ const i=STATE.workouts.findIndex(w=>w.focus===key);
+    if(i<0) return 999; const d=(Date.now()-(STATE.workouts[i].date||0))/86400000; return isFinite(d)?d:999; };
   for(const key of Object.keys(FOCI)){
-    if(key==="core"||FOCI[key].cardio) continue; // core handled above; cardio/hiit still opt-in
+    // custom is a user-defined placeholder spanning 7 muscle groups — it has no real
+    // target of its own, so recommending it as "what to train today" is meaningless.
+    // It was eligible purely because the filter only named core and cardio.
+    if(key==="core"||key==="custom"||FOCI[key].cardio) continue;
     const f=FOCI[key];
     const avg=f.muscles.reduce((a,m)=>a+(r[m]!=null?r[m]:1),0)/f.muscles.length;
     const score=avg-(key===lf?0.6:0);
-    if(score>bestScore){ bestScore=score; best=key; }
+    const stale=staleness(key);
+    // After a normal rest gap EVERY focus recovers to 1.000, so scores tie constantly.
+    // The old `score>bestScore` (strict) handed every tie to whichever focus was declared
+    // first — push — producing a measured 4:1 push-over-legs skew that had nothing to do
+    // with fatigue. Ties now go to whatever has gone longest untrained.
+    if(score>bestScore+1e-9||(Math.abs(score-bestScore)<1e-9&&stale>bestStale)){
+      bestScore=score; best=key; bestStale=stale;
+    }
   }
   return best;
 }
@@ -1422,59 +1388,40 @@ function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filt
   let tot=0; const wts=pool.map(e=>{ const w=Math.max(0.0001,wf(e)); tot+=w; return w; }); if(tot<=0) return pool[Math.floor(Math.random()*pool.length)];
   let r=Math.random()*tot; for(let i=0;i<pool.length;i++){ r-=wts[i]; if(r<=0) return pool[i]; } return pool[pool.length-1]; }
 const SIM_GROUPS=[
-  // barbell/DB pressing families
-  ["bb_bench","bb_pause_bench","bb_spoto","bb_larsen","bb_pin_press","bb_incl","db_bench","db_incl","db_floor","bb_floor_press_bb","bb_decl","db_decl"],
-  ["bb_ohp","bb_pin_ohp","bb_seated_ohp","db_ohp","db_ohp_st","arnold","bb_push_press","z_press"],
-  // squats
-  ["bb_squat","front_squat","box_squat","bb_pause_squat","bb_pin_squat","bb_tempo_squat","trap_squat","goblet","heel_squat","lm_squat","zercher"],
-  // hinges / deadlifts
-  ["deadlift","sumo_dl","trap_dl","bb_rdl","bb_pause_dl","bb_block_pull","bb_deficit_dl","rack_pull","trap_rdl","db_rdl","lm_rdl","kb_dl"],
-  // lunges & single-leg
-  // lunges & single-leg — family removed 2026.08.29 (all lunge-pattern exercises deleted
-  // from the app at user request, knee pain). Kept as an empty placeholder comment so the
-  // history is clear; no members remain.
-  // shrugs
-  ["bb_bb_shrug","db_shrug","trap_shrug"],
-  // triceps extensions
-  ["oh_ext","cable_oh_ext","skull","kickback_tri","pushdown"],
-  // biceps curls
-  ["db_curl","ez_curl","cable_curl","spider_curl","hammer","incline_curl","conc_curl","bb_curl"],
-  // chest flyes
-  ["cable_fly","cable_cross_high","incline_db_fly","db_fly_floor"],
-  // rows
-  ["lm_row","trap_row","pendlay","bb_yates_row","db_row","low_row","cs_row"],
-  // lat/vertical pulls — machine/cable only (pull-up bar work is its own family below,
-  // since bodyweight pull-ups are rep-capped by strength, not load, and stack fatigue
-  // on the same joints/grip differently than a lat pulldown does)
-  ["pulldown","ng_pulldown","cable_lat"],
-  // pull-up bar — every bodyweight vertical-pull variant on the bar. User-requested hard
-  // cap: at most one of these per session, enforced here (blocks co-occurrence in the
-  // generator) and in swapCandidates (blocks swapping IN a second one).
-  ["pullup","chinup","pullup_neutral","pullup_neutral_wide","pullup_wide","pullup_angled",
-   "pullup_inner","pullup_globe_sm","pullup_globe_lg","pullup_band","pullup_negative",
-   "pullup_lsit","pullup_archer","pullup_typewriter","scap_pullup","dead_hang"],
-  // carries
-  ["farmer","suitcase","oh_carry","frontrack_carry"],
-  // planks / anti-extension
-  ["plank","side_plank","ghr_bodysaw"],
-  // crunch family
-  ["cable_crunch","reverse_crunch","standing_oblique","decline_situp","vup"],
-  // hanging core
-  ["hlr","hang_knee","toes_to_bar","ww","hang_oblique"],
-  // GHR curls
-  ["ghr_curl","ghr_curl_cable","ghr_curl_band","ghr_curl_sl","ghr_bridge_curl"],
-  // GHR rollouts
-  ["ghr_rollout","ghr_rollout_stand","ghr_rollout_cable"],
-  // calf
-  ["calf_db","sl_calf","bb_calf_raise"],
-  // hip abduction / adduction — near-identical stimulus, don't stack them
-  ["band_walk_lat","cable_abduction","side_lying_abd","cable_adduction"],
-  // spinal extension — GHR back ext and reverse hyper are the same machine, same pattern
-  ["ghr_back_ext","reverse_hyper","superman"],
-  // wrist/grip work
-  ["db_wrist_curl","bb_wrist_curl","plate_pinch"],
-  // anti-rotation press family
-  ["pallof","pallof_kneel","sa_cable_press"],
+  // Rebuilt for the scrubbed library. A family = movements close enough that two in one
+  // session is redundancy, not variety.
+  // --- PUSH ---
+  ["bb_bench","bb_incl","db_bench","db_incl","bb_decl","bb_floor_press_bb"],   // horizontal presses
+  ["bb_ohp","bb_seated_ohp","db_ohp","bb_push_press"],                          // overhead presses
+  ["incline_db_fly","db_fly_floor"],                                            // DB flyes
+  ["pushdown","pushdown_bar","pushdown_rev"],                                   // cable pushdowns (grip variants)
+  ["oh_ext","cable_oh_ext","skull","kickback_tri"],                             // triceps extensions
+  ["dips","tricep_dips","bench_dip"],                                           // dip-pattern
+  // --- PULL ---
+  ["bb_row","pendlay","bb_pause_row"],                                          // barbell bent rows (tempo/start variants of one lift)
+  ["db_row","cs_row"],                                                          // dumbbell rows
+  // lm_row / trap_row / low_row / inverted_row left standalone — different implement,
+  // angle and stability demand; lumping all 9 rows together starved 6 of them entirely.
+  ["pulldown","ng_pulldown","sa_pulldown"],                                     // pulldowns
+  ["pullup","chinup","pullup_neutral","pullup_neutral_wide","pullup_wide"],     // pull-up bar (hard cap 1)
+  ["db_curl","cable_curl","hammer","incline_curl","conc_curl"],                 // biceps curls
+  // --- LOWER ---
+  ["bb_squat","front_squat","box_squat","trap_squat"],                          // barbell/trap squats (compound)
+  // lm_squat deliberately NOT in the squat family: it is an accessory-role landmine
+  // movement, so the compound anchor always won the shared family slot and it never
+  // appeared once in 60 sessions.
+  ["deadlift","trap_dl","bb_rdl","rack_pull","trap_rdl","lm_rdl","good_morning"], // hinges/deadlifts
+  ["nordic","ghr"],                                                             // GHR knee-flexion
+  ["cable_abduction","cable_adduction"],                                        // hip abduction/adduction
+  ["bb_calf_raise","seated_calf"],                                              // calf raises
+  // --- CORE ---
+  ["cable_crunch","decline_situp","decline_crunch_wt","plate_oh_situp"],        // loaded spinal flexion
+  ["decline_russian","kneel_woodchop","kb_halo_chop"],                          // rotation, trunk-driven
+  ["woodchop","woodchop_low_high"],                                             // cable chops
+  ["pallof_kneel","sa_cable_press","cable_antirot_hold"],                       // cable anti-rotation
+  ["hollow","bench_pullover_hollow","dragon_flag"],                             // hollow/anti-extension holds
+  ["cable_rev_crunch","rev_crunch_hold","bench_legraise_thrust","hang_knee","decline_leg_raise"], // hip flexion
+  ["kb_deadbug","kb_plank_pull","kb_around_world"],                             // KB floor/plank core
 ];
 function simFamilyOf(id){ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; }
 function generate(focusKey,duration,mode){
@@ -1545,6 +1492,15 @@ function generate(focusKey,duration,mode){
   // exercise to make a specific movement surface more (or less) often than average without
   // hard-pinning it. Added for the single-leg alternating glute-bridge KB pullover at 2.5×.
   const prefBias=e=>e.prefBias||1;
+  // Loadable bias. 61% of available core exercises can't take weight at all, so core days
+  // filled up with unweighted bodyweight holds — poor stimulus for a loaded-training goal.
+  // Exercises that can actually carry external load (or accept a loadCap like a plate/vest)
+  // get preference. Applied to CORE work only: elsewhere the barbell/pref biases already
+  // steer load, and pushing this everywhere would distort push/pull/leg selection.
+  const LOAD_IMPLEMENTS=["dumbbells","barbell","plates","kettlebell","cable_low","cable_high","ezbar","landmine","vest"];
+  const loadableBias=e=>{ if(e.role!=="core"&&!(e.primary||[]).includes("core")) return 1;
+    const canLoad=(e.requires||[]).some(r=>LOAD_IMPLEMENTS.includes(r))||!!e.loadCap;
+    return canLoad?2.6:1; };
   const recentPats=recentPatterns(2);
   const patVariety=e=>{ const n=recentPats[e.pattern]||0; return n>=2?0.35:n===1?0.7:1; };
   const compCap=duration>=45?2:1;
@@ -1590,8 +1546,16 @@ function generate(focusKey,duration,mode){
   const cfxCount=fx=>chosen.filter(x=>cfxOf(x)===fx).length;
   const cfxLimit=sCount>=8?3:2;
   const cfxOK=e=>{ const fx=cfxOf(e); return !fx||cfxCount(fx)<cfxLimit; };
-  const cfxVariety=e=>{ const fx=cfxOf(e); if(!fx) return 1; const n=cfxCount(fx); return n>=2?0.2:n===1?0.55:1; };
-  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*prefBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e)*cfxVariety(e);
+  const cfxVariety=e=>{ const fx=cfxOf(e); if(!fx) return 1; const n=cfxCount(fx);
+    const pen=n>=2?0.2:n===1?0.55:1;
+    // An explicit user preference (prefBias) must not be cancelled out by category
+    // competition. The glute-bridge pullover sits in "antiext" — the biggest category
+    // (14 members) — so the variety down-weight was suppressing the exact exercise the
+    // user asked to see often. Let prefBias offset the penalty rather than multiply
+    // against it; the hard cfx cap still applies, so variety is preserved regardless.
+    const pb=e.prefBias||1;
+    return pb>1?Math.min(1,pen*pb):pen; };
+  PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*prefBias(e)*loadableBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e)*cfxVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
 
   // PINNED FIRST — before anchors, so a pinned lift always gets its slot and is never
@@ -1797,8 +1761,8 @@ function buildLoggable(e){
     const realReps=sets.filter(s=>!s.drop).map(s=>parseInt(s.reps,10)).filter(n=>isFinite(n)&&n>0);
     if(bwStation&&noLoadLogged&&realReps.length===sc.sets&&Math.max(...realReps)<lo){ const mn=Math.min(...realReps),mx=Math.max(...realReps); repLabelFinal=mn===mx?String(mn):(mn+"–"+mx); }
   }
-  return {id:e.id,name:e.name,role:e.role,planSets,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabelFinal,metric,scaledFrom,
-    rest:fmt(restSec),restSec,cue:e.cue,tech:e._tech||null,dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:null,sets,
+  return {id:e.id,name:exDisplayName(e),role:e.role,planSets,muscles:[...e.primary,...(e.secondary||[])],scheme:sc.sets+" × "+repLabelFinal,metric,scaledFrom,
+    rest:fmt(restSec),restSec,cue:exDisplayCue(e),tech:e._tech||null,smith:prefEquipActive(e),dropPct,unilateral:!!e.unilateral,barbell:isBarbellEx(e),landmine:(e.requires||[]).includes("landmine"),bandKind,band:prevBand,rpe:null,sets,
     _prev:prev?prev.sets.filter(s=>!s.drop).map(s=>({w:s.w,reps:s.reps})):null};
 }
 function exStations(e){ const s=[...(e.stations||[])]; const r=e.requires||[]; if(r.includes("rack")&&r.includes("bench")) s.push("benchrack"); return s; }
@@ -2110,11 +2074,14 @@ function estimateSessionSec(w){ let t=0; const exOf=id=>w.exercises.find(e=>e.id
     // Barbell reload: charge for every barbell exercise in this group that requires the
     // bar, once we've already used a barbell earlier in the session (the first barbell lift
     // is set up during warm-up, so it's the transitions between bar lifts that cost).
-    let reloads=0;
+    // A Smith lift is cheaper: the safeties are integrated and the bar racks at 16-19 fixed
+    // heights, so the changeover is plates + hook height — no strap repositioning, no
+    // walking the bar out. Charged at 60% of the free-barbell figure the user set.
+    let reloadCost=0;
     mem.forEach(e=>{ const ex=exById(e.id); const needsBar=ex&&(ex.requires||[]).includes("barbell");
-      if(needsBar){ if(seenBarbell) reloads++; seenBarbell=true; } });
+      if(needsBar){ if(seenBarbell) reloadCost+=barbellReloadSec()*(prefEquipActive(ex)?0.6:1); seenBarbell=true; } });
     if(stations.size) prevStations=stations;
-    t+=changeover+reloads*barbellReloadSec()+rounds*(work+trans+rest); });
+    t+=changeover+reloadCost+rounds*(work+trans+rest); });
   (w.conditioning||[]).forEach(c=>{ t+=condProtoMin(c)*60; });
   return t; }
 function condMinutes(w){ let m=0; (w.conditioning||[]).forEach(c=>{ const done=(c.sets||[]).filter(s=>s.done);
@@ -2157,7 +2124,7 @@ function renderToday(){
     ${(()=>{ if(!feat("planner")) return ""; const p=(STATE.settings.plan||{})[new Date().getDay()]||{}; const bits=[]; if(p.am&&FOCI[p.am]) bits.push("AM "+FOCI[p.am].name); if(p.pm&&FOCI[p.pm]) bits.push("PM "+FOCI[p.pm].name); return bits.length?`<div class="hint" style="margin-bottom:6px">📅 Today: <b style="color:var(--ink)">${bits.join(" · ")}</b></div>`:""; })()}
     ${(()=>{ const cur=s._focus||""; const F=FOCI[cur]; if(!F||!F.machineSess||F.machineSess==="sledS"||F.machineSess==="ruck") return ""; return `<div class="row" style="gap:7px;margin-bottom:8px;align-items:center"><span class="hint">Intensity</span><button class="chip ${!UI.hardDay?"on":""}" data-action="hardday" data-v="0">Easy · ${zTxt(2)}</button><button class="chip ${UI.hardDay?"on":""}" data-action="hardday" data-v="1">Hard intervals</button></div>`; })()}
     <div class="seg" id="focusSeg" style="margin-bottom:8px">${(()=>{ const pl2=feat("planner")?((STATE.settings.plan||{})[new Date().getDay()]||{}):{}; const slot=new Date().getHours()<12?"am":"pm"; const p=(pl2[slot]&&FOCI[pl2[slot]])?pl2[slot]:((pl2.am&&FOCI[pl2.am])?pl2.am:((pl2.pm&&FOCI[pl2.pm])?pl2.pm:null)); const sel=s._focus||(p?p:rec); return Object.keys(FOCI).map(k=>`<button data-focus="${k}" class="${k===sel?"on":""}">${k===rec?"★ ":""}${FOCI[k].name}</button>`).join(""); })()}</div>
-    ${(()=>{ const rc=focusRecency(); const keys=["push","pull","legs_quad","legs_post","core","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
+    ${(()=>{ const rc=focusRecency(); const keys=["push","pull","lower","core","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
     <div class="eyebrow" style="margin:4px 0 6px">Time</div>
     <div class="seg" id="durSeg" style="margin-bottom:12px">${[30,45,60].map(d=>`<button data-dur="${d}" class="${d===s.duration?"on":""}">${d} min</button>`).join("")}</div>
     <div class="eyebrow" style="margin:4px 0 6px">Style</div>
@@ -2552,7 +2519,7 @@ function renderSettings(){
   { const F=[["heat","Training heatmap","26-week activity grid + streaks on Progress"],["confetti","PR confetti","Celebrate new records when you finish"],["recap","Weekly recap","Last-7-days summary card on the Train tab"],["notes","Setup notes","📌 per-exercise notes (pin heights, seat position) via •••"],["bw","Bodyweight log","Quick weigh-ins + 7-day average on Progress"],["standards","Strength standards","Est. 1RM vs bodyweight levels on Progress"],["ghost","Ghost pace","Live sets/time vs your last same-focus session"],["metro","Tempo metronome","Audible tick on tempo-cued lifts via •••"],["deload","Deload hints","Flags 3 rising weeks + high RPE"],["bigrest","Full-screen rest timer","Giant countdown; tap to shrink; returns for the last 10s"],["budget","Time budget","⏱ button trims remaining sets to fit your minutes"],["injury","Injury flags","Mark sore joints; the generator steers around them"],["planner","Weekly planner","Assign a focus to each weekday"],["reorder","Reorder groups","▲▼ arrows to resequence a session"],["voice","Voice logging (experimental)","🎤 say “185 for 8” — needs internet, can mishear"],["wrapped","Year so far","Annual totals card on Progress"]];
     let fb=F.map(([k,n,d])=>`<div class="frow"><label>${n}<small>${d}</small></label><div class="sw ${feat(k)?"on":""}" data-action="feat" data-k="${k}"></div></div>`).join("");
     if(feat("injury")) fb+=`<div class="eq-cat" style="margin:14px 0 6px">Sore / protect right now</div><div class="cb-row">${INJ_AREAS.map(([k,n])=>`<button class="chip ${STATE.settings.injuries.includes(k)?"on":""}" data-action="injury" data-a="${k}">${n}</button>`).join("")}</div><div class="hint">Flagged areas get strongly avoided by the generator (not banned) and marked ⚠ on cards. Unflag when healed.</div>`;
-    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","legs_quad","legs_post","core","bike","ski","sledS","ruck","cardio","hiit","custom"];
+    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","lower","core","bike","ski","sledS","ruck","cardio","hiit","custom"];
       fb+=`<div class="eq-cat" style="margin:14px 0 6px">Weekly plan</div><div class="planrow"><span class="pd"></span><span class="hint" style="flex:1">AM</span><span class="hint" style="flex:1">PM</span></div>`+DN.map((d,i)=>{ const p=(STATE.settings.plan||{})[i]||{};
         const sel=(slot)=>`<select class="in" data-plan="${i}" data-slot="${slot}" style="flex:1">${opts.map(o=>`<option value="${o}" ${String(p[slot]||"")===o?"selected":""}>${o===""?"—":FOCI[o]?FOCI[o].name:o}</option>`).join("")}</select>`;
         return `<div class="planrow"><span class="pd">${d}</span>${sel("am")}${sel("pm")}</div>`; }).join("")+`<div class="hint" style="margin-top:4px">Two slots a day — morning cardio, afternoon lift. The Train tab pre-selects whichever fits the time of day.</div>`; }
@@ -2720,7 +2687,12 @@ function openSync(){
 function importData(json){
   let d; try{ d=JSON.parse(json); }catch(e){ return false; }
   if(!d||typeof d!=="object") return false;
-  if(Array.isArray(d.workouts)) STATE.workouts=mergeWorkouts(STATE.workouts,d.workouts);
+  if(Array.isArray(d.workouts)){
+    // Restored backups can predate the legs_quad/legs_post -> lower merge; migrate on the
+    // way in, same as boot() does for locally-stored history.
+    d.workouts.forEach(w=>{ if(w&&(w.focus==="legs_quad"||w.focus==="legs_post")){ w.focus="lower"; w.focusName=(FOCI.lower||{}).name||"Lower"; } });
+    STATE.workouts=mergeWorkouts(STATE.workouts,d.workouts);
+  }
   if(d.settings){
     STATE.settings.pinned=[...new Set([...(STATE.settings.pinned||[]),...(d.settings.pinned||[])])];
     STATE.settings.blocked=[...new Set([...(STATE.settings.blocked||[]),...(d.settings.blocked||[])])];
@@ -2758,11 +2730,16 @@ view.addEventListener("click",e=>{
   if(RD_LP.fired){ RD_LP.fired=false; e.preventDefault(); e.stopPropagation(); return; } // long-press just opened the sheet — don't also run the tap-cycle
   const pp=e.target.closest("[data-prog-p]"); if(pp){ UI.progPeriod=pp.dataset.progP; renderProgress(); return; }
   const seg=e.target.closest("#focusSeg button,#durSeg button,#modeSeg button");
-  if(seg){ if(seg.dataset.focus) STATE.settings._focus=seg.dataset.focus; if(seg.dataset.dur){ STATE.settings.duration=+seg.dataset.dur; pSet(); } if(seg.dataset.mode){ STATE.settings.mode=seg.dataset.mode; pSet(); }
+  if(seg){ if(seg.dataset.focus) STATE.settings._focus=seg.dataset.focus; if(seg.dataset.dur){ STATE.settings.duration=+seg.dataset.dur; STATE.settings._durPicked=true; pSet(); } if(seg.dataset.mode){ STATE.settings.mode=seg.dataset.mode; pSet(); }
     seg.parentElement.querySelectorAll("button").forEach(x=>x.classList.remove("on")); seg.classList.add("on"); return; }
   const act=e.target.closest("[data-action]"); if(!act) return; const a=act.dataset.action;
 
-  if(a==="generate"){ const focus=STATE.settings._focus||recommendFocus(); UI.openSwap.clear(); UI.openPlates.clear(); STATE.current=generate(focus,STATE.settings.duration,STATE.settings.mode); pCur(); render(); toast("Workout built"); return; }
+  if(a==="generate"){ const focus=STATE.settings._focus||recommendFocus(); UI.openSwap.clear(); UI.openPlates.clear();
+    // A focus can declare its own default duration (lower = 60 min, since one merged day
+    // covers quads/posterior/glutes/calves). The user's picked duration still wins if they
+    // explicitly chose one for this session.
+    const dur=(STATE.settings._durPicked?STATE.settings.duration:((FOCI[focus]||{}).defaultDuration||STATE.settings.duration));
+    STATE.current=generate(focus,dur,STATE.settings.mode); pCur(); render(); toast("Workout built"); return; }
   if(a==="toggleset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex; const ex=STATE.current.exercises[exi]; const s=ex.sets[+row.dataset.set]; s.done=!s.done; act.classList.toggle("done",s.done);
     // stamp actual rest taken onto whichever set most recently triggered a rest timer
     if(RT._sinceSet&&RT._sinceSet.startedAt){ const prevEx=STATE.current.exercises.find(e=>e.id===RT._sinceSet.exId); const prevSet=prevEx&&prevEx.sets[RT._sinceSet.setIdx];
