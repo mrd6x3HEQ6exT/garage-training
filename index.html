@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v27";
+const BUILD="v28";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -910,6 +910,10 @@ const FOCI={
   lower:{name:"Lower",muscles:["quads","hams","glutes","calves"],anchors:["squat","hinge"],defaultDuration:60},
   core:{name:"Core",muscles:["core"],anchors:[]},
   custom:{name:"Custom",muscles:["chest","back","quads","hams","glutes","shoulders","core"],anchors:[],custom:true},
+  // Weighted conditioning. cardio:true keeps it out of the strength pipeline, but unlike
+  // the machine focuses it builds from the conditioning EXERCISES library — which had no
+  // path into a generated session at all before this.
+  metcon:{name:"Metcon",muscles:["cond"],anchors:[],cardio:true,style:"interval",metcon:true},
   cardio:{name:"Cardio",muscles:["cond"],anchors:[],cardio:true,style:"steady"},
   hiit:{name:"HIIT",muscles:["cond"],anchors:[],cardio:true,style:"interval"},
 };
@@ -1144,6 +1148,36 @@ const MACHINE_SESSIONS={
 function mkSessBlock(mId,name,proto,muscles,estMin){ const m=cbMachine(mId); const n=condRounds(proto); const sets=[]; const fields=m.fields;
   for(let i=0;i<n;i++) sets.push(mkCondSet(fields));
   return {id:"cc_"+Date.now()+"_"+Math.floor(Math.random()*99999),base:m.base,custom:true,name,proto,estMin:estMin||null,muscles:muscles||m.muscles,weighted:!!m.weighted,loadCap:m.weighted?(m.id==="kb"?"kettlebell":"vest"):null,fields,sets}; }
+
+// Build a weighted-conditioning session from the conditioning library. The machine
+// focuses (bike/ski/sled/ruck) call buildMachineSession and never touch this library;
+// this is the path that makes the 25 conditioning drills actually reachable.
+const METCON_COUNT={30:2,45:3,60:4};
+function implementOf(c){ const r=c.requires||[];
+  for(const k of ["kettlebell","dumbbells","barbell","trapbar","sled","skierg","echobike","battlerope","vest"]) if(r.includes(k)) return k;
+  return "bodyweight"; }
+function buildMetconSession(duration){
+  const owned=ownedCaps(); const blocked=new Set(STATE.settings.blocked||[]);
+  const pool=EXERCISES.filter(e=>e.type==="conditioning"&&exAvailable(e,owned)&&!blocked.has(e.id));
+  if(!pool.length) return [];
+  const want=METCON_COUNT[duration]||3;
+  // what the last metcon used — rotate away from it so sessions don't repeat
+  const lastM=STATE.workouts.find(x=>!x.ref&&x.focus==="metcon");
+  const recent=new Set(lastM?(lastM.conditioning||[]).map(c=>c.id):[]);
+  // weighted drills are the point of this focus; unweighted machine work is the fallback
+  const weighted=pool.filter(e=>(COND_META[e.id]||{}).weighted);
+  const rest=pool.filter(e=>!(COND_META[e.id]||{}).weighted);
+  const rank=arr=>arr.map(e=>({e,k:(recent.has(e.id)?2:0)+Math.random()})).sort((a,b)=>a.k-b.k).map(o=>o.e);
+  const ordered=[...rank(weighted),...rank(rest)];
+  const out=[],usedImpl=new Set();
+  for(const c of ordered){ if(out.length>=want) break;
+    const im=implementOf(c); if(usedImpl.has(im)) continue;   // spread across implements
+    usedImpl.add(im); out.push(buildCond(c,duration)); }
+  // if implement-spreading left us short, backfill ignoring that rule
+  for(const c of ordered){ if(out.length>=want) break;
+    if(out.some(o=>o.id===c.id)) continue; out.push(buildCond(c,duration)); }
+  return out;
+}
 function buildMachineSession(key,duration,hard){
   const S=MACHINE_SESSIONS[key]; if(!S) return [];
   const m=S.machine, z2=zTxt(2), z4=zTxt(4), z1=zTxt(1), out=[];
@@ -1351,6 +1385,10 @@ function recommendFocus(){
   const recentLift=STATE.workouts.filter(w=>!w.ref&&!(FOCI[w.focus]||{}).cardio).slice(0,3);
   const coreRecent=recentLift.some(w=>w.focus==="core");
   if(recentLift.length>=3&&!coreRecent&&lf!=="core") return "core";
+  // Metcon is on its own cadence for the same reason core is: it has no muscle-readiness
+  // score to compete on. Surface it when it hasn't appeared in the last 5 sessions.
+  const recentAny=STATE.workouts.filter(w=>!w.ref).slice(0,5);
+  if(recentAny.length>=5&&!recentAny.some(w=>w.focus==="metcon")&&lf!=="metcon") return "metcon";
   let best=null,bestScore=-1,bestStale=-1;
   // Days since a focus was last actually trained — used to break readiness ties.
   const staleness=key=>{ const i=STATE.workouts.findIndex(w=>w.focus===key);
@@ -1484,6 +1522,11 @@ function generate(focusKey,duration,mode){
   if(f.machineSess){ const conds=buildMachineSession(f.machineSess,duration,!!UI.hardDay);
     return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,hardDay:!!UI.hardDay,
       exercises:[],conditioning:conds,groups:[],note:""}; }
+  if(f.metcon){
+    const conds=buildMetconSession(duration);
+    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"circuit",cardio:true,
+      metcon:true,exercises:[],conditioning:conds,groups:[],note:""};
+  }
   if(f.cardio){
     // Auto-build a full machine session (warm-up / main / cool-down) on whatever
     // cardio gear is switched on, rotating away from whatever was used last time.
@@ -2176,7 +2219,7 @@ function renderToday(){
     ${(()=>{ if(!feat("planner")) return ""; const p=(STATE.settings.plan||{})[new Date().getDay()]||{}; const bits=[]; if(p.am&&FOCI[p.am]) bits.push("AM "+FOCI[p.am].name); if(p.pm&&FOCI[p.pm]) bits.push("PM "+FOCI[p.pm].name); return bits.length?`<div class="hint" style="margin-bottom:6px">📅 Today: <b style="color:var(--ink)">${bits.join(" · ")}</b></div>`:""; })()}
     ${(()=>{ const cur=s._focus||""; const F=FOCI[cur]; if(!F||!F.machineSess||F.machineSess==="sledS"||F.machineSess==="ruck") return ""; return `<div class="row" style="gap:7px;margin-bottom:8px;align-items:center"><span class="hint">Intensity</span><button class="chip ${!UI.hardDay?"on":""}" data-action="hardday" data-v="0">Easy · ${zTxt(2)}</button><button class="chip ${UI.hardDay?"on":""}" data-action="hardday" data-v="1">Hard intervals</button></div>`; })()}
     <div class="seg" id="focusSeg" style="margin-bottom:8px">${(()=>{ const pl2=feat("planner")?((STATE.settings.plan||{})[new Date().getDay()]||{}):{}; const slot=new Date().getHours()<12?"am":"pm"; const p=(pl2[slot]&&FOCI[pl2[slot]])?pl2[slot]:((pl2.am&&FOCI[pl2.am])?pl2.am:((pl2.pm&&FOCI[pl2.pm])?pl2.pm:null)); const sel=s._focus||(p?p:rec); return Object.keys(FOCI).map(k=>`<button data-focus="${k}" class="${k===sel?"on":""}">${k===rec?"★ ":""}${FOCI[k].name}</button>`).join(""); })()}</div>
-    ${(()=>{ const rc=focusRecency(); const keys=["push","pull","lower","core","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
+    ${(()=>{ const rc=focusRecency(); const keys=["push","pull","lower","core","metcon","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
     <div class="eyebrow" style="margin:4px 0 6px">Time</div>
     <div class="seg" id="durSeg" style="margin-bottom:12px">${[30,45,60].map(d=>`<button data-dur="${d}" class="${d===s.duration?"on":""}">${d} min</button>`).join("")}</div>
     <div class="eyebrow" style="margin:4px 0 6px">Style</div>
@@ -2571,7 +2614,7 @@ function renderSettings(){
   { const F=[["heat","Training heatmap","26-week activity grid + streaks on Progress"],["confetti","PR confetti","Celebrate new records when you finish"],["recap","Weekly recap","Last-7-days summary card on the Train tab"],["notes","Setup notes","📌 per-exercise notes (pin heights, seat position) via •••"],["bw","Bodyweight log","Quick weigh-ins + 7-day average on Progress"],["standards","Strength standards","Est. 1RM vs bodyweight levels on Progress"],["ghost","Ghost pace","Live sets/time vs your last same-focus session"],["metro","Tempo metronome","Audible tick on tempo-cued lifts via •••"],["deload","Deload hints","Flags 3 rising weeks + high RPE"],["bigrest","Full-screen rest timer","Giant countdown; tap to shrink; returns for the last 10s"],["budget","Time budget","⏱ button trims remaining sets to fit your minutes"],["injury","Injury flags","Mark sore joints; the generator steers around them"],["planner","Weekly planner","Assign a focus to each weekday"],["reorder","Reorder groups","▲▼ arrows to resequence a session"],["voice","Voice logging (experimental)","🎤 say “185 for 8” — needs internet, can mishear"],["wrapped","Year so far","Annual totals card on Progress"]];
     let fb=F.map(([k,n,d])=>`<div class="frow"><label>${n}<small>${d}</small></label><div class="sw ${feat(k)?"on":""}" data-action="feat" data-k="${k}"></div></div>`).join("");
     if(feat("injury")) fb+=`<div class="eq-cat" style="margin:14px 0 6px">Sore / protect right now</div><div class="cb-row">${INJ_AREAS.map(([k,n])=>`<button class="chip ${STATE.settings.injuries.includes(k)?"on":""}" data-action="injury" data-a="${k}">${n}</button>`).join("")}</div><div class="hint">Flagged areas get strongly avoided by the generator (not banned) and marked ⚠ on cards. Unflag when healed.</div>`;
-    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","lower","core","bike","ski","sledS","ruck","cardio","hiit","custom"];
+    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","lower","core","metcon","bike","ski","sledS","ruck","cardio","hiit","custom"];
       fb+=`<div class="eq-cat" style="margin:14px 0 6px">Weekly plan</div><div class="planrow"><span class="pd"></span><span class="hint" style="flex:1">AM</span><span class="hint" style="flex:1">PM</span></div>`+DN.map((d,i)=>{ const p=(STATE.settings.plan||{})[i]||{};
         const sel=(slot)=>`<select class="in" data-plan="${i}" data-slot="${slot}" style="flex:1">${opts.map(o=>`<option value="${o}" ${String(p[slot]||"")===o?"selected":""}>${o===""?"—":FOCI[o]?FOCI[o].name:o}</option>`).join("")}</select>`;
         return `<div class="planrow"><span class="pd">${d}</span>${sel("am")}${sel("pm")}</div>`; }).join("")+`<div class="hint" style="margin-top:4px">Two slots a day — morning cardio, afternoon lift. The Train tab pre-selects whichever fits the time of day.</div>`; }
