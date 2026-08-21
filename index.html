@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v26";
+const BUILD="v27";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -630,6 +630,28 @@ const EXERCISES=[
   {id:"rope",name:"Battle rope intervals",type:"conditioning",requires:["battlerope"],stations:["battlerope"],muscles:["cond"],proto:{30:"6 × 20s waves / 40s rest",45:"8 × 30s waves / 30s rest",60:"10 × 30s alternating / 30s rest"}},
   {id:"kb_metcon",name:"Kettlebell swing finisher",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","glutes"],proto:{30:"5 min EMOM — 15 swings",45:"8 min EMOM — 15 swings",60:"10 min EMOM — 15 swings"}},
   {id:"ruck",name:"Weighted vest carry",type:"conditioning",requires:["vest"],stations:[],muscles:["cond"],proto:{30:"6 min loaded carries / step-ups",45:"10 min vest walk + carries",60:"15 min loaded work"}},
+  // ===== Weighted conditioning, added from the 2024 Adult Compendium consensus =====
+  // Ranked on measured MET values where they exist (kettlebell swings = 9.8, the only
+  // individually-measured weighted exercise; circuit-with-kettlebells = 7.5; battling
+  // ropes under calisthenics-vigorous = 7.5). Everything else is inferred from those
+  // category values plus training consensus — the Compendium has NO measured MET for
+  // sled work, carries, or complexes, so those are reasoned, not measured.
+  // All kettlebell work here is deliberately SINGLE-bell: the user owns one.
+  {id:"kb_snatch",name:"KB snatch (single arm)",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","shoulders","glutes"],proto:{30:"6 min EMOM — 5/side",45:"10 min EMOM — 5/side",60:"14 min EMOM — 5/side"}},
+  {id:"kb_cp",name:"KB clean & press (single arm)",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","shoulders","glutes"],proto:{30:"6 min EMOM — 4/side",45:"10 min EMOM — 4/side",60:"14 min EMOM — 5/side"}},
+  {id:"kb_thruster_c",name:"KB thruster (single arm)",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","quads","shoulders"],proto:{30:"5 rounds — 6/side / 45s rest",45:"7 rounds — 6/side",60:"10 rounds — 6/side"}},
+  {id:"bb_thruster_c",name:"Barbell thruster",type:"conditioning",requires:["barbell","plates"],stations:["barbell"],muscles:["cond","quads","shoulders"],proto:{30:"5 rounds — 8 reps / 60s rest",45:"7 rounds — 8 reps",60:"10 rounds — 8 reps"}},
+  {id:"sled_sprint",name:"Sled sprint (light)",type:"conditioning",requires:["sled"],stations:["sled"],muscles:["cond","quads"],proto:{30:"8 lengths light & fast, walk back",45:"12 lengths, full recovery",60:"16 lengths, full recovery"}},
+  {id:"sled_carry",name:"Sled push + farmer return",type:"conditioning",requires:["sled","dumbbells"],stations:["sled"],muscles:["cond","glutes","core"],proto:{30:"5 rounds — push down, carry back",45:"7 rounds",60:"10 rounds"}},
+  {id:"farmer_c",name:"Farmer carry (heavy, continuous)",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","core","forearms"],proto:{30:"6 rounds — 40 steps heavy",45:"8 rounds — 40 steps",60:"12 rounds — 40 steps"}},
+  {id:"oh_carry_c",name:"Overhead carry",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","shoulders","core"],proto:{30:"6 rounds — 30 steps/side",45:"8 rounds — 30 steps/side",60:"10 rounds — 40 steps/side"}},
+  {id:"suitcase_c",name:"Suitcase carry",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","core","forearms"],proto:{30:"6 rounds — 40 steps/side",45:"8 rounds — 40 steps/side",60:"12 rounds — 40 steps/side"}},
+  {id:"bb_complex",name:"Barbell complex",type:"conditioning",requires:["barbell","plates"],stations:["barbell"],muscles:["cond","back","shoulders","quads"],proto:{30:"4 rounds — 6 each: clean, press, row, squat",45:"6 rounds",60:"8 rounds"}},
+  {id:"db_complex",name:"Dumbbell complex",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","back","shoulders","quads"],proto:{30:"4 rounds — 8 each: clean, press, row, squat",45:"6 rounds",60:"8 rounds"}},
+  {id:"devils_press",name:"Devil's press",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","shoulders","chest"],proto:{30:"5 rounds — 6 reps / 60s rest",45:"7 rounds — 8 reps",60:"10 rounds — 8 reps"}},
+  {id:"man_maker",name:"Man maker",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","back","shoulders"],proto:{30:"4 rounds — 5 reps / 60s rest",45:"6 rounds — 6 reps",60:"8 rounds — 6 reps"}},
+  {id:"ski_vest",name:"SkiErg + weighted vest",type:"conditioning",requires:["skierg","vest"],stations:["skierg"],muscles:["cond"],proto:{30:"6 × 100 m in the vest",45:"8 × 150 m in the vest",60:"6 × 250 m in the vest"}},
+  {id:"trap_dl_c",name:"Trap-bar deadlift (high-rep)",type:"conditioning",requires:["trapbar"],stations:["trapbar"],muscles:["cond","hams","glutes"],proto:{30:"5 rounds — 10 reps / 60s rest",45:"7 rounds — 10 reps",60:"10 rounds — 10 reps"}},
   {id:"burpee",name:"Burpee conditioning",type:"conditioning",requires:[],stations:[],muscles:["cond"],proto:{30:"5 rounds — 10 burpees / 30s rest",45:"8 rounds",60:"10 rounds"}},
 ];
 
@@ -745,6 +767,21 @@ const GUIDES={
   sled_push:"Low body angle, arms extended, drive the legs in short powerful steps. Walk back to recover.",
   sled_drag:"Strap in and walk forward leaning away, then backward leaning back. Easy on the joints, brutal on the legs and lungs.",
   rope:"Athletic stance, soft knees, braced core. Fast alternating or double waves through the whole work interval.",
+  kb_snatch:"One bell, floor to overhead in one motion. Hips do the work — punch the hand through at the top so the bell settles, don't let it flop onto the wrist. Alternate sides each round.",
+  kb_cp:"Clean the bell to the rack position, then press overhead. Two distinct movements, one flowing rep. Single bell, alternate sides.",
+  kb_thruster_c:"Bell in the rack, squat down, then drive up and press overhead in one motion. The leg drive starts the press.",
+  bb_thruster_c:"Front rack, squat to depth, then explode up and press the bar overhead. Use the leg drive — this is a full-body movement, not a squat plus a press.",
+  sled_sprint:"Light load, maximum turnover. Short choppy steps, stay low, drive. Walk back for full recovery — this is a power effort, not a grind.",
+  sled_carry:"Push the sled down the lane, then carry heavy dumbbells back. Two different loading patterns back to back with no rest.",
+  farmer_c:"Heaviest dumbbells you can hold with a flat back. Tall posture, quick controlled steps, do not let the shoulders round forward. Grip usually fails first.",
+  oh_carry_c:"One bell locked out overhead, elbow straight, ribs down. Walk under control. The overhead position is the exercise — do not let it drift forward.",
+  suitcase_c:"One bell at your side, walk without leaning away from it. The load tries to bend you sideways; your job is to stay perfectly upright.",
+  bb_complex:"The bar never touches the floor between movements. Clean, press, row, squat — all reps of one movement, then straight into the next. Light bar, this gets brutal fast.",
+  db_complex:"Same as the barbell version but with dumbbells: clean, press, row, squat. Bells stay in your hands the whole round.",
+  devils_press:"Burpee down onto the dumbbells, then swing them from the floor to overhead in one motion. Nasty combination of a burpee and a snatch.",
+  man_maker:"Push-up on the dumbbells, row each side, then clean them to your shoulders and press. One rep is the whole sequence.",
+  ski_vest:"Standard SkiErg pulls wearing the weighted vest. The extra load makes every pull cost more — drop the distance, keep the intensity.",
+  trap_dl_c:"Moderate load, high reps, short rest. This is conditioning, not a strength set — pick a weight you can move continuously without form breaking down.",
   kb_metcon:"Every minute on the minute: do the swings, then rest whatever's left of the minute. Powerful hip snap each rep.",
   ruck:"Put the vest on and keep moving — walk, carries, step-ups — for the whole time block.",
   burpee:"Chest to the floor, jump the feet in, stand and hop. Full-body — pace it so you keep moving.",
@@ -829,7 +866,7 @@ const GUIDES={
 const MUSCLE_LABEL={chest:"Chest",back:"Back",shoulders:"Delts",biceps:"Biceps",triceps:"Triceps",forearms:"Forearms",quads:"Quads",hams:"Hams",glutes:"Glutes",calves:"Calves",core:"Core"};
 const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","forearms","quads","hams","glutes","calves","core"];
 const RECOVERY_DAYS={chest:2.5,back:2.5,shoulders:2,biceps:2,triceps:2,forearms:1.5,quads:3,hams:3,glutes:2.5,calves:2,core:1.5};
-const COND_STYLE={bike_int:"interval",bike_ss:"steady",ski_int:"interval",ski_ss:"steady",sled_push:"interval",sled_drag:"steady",rope:"interval",kb_metcon:"interval",ruck:"steady",burpee:"interval"};
+const COND_STYLE={bike_int:"interval",bike_ss:"steady",ski_int:"interval",ski_ss:"steady",sled_push:"interval",sled_drag:"steady",rope:"interval",kb_metcon:"interval",ruck:"steady",burpee:"interval",kb_snatch:"interval",kb_cp:"interval",kb_thruster_c:"interval",bb_thruster_c:"interval",sled_sprint:"interval",sled_carry:"interval",farmer_c:"interval",oh_carry_c:"interval",suitcase_c:"interval",bb_complex:"interval",db_complex:"interval",devils_press:"interval",man_maker:"interval",ski_vest:"interval",trap_dl_c:"interval"};
 const COND_META={
   bike_int:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}]},
   bike_ss:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}]},
@@ -841,6 +878,21 @@ const COND_META={
   kb_metcon:{weighted:true,loadCap:"kettlebell",fields:[{k:"reps",l:"Reps"}]},
   ruck:{weighted:true,loadCap:"vest",fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (mi)"}]},
   burpee:{fields:[{k:"reps",l:"Reps"}]},
+  kb_snatch:{weighted:true,loadCap:"kettlebell",fields:[{k:"reps",l:"Reps/side"}]},
+  kb_cp:{weighted:true,loadCap:"kettlebell",fields:[{k:"reps",l:"Reps/side"}]},
+  kb_thruster_c:{weighted:true,loadCap:"kettlebell",fields:[{k:"reps",l:"Reps/side"}]},
+  bb_thruster_c:{weighted:true,loadCap:"barbell",fields:[{k:"reps",l:"Reps"}]},
+  sled_sprint:{fields:[{k:"level",l:"Level"},{k:"dist",l:"Dist (ft)"}]},
+  sled_carry:{fields:[{k:"level",l:"Level"},{k:"dist",l:"Dist (ft)"}]},
+  farmer_c:{weighted:true,loadCap:"dumbbells",fields:[{k:"steps",l:"Steps"}]},
+  oh_carry_c:{weighted:true,loadCap:"kettlebell",fields:[{k:"steps",l:"Steps/side"}]},
+  suitcase_c:{weighted:true,loadCap:"kettlebell",fields:[{k:"steps",l:"Steps/side"}]},
+  bb_complex:{weighted:true,loadCap:"barbell",fields:[{k:"rounds",l:"Rounds"}]},
+  db_complex:{weighted:true,loadCap:"dumbbells",fields:[{k:"rounds",l:"Rounds"}]},
+  devils_press:{weighted:true,loadCap:"dumbbells",fields:[{k:"reps",l:"Reps"}]},
+  man_maker:{weighted:true,loadCap:"dumbbells",fields:[{k:"reps",l:"Reps"}]},
+  ski_vest:{weighted:true,loadCap:"vest",fields:[{k:"time",l:"Time"},{k:"dist",l:"Dist (m)"}]},
+  trap_dl_c:{weighted:true,loadCap:"trapbar",fields:[{k:"reps",l:"Reps"}]},
 };
 const MACHINE_FOCI={
   bike:{name:"Bike",machineSess:"bike",muscles:["cond"],anchors:[],cardio:true},
