@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v21";
+const BUILD="v22";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -545,13 +545,38 @@ const EXERCISES=[
   X("db_thrust","DB hip thrust","hinge","accessory",["glutes"],["hams"],["dumbbells","bench"],["bench"],{cue:"Pause and squeeze at the top."}),
   X("pull_through","Cable pull-through","hinge","accessory",["glutes"],["hams"],["cable_low"],["cable_low"],{cue:"Hinge away, snap hips to lockout."}),
   X("kickback","Cable glute kickback","hinge","isolation",["glutes"],[],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, drive heel back and up.",unilateral:true}),
+  // --- Hip abduction / adduction (glute medius + adductors) ---
+  // Audit gap: after the lunge-pattern purge deleted the banded lateral walk, the app had
+  // ZERO hip-abduction work — glute medius (the hip stabiliser, distinct from glute max) was
+  // untrainable. These use pattern "abduction", deliberately NOT "lunge", so a future
+  // pattern-level removal can't silently wipe hip stability work again.
+  X("band_walk_lat","Banded lateral walk","abduction","isolation",["glutes"],[],["hipbands"],[],{cue:"Band above the knees, athletic stance, step sideways without letting the knees cave."}),
+  X("cable_abduction","Cable hip abduction","abduction","isolation",["glutes"],[],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, drive the leg out to the side, control the return.",unilateral:true}),
+  X("side_lying_abd","Side-lying hip raise","abduction","isolation",["glutes"],[],[],[],{cue:"On your side, stack the hips, raise the top leg without rolling back.",unilateral:true,loadCap:"hipbands"}),
+  X("cable_adduction","Cable hip adduction","abduction","isolation",["glutes"],["quads"],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, pull the leg across the midline against the stack.",unilateral:true}),
   X("calf_db","Standing DB calf raise","squat","isolation",["calves"],[],["dumbbells"],[],{cue:"Full stretch, pause at the top.",loadCap:"wedge"}),
+  // Tibialis: the shin muscle opposing the calf. Audit gap — zero coverage. Worth having for
+  // knee/ankle resilience, and it needs no equipment.
+  X("tib_raise","Tibialis raise","calf","isolation",["calves"],[],[],[],{cue:"Heels down, back against a wall, pull the toes up toward the shins. Opposes the calf."}),
+  // --- Grip / forearms ---
+  // Audit gap: the only grip work was dead hang + farmer carry, both incidental. Every
+  // "close-grip"/"neutral-grip" hit was a GRIP VARIATION, not forearm training. Grip is
+  // routinely the limiter on deadlifts and rows for a barbell-heavy lifter.
+  X("db_wrist_curl","DB wrist curl","arms","isolation",["forearms"],[],["dumbbells"],[],{cue:"Forearms on the thighs, palms up, curl just the wrists through full range."}),
+  X("bb_wrist_curl","Barbell reverse wrist curl","arms","isolation",["forearms"],[],["barbell","plates"],["barbell"],{cue:"Palms down, curl the wrists up. Trains the extensors most people never work."}),
+  X("plate_pinch","Plate pinch hold","carry","isolation",["forearms"],[],["plates"],[],{cue:"Pinch two plates smooth-side-out and hold. Pure grip.",metric:"time"}),
   /* ---- core / abs (expanded) ---- */
   X("hlr","Hanging leg raise","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"No swing, curl the pelvis up."}),
   X("hang_knee","Hanging knee raise","core","core",["core"],[],["hangbar"],["hangbar"],{cue:"Knees to chest, control the lower."}),
   X("cable_crunch","Cable crunch","core","core",["core"],[],["cable_high"],["cable_high"],{cue:"Round the spine, hips stay put."}),
   X("woodchop","Cable woodchopper","core","core",["core"],["shoulders"],["cable_high"],["cable_high"],{cue:"High to low, rotate through the trunk.",unilateral:true}),
   X("pallof","Pallof press","core","core",["core"],[],["resistancebands"],[],{cue:"Band pegged at chest height — press straight out and resist the pull trying to rotate you."}),
+  // --- Anti-rotation core ---
+  // Audit gap: anti-rotation is one of the best-evidenced core categories (resisting rotation
+  // is what actually protects the spine day to day) and the app had essentially ONE exercise
+  // for it. Everything else was flexion, rotation, or planks.
+  X("pallof_kneel","Half-kneeling Pallof press","core","core",["core"],["glutes"],["cable_low"],["cable_low"],{cue:"Half-kneeling kills the leg drive — pure anti-rotation. Press out, resist the twist.",unilateral:true}),
+  X("sa_cable_press","Single-arm cable press","core","core",["core"],["chest","shoulders"],["cable_low"],["cable_low"],{cue:"Standing, press one arm forward — the load tries to rotate you and the core has to stop it.",unilateral:true}),
   X("lm_twist","Landmine rotation","core","core",["core"],["shoulders"],["landmine"],["landmine"],{cue:"Pivot the feet, control the arc."}),
   X("decline_situp","Weighted decline sit-up","core","core",["core"],[],["bench"],["bench"],{cue:"Bench on decline, hold a plate or DB.",loadCap:"dumbbells"}),
   X("decline_rev_crunch","Decline reverse crunch","core","core",["core"],[],["bench"],["bench"],{cue:"Head-up on the decline, curl hips toward the high end, lower-ab focus."}),
@@ -624,6 +649,13 @@ const EXERCISES=[
   X("jackknife","Bench jackknife","core","core",["core"],[],["bench"],["bench"],{cue:"Sit on the bench end, lean back, then draw the knees and chest together and extend back out."}),
   /* ---- REP glute-ham roller (wheeled roller + foot tray) ---- */
   X("ghr_curl","GHR supine leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Feet on the tray, hips locked high. Curl the heels in without letting the hips sag."}),
+  // --- Spinal extension / lower back isolation ---
+  // Audit gap: the app had NO dedicated erector work at all. Lower back was only ever a
+  // SECONDARY on heavy hinges (deadlift/RDL/good morning), meaning it could never be trained
+  // directly or programmed for — you had to load a deadlift to touch it.
+  X("ghr_back_ext","GHR back extension","extension","accessory",["back"],["glutes","hams"],["ghr"],["ghr"],{cue:"Hips on the pad, round down under control, extend to a straight line — don't hyperextend.",loadCap:"plates"}),
+  X("reverse_hyper","Reverse hyperextension","extension","accessory",["back"],["glutes","hams"],["ghr"],["ghr"],{cue:"Torso supported, legs swing down and up. Low spinal load, controlled — no swinging with momentum."}),
+  X("superman","Superman hold","extension","isolation",["back"],["glutes"],[],[],{cue:"Face down, lift chest and thighs off the floor, hold. Bodyweight erector work.",metric:"time"}),
   X("ghr_curl_sl","GHR single-leg curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{unilateral:true,cue:"One foot on the tray, other leg lifted. Hips level, curl in."}),
   X("ghr_curl_cable","Cable-loaded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","cable_low"],["ghr","cable_low"],{cue:"Strap the roller to the low pulley and curl against the stack. Real progressive overload."}),
   X("ghr_curl_band","Banded GHR curl","hinge","accessory",["hams"],["glutes"],["ghr","resistancebands"],["ghr"],{cue:"Band anchored behind the roller. Resistance climbs as the heels come in."}),
@@ -865,9 +897,9 @@ const GUIDES={
   bb_calf_raise:"Bar on your upper back, balls of your feet on a plate or block with heels hanging. Drop into a full stretch, then rise all the way onto your toes. Slow and full range.",
   bb_bb_shrug:"Hold a heavy bar (pull it from the rack), shrug your shoulders straight up toward your ears, hold the squeeze, and lower slowly. Straps help — the traps give out well before the grip.",
 };
-const MUSCLE_LABEL={chest:"Chest",back:"Back",shoulders:"Delts",biceps:"Biceps",triceps:"Triceps",quads:"Quads",hams:"Hams",glutes:"Glutes",calves:"Calves",core:"Core"};
-const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","quads","hams","glutes","calves","core"];
-const RECOVERY_DAYS={chest:2.5,back:2.5,shoulders:2,biceps:2,triceps:2,quads:3,hams:3,glutes:2.5,calves:2,core:1.5};
+const MUSCLE_LABEL={chest:"Chest",back:"Back",shoulders:"Delts",biceps:"Biceps",triceps:"Triceps",forearms:"Forearms",quads:"Quads",hams:"Hams",glutes:"Glutes",calves:"Calves",core:"Core"};
+const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","forearms","quads","hams","glutes","calves","core"];
+const RECOVERY_DAYS={chest:2.5,back:2.5,shoulders:2,biceps:2,triceps:2,forearms:1.5,quads:3,hams:3,glutes:2.5,calves:2,core:1.5};
 const COND_STYLE={bike_int:"interval",bike_ss:"steady",ski_int:"interval",ski_ss:"steady",sled_push:"interval",sled_drag:"steady",rope:"interval",kb_metcon:"interval",ruck:"steady",burpee:"interval"};
 const COND_META={
   bike_int:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}]},
@@ -889,7 +921,7 @@ const MACHINE_FOCI={
 };
 const FOCI={
   push:{name:"Push",muscles:["chest","shoulders","triceps"],anchors:["horiz_push","vert_push"]},
-  pull:{name:"Pull",muscles:["back","biceps"],anchors:["vert_pull","horiz_pull"]},
+  pull:{name:"Pull",muscles:["back","biceps","forearms"],anchors:["vert_pull","horiz_pull"]},
   legs_quad:{name:"Lower · Quad",muscles:["quads","glutes","calves"],anchors:["squat"]},
   legs_post:{name:"Lower · Posterior",muscles:["hams","glutes"],anchors:["hinge"]},
   core:{name:"Core",muscles:["core"],anchors:[]},
@@ -1435,6 +1467,14 @@ const SIM_GROUPS=[
   ["ghr_rollout","ghr_rollout_stand","ghr_rollout_cable"],
   // calf
   ["calf_db","sl_calf","bb_calf_raise"],
+  // hip abduction / adduction — near-identical stimulus, don't stack them
+  ["band_walk_lat","cable_abduction","side_lying_abd","cable_adduction"],
+  // spinal extension — GHR back ext and reverse hyper are the same machine, same pattern
+  ["ghr_back_ext","reverse_hyper","superman"],
+  // wrist/grip work
+  ["db_wrist_curl","bb_wrist_curl","plate_pinch"],
+  // anti-rotation press family
+  ["pallof","pallof_kneel","sa_cable_press"],
 ];
 function simFamilyOf(id){ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; }
 function generate(focusKey,duration,mode){
