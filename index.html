@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v29";
+const BUILD="v30";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -2038,6 +2038,7 @@ document.getElementById("modal").addEventListener("click",e=>{ const m=e.current
     renderRdSheet(mu,pct,hv); }
   else if(a==="rdreset"){ const mu=ac.dataset.m; if(STATE.settings.rdOverride) delete STATE.settings.rdOverride[mu]; pSet(); m.classList.remove("show"); renderToday(); }
   else if(a==="rddone"){ m.classList.remove("show"); renderToday(); }
+  else if(a==="exhistp"){ UI.exHistPeriod=ac.dataset.exhistP; renderExHistModal(ac.dataset.id); }
   else if(a==="closemodal"){ m.classList.remove("show"); } });
 document.getElementById("modal").addEventListener("input",e=>{ const inp=e.target; if(inp.dataset.range!=="rdcustom") return;
   const mu=inp.dataset.m, pct=Math.max(0,Math.min(100,+inp.value||0));
@@ -2307,6 +2308,7 @@ function renderExercise(ex,idx,editable,w,grouped){
       ${warmupRamp(ex)?`<button class="chip ${UI.openWarmup.has(ex.id)?"on":""}" data-action="warmup" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0116 0M12 6V3M6 8L4 6M18 8l2-2"/></svg>Warmup</button>`:""}
       ${ytChip(ex.name,ex.id)}
       <button class="chip ${UI.openSwap.has(ex.id)?"on":""}" data-action="swap" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button>
+      <button class="chip" data-action="exhist" data-id="${ex.id}"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg>History</button>
       <button class="chip pin ${pinned?"on":""}" data-action="pin" data-id="${ex.id}"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 6 6 .5-4.5 4 1.5 6-5.5-3.5L6 19.5 7.5 13.5 3 9.5l6-.5z"/></svg>${pinned?"Pinned":"Pin"}</button>
       <button class="chip ${UI.moreOpen.has(ex.id)?"on":""}" data-action="more" data-id="${ex.id}" title="More">•••</button>
     </div>${UI.moreOpen.has(ex.id)?`<div class="ctrls ctrls-more"><span class="more-lab">More</span>${feat("notes")?`<button class="chip" data-action="exnote" data-id="${ex.id}">📌 Note</button>`:""}${feat("metro")&&ex.tech&&/tempo/i.test(ex.tech)?`<button class="chip ${METRO.ex===ex.id?"on2":""}" data-action="metro" data-id="${ex.id}">Metronome</button>`:""}${feat("voice")?`<button class="chip" data-action="voicelog" data-ex="${idx}">🎤 Say it</button>`:""}<button class="chip ${recFlag(ex.id)===1?"on":""}" data-action="recmore" data-id="${ex.id}">Recommend +</button><button class="chip ${recFlag(ex.id)===-1?"on":""}" data-action="recless" data-id="${ex.id}">Recommend −</button><button class="chip danger" data-action="removeex" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove exercise</button></div>`:""}`;
@@ -2495,6 +2497,38 @@ function renderWrapped(){
   const cmin=ws.reduce((a,w)=>a+condMinutes(w),0); const ch=Math.floor(cmin/60);
   return `<div class="panel"><div class="eyebrow" style="margin-bottom:8px">${y} so far</div><div class="hint" style="line-height:1.7">🏋️ <b style="color:var(--ink)">${ws.length}</b> sessions · <b style="color:var(--ink)">${Math.round(ton).toLocaleString()}</b> lb moved${cmin?` · ❤️ <b style="color:var(--ink)">${ch?ch+" h "+(cmin%60)+" min":cmin+" min"}</b> cardio`:""}${prc?` · 🏆 <b style="color:var(--ink)">${prc}</b> PRs`:""}${top?` · most-trained: <b style="color:var(--ink)">${esc(top)}</b>`:""}</div></div>`;
 }
+function progChartHTML(exId,period,exName){
+  const data=progData(exId,period);
+  if(!data.length) return `<div class="hint">No completed sets with weight for this lift yet.</div>`;
+  const show=data.slice(-10);
+  const maxV=Math.max(...show.map(d=>d.top))*1.18||1;
+  const best=Math.max(...data.map(d=>d.top)), latest=show[show.length-1].top, first=show[0].top, chg=latest-first;
+  const W=Math.max(show.length*52,300),H=210,pad=26,seg=(W-pad*2)/show.length,bw=Math.min(34,seg-12);
+  let bars="";
+  show.forEach((d,i)=>{ const x=pad+i*seg+(seg-bw)/2, h=(d.top/maxV)*(H-pad-26), y=H-26-h;
+    bars+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}" rx="3" fill="var(--amber)"></rect>`+
+      `<text x="${(x+bw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-family="monospace" font-size="10" fill="#EDEFF2">${d.top}</text>`+
+      `<text x="${(x+bw/2).toFixed(1)}" y="${H-9}" text-anchor="middle" font-family="monospace" font-size="9" fill="#8A929E">${esc(d.label)}</text>`; });
+  return `<div class="spread" style="margin-bottom:6px"><span class="eyebrow">Top set · lb${exName?" — "+esc(exName):""}</span><span class="hint">last ${show.length} ${period==="week"?"weeks":period==="month"?"months":"years"}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible">${bars}</svg>
+    <div class="row" style="gap:18px;margin-top:10px;flex-wrap:wrap">
+      <div><div class="mlabel">Best</div><div class="mono" style="font-size:19px">${best}</div></div>
+      <div><div class="mlabel">Latest</div><div class="mono" style="font-size:19px">${latest}</div></div>
+      <div><div class="mlabel">Change shown</div><div class="mono" style="font-size:19px;color:${chg>=0?"var(--ready)":"var(--cold)"}">${chg>=0?"+":""}${chg}</div></div>
+    </div>`;
+}
+function renderExHistModal(exId){
+  const base=exById(exId); const name=base?base.name:((STATE.current&&(STATE.current.exercises||[]).find(e=>e.id===exId))||{}).name;
+  const period=UI.exHistPeriod||"month";
+  const hasData=progData(exId,period).length||progData(exId,"week").length||progData(exId,"year").length;
+  const mm=document.getElementById("modal");
+  mm.innerHTML=`<div class="mcard"><div class="mh">${esc(name||exId)}</div>
+    ${hasData?`<div class="seg" style="margin-top:6px">${[["week","Weekly"],["month","Monthly"],["year","Yearly"]].map(p=>`<button data-action="exhistp" data-exhist-p="${p[0]}" data-id="${esc(exId)}" class="${p[0]===period?"on":""}">${p[1]}</button>`).join("")}</div>
+    <div id="exHistChart" style="margin-top:10px">${progChartHTML(exId,period)}</div>`
+    :`<div class="empty" style="padding:20px 0"><div class="big">No history yet</div><div class="hint">Log a completed set with weight on this exercise and it'll show up here.</div></div>`}
+    <div class="divider"></div><div class="row"><button class="btn sm" data-action="closemodal" style="margin-left:auto">Done</button></div></div>`;
+  mm.classList.add("show");
+}
 function renderProgress(){
   const logged=[]; const seen=new Set();
   STATE.workouts.forEach(w=>(w.exercises||[]).forEach(e=>{ if(e.sets&&e.sets.some(s=>s.done&&(parseFloat(s.w)||0)>0)&&!seen.has(e.id)){ seen.add(e.id); logged.push({id:e.id,name:e.name}); } }));
@@ -2506,22 +2540,7 @@ function renderProgress(){
     <div class="seg" id="progSeg" style="margin-top:8px">${[["week","Weekly"],["month","Monthly"],["year","Yearly"]].map(p=>`<button data-prog-p="${p[0]}" class="${p[0]===period?"on":""}">${p[1]}</button>`).join("")}</div></div>`;
   const data=progData(UI.progEx,period);
   if(!data.length){ html+=`<div class="panel"><div class="hint">No completed sets with weight for this lift yet.</div></div>`; view.innerHTML=html; return; }
-  const show=data.slice(-10);
-  const maxV=Math.max(...show.map(d=>d.top))*1.18||1;
-  const best=Math.max(...data.map(d=>d.top)), latest=show[show.length-1].top, first=show[0].top, chg=latest-first;
-  const W=Math.max(show.length*52,300),H=210,pad=26,seg=(W-pad*2)/show.length,bw=Math.min(34,seg-12);
-  let bars="";
-  show.forEach((d,i)=>{ const x=pad+i*seg+(seg-bw)/2, h=(d.top/maxV)*(H-pad-26), y=H-26-h;
-    bars+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}" rx="3" fill="var(--amber)"></rect>`+
-      `<text x="${(x+bw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-family="monospace" font-size="10" fill="#EDEFF2">${d.top}</text>`+
-      `<text x="${(x+bw/2).toFixed(1)}" y="${H-9}" text-anchor="middle" font-family="monospace" font-size="9" fill="#8A929E">${esc(d.label)}</text>`; });
-  html+=`<div class="panel"><div class="spread" style="margin-bottom:6px"><span class="eyebrow">Top set · lb</span><span class="hint">last ${show.length} ${period==="week"?"weeks":period==="month"?"months":"years"}</span></div>
-    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible">${bars}</svg>
-    <div class="row" style="gap:18px;margin-top:10px;flex-wrap:wrap">
-      <div><div class="mlabel">Best</div><div class="mono" style="font-size:19px">${best}</div></div>
-      <div><div class="mlabel">Latest</div><div class="mono" style="font-size:19px">${latest}</div></div>
-      <div><div class="mlabel">Change shown</div><div class="mono" style="font-size:19px;color:${chg>=0?"var(--ready)":"var(--cold)"}">${chg>=0?"+":""}${chg}</div></div>
-    </div>
+  html+=`<div class="panel">${progChartHTML(UI.progEx,period)}
     <div class="hint" style="margin-top:8px">Bars show your heaviest completed set in each ${period==="week"?"week":period==="month"?"month":"year"}. Switch the period above to zoom in or out.</div></div>`;
   // #6 weekly volume by muscle (rolling 7 days)
   { const vol=weeklyVolume(7); const ms=MUSCLE_ORDER.filter(m=>vol[m]); if(ms.length){ const mx=Math.max(...ms.map(m=>vol[m]))||1;
@@ -2868,6 +2887,7 @@ view.addEventListener("click",e=>{
   if(a==="importfile"){ let inp=document.getElementById("fileIn"); if(!inp){ inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json"; inp.id="fileIn"; inp.style.display="none"; document.body.appendChild(inp);
       inp.addEventListener("change",()=>{ const f=inp.files&&inp.files[0]; if(!f){ return; } const rd=new FileReader(); rd.onload=()=>{ if(importData(String(rd.result))){ STATE.tab="log"; render(); toast("Imported & merged from file"); } else toast("Couldn’t read that file"); }; rd.readAsText(f); inp.value=""; }); }
     inp.click(); return; }
+  if(a==="exhist"){ renderExHistModal(act.dataset.id); return; }
   if(a==="grest"){ const gi=+act.dataset.gi; const g=STATE.current.groups[gi];
     if(g){ const doneCounts=g.items.map(id=>{ const ex=STATE.current.exercises.find(e=>e.id===id); return ex?ex.sets.filter(s=>s.done).length:0; });
       const round=Math.min(...doneCounts); // the round currently in progress for this group
