@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v28";
+const BUILD="v29";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1890,15 +1890,25 @@ function swapCandidates(exData,w){
   const group=w.groups.find(g=>g.items.includes(exData.id)); const groupStations=[]; const others=[];
   if(group) group.items.filter(id=>id!==exData.id).forEach(id=>{ const o=exById(id); if(!o) return; others.push(o); exStations(o).forEach(s=>groupStations.push(s)); });
   const inWO=new Set(w.exercises.map(e=>e.id)); const blocked=new Set(STATE.settings.blocked||[]);
-  // Family exclusivity (SIM_GROUPS) previously only applied during automated generation —
-  // a swap could still bring in a second exercise from the same family (e.g. a second
-  // pull-up-bar variant) since nothing here checked it. Block any candidate that shares a
-  // family with something ELSE already in the session (excluding the slot being replaced).
   const simBlockedIds=new Set(); [...inWO].filter(id=>id!==exData.id).forEach(id=>simFamilyOf(id).forEach(x=>simBlockedIds.add(x)));
-  const cands=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&e.id!==exData.id&&!inWO.has(e.id)&&!blocked.has(e.id)&&!stationConflict(groupStations,e)&&capOK(others,e)&&!simBlockedIds.has(e.id));
-  const bm=new Set([...base.primary,...base.secondary]);
+  const baseFilter=e=>e.type==="strength"&&exAvailable(e,owned)&&e.id!==exData.id&&!inWO.has(e.id)&&!blocked.has(e.id)&&!stationConflict(groupStations,e)&&capOK(others,e)&&!simBlockedIds.has(e.id);
+  // Was: fell through to the ENTIRE strength database with no focus check at all once the
+  // same-muscle pool ran dry — measured firing on 74% of swap slots after the exercise
+  // library was curated down (20-exercise lower pool + per-circuit station/family
+  // constraints can legitimately exhaust every option for that muscle group). A push
+  // slot would offer bicep curls; a lower slot offered shoulder raises. Now: same focus
+  // first (using the workout's actual w.focus, not the base exercise's own muscles — an
+  // earlier version derived focus from primary+secondary and let e.g. band_pull_apart's
+  // secondary "back" tag leak full back-primary rows into a push swap), then core (a
+  // real, deliberate fallback — not a random unrelated muscle), and only an empty list
+  // if even that's exhausted.
+  const focusMuscles=(FOCI[w.focus]||{}).muscles||[];
+  let cands=EXERCISES.filter(e=>baseFilter(e)&&focusMuscles.length&&(e.primary||[]).some(m=>focusMuscles.includes(m)));
+  let fellBackToCore=false;
+  if(!cands.length){ cands=EXERCISES.filter(e=>baseFilter(e)&&(e.primary||[]).includes("core")); fellBackToCore=cands.length>0; }
+  const bm=new Set([...base.primary,...(base.secondary||[])]);
   function score(e){ let s=0; if(e.pattern===base.pattern)s+=3; if(e.role===base.role)s+=1; e.primary.forEach(m=>{if(bm.has(m))s+=2;}); e.secondary.forEach(m=>{if(bm.has(m))s+=1;}); return s; }
-  function why(e){ const sh=e.primary.filter(m=>bm.has(m)).map(m=>MUSCLE_LABEL[m]); return (e.pattern===base.pattern?"same movement":sh.length?sh.join("/"):e.role); }
+  function why(e){ if(fellBackToCore) return "core — no "+(w.focus||"matching")+" options left"; const sh=e.primary.filter(m=>bm.has(m)).map(m=>MUSCLE_LABEL[m]); return (e.pattern===base.pattern?"same movement":sh.length?sh.join("/"):e.role); }
   return cands.map(e=>({e,s:score(e)})).sort((a,b)=>b.s-a.s).slice(0,6).map(o=>({ex:o.e,why:why(o.e)}));
 }
 
