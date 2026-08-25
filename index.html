@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v30";
+const BUILD="v33";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -468,7 +468,7 @@ const DEFAULT_EQUIPMENT=[
   // Smith ships OFF — not delivered yet. Every Smith-preferred lift also lists its barbell
   // requirements, so with this off they all still generate on the free bar; turning it on
   // just switches the preferred implement, cue, and (cheaper) changeover cost.
-  {id:"smith",cat:"Rack & bench",name:"REP Smith machine rack attachment",note:'outside the rack · 450 lb · integrated safeties · 78" usable clearance',caps:["smith"],on:false,bar:33},
+  {id:"smith",cat:"Rack & bench",name:"REP Smith machine rack attachment",note:'outside the rack · 450 lb · integrated safeties · 78" usable clearance',caps:["smith"],on:true,bar:35},
   {id:"latbar",cat:"Cable",name:'REP 48" lat bar',note:"wide pronated grip — the multi-grip attachment is neutral only",caps:["latbar"],on:true},
   {id:"blocks",cat:"Accessories",name:"Pulling blocks / platform",note:"raises you for full-ROM Smith deadlifts + hip thrusts",caps:["blocks"],on:true},
 ];
@@ -918,8 +918,6 @@ const FOCI={
   hiit:{name:"HIIT",muscles:["cond"],anchors:[],cardio:true,style:"interval"},
 };
 Object.assign(FOCI,MACHINE_FOCI);
-const STRENGTH_COUNT={30:4,45:6,60:7};
-const COND_COUNT={30:1,45:1,60:2};
 // Hard caps from logged performance: sets that consistently break down are not volume.
 // bb_bench: 4th set failed 3 of 4 sessions (175x6,6,6,4 / 185x6,6,6,4).
 // dragon_flag: reps halve by the last set every time (8,6,6 / 8,6,3 / 6,6,4) at RPE 10.
@@ -1013,7 +1011,7 @@ const PLATE_VIS={45:{c:"var(--p45)",h:118,w:17},25:{c:"var(--p25)",h:94,w:15},10
 /* ---------------- State ---------------- */
 let STATE={
   equipment:DEFAULT_EQUIPMENT.map(e=>({...e})),
-  settings:{daysPerWeek:5,duration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true,barbellReloadSec:120,stationChangeSec:60},
+  settings:{daysPerWeek:5,duration:45,baseDuration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true,barbellReloadSec:120,stationChangeSec:60},
   workouts:[], current:null, tab:"today",
 };
 const UI={hardDay:false,cardioB:{open:false,machine:null,movement:null,mode:null,p:{}},openSwap:new Set(),openPlates:new Set(),openWarmup:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month"};
@@ -1040,6 +1038,16 @@ async function boot(){
   // the retired keys — left alone they'd break focus recency, the planner, and the core
   // rotation counter (which counts recent lifting sessions by focus). Rewrite in place.
   const FOCUS_MIGRATE={legs_quad:"lower",legs_post:"lower"};
+  // The default 33 -> 35 change above only applies to brand-new installs; anyone who
+  // already had the Smith entry saved keeps their persisted bar weight regardless of the
+  // new default (boot()'s merge logic prefers the saved value). One-time correction.
+  { const sm=STATE.equipment.find(x=>x.id==="smith");
+    // Same signal protects both fields: bar===33 was the ONLY value ever shipped before
+    // the user had the machine ("not delivered yet"), so a saved record still at 33
+    // definitely predates any real chance to toggle it on/off themselves — safe to force
+    // both fields to the current-hardware defaults. Once bar has been corrected to 35 on
+    // an earlier boot, this no longer fires, so a later deliberate off stays off.
+    if(sm&&sm.bar===33){ sm.bar=35; sm.on=true; } }
   if(Array.isArray(wo)) wo.forEach(w=>{ if(w&&FOCUS_MIGRATE[w.focus]){ w.focus=FOCUS_MIGRATE[w.focus]; w.focusName=(FOCI.lower||{}).name||"Lower"; } });
   if(cur&&FOCUS_MIGRATE[cur.focus]){ cur.focus=FOCUS_MIGRATE[cur.focus]; cur.focusName=(FOCI.lower||{}).name||"Lower"; }
   if(STATE.settings._focus&&FOCUS_MIGRATE[STATE.settings._focus]) STATE.settings._focus=FOCUS_MIGRATE[STATE.settings._focus];
@@ -1121,13 +1129,29 @@ function exById(id){ return EXERCISES.find(e=>e.id===id); }
 // Deliberately NOT a separate exercise entry: two entries for one movement would collide
 // in SIM_GROUPS, double-count in muscle caps, and split the logged history.
 function prefEquipActive(e){ if(!e||!e.prefEquip) return false;
-  return (STATE.equipment||[]).some(x=>x.on&&(x.caps||[]).includes(e.prefEquip)); }
+  const globallyOwned=(STATE.equipment||[]).some(x=>x.on&&(x.caps||[]).includes(e.prefEquip));
+  if(!globallyOwned) return false; // can't select Smith on a specific lift if you don't own one, full stop
+  // Per-exercise override, persisted across sessions (STATE.settings, saved via pSet()) —
+  // "always squat on the Smith, always deadlift on the free bar" rather than a single
+  // all-or-nothing switch. Only meaningful once the implement is actually owned; with no
+  // saved choice for this exercise, default to using it (existing behavior).
+  const pref=STATE.settings.smithPref&&STATE.settings.smithPref[e.id];
+  return pref!=null?pref:true;
+}
 function exDisplayName(e){ return prefEquipActive(e)&&e.prefName?e.prefName:e.name; }
 function exDisplayCue(e){ return prefEquipActive(e)&&e.prefCue?e.prefCue:e.cue; }
 function loadsFor(cap){ const e=STATE.equipment.find(x=>x.on&&(x.caps||[]).includes(cap)&&x.loads); return e?e.loads:null; }
 function snap(val,cap){ const loads=loadsFor(cap); if(!loads||val==null) return val; return loads.reduce((a,b)=>Math.abs(b-val)<Math.abs(a-val)?b:a); }
 function startOfWeek(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d.getTime(); }
-function isBarbellEx(e){ return e.requires.includes("barbell")||e.requires.includes("trapbar"); }
+function isBarbellEx(e){
+  // Was: only checked the STATIC base requires array, so an exercise whose base is
+  // dumbbell/bodyweight but whose Smith VARIANT needs real plate math (seated calf raise:
+  // requires=[bench,blocks], no "barbell") never showed the Plates button when Smith was
+  // active — confirmed via full sweep it's the only prefEquip:smith exercise built that
+  // way; every other one is a barbell movement at its core so this worked by coincidence.
+  // Now also true when the Smith variant is the one actually in effect this session.
+  return e.requires.includes("barbell")||e.requires.includes("trapbar")||(e.prefEquip==="smith"&&prefEquipActive(e));
+}
 const round5=n=>Math.max(0,Math.round((+n||0)/5)*5);
 const CARDIO_MACHINES=[
   {id:"bike",name:"Echo Bike",cap:"echobike",base:"bike_ss",unit:"mi",muscles:["cond"],fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}],modes:["distance","time","calories","intervals","free"]},
@@ -1279,7 +1303,12 @@ function condRounds(proto){ if(!proto) return 1; const s=String(proto);
 function buildCond(c,duration){ const m=COND_META[c.id]||{}; const fields=m.fields||[{k:"result",l:"Result"}]; const proto=c.proto[duration]; const n=condRounds(proto); const sets=[]; for(let i=0;i<n;i++) sets.push(mkCondSet(fields)); return {id:c.id,name:c.name,proto,muscles:c.muscles,weighted:!!m.weighted,loadCap:m.loadCap||null,fields,sets}; }
 function barWeightFor(e){
   if(e&&UI.plateBar[e.id]!=null) return UI.plateBar[e.id];
-  const def=(e&&exById(e.id))||e||{}; const req=def.requires||[];
+  const def=(e&&exById(e.id))||e||{};
+  // Was: only ever matched on the static requires array (barbell/trapbar/ezbar), so a
+  // Smith-preferred lift plated against the free barbell's weight even when the Smith
+  // variant was the one actually in effect — wrong bar, wrong plate math.
+  if(def.prefEquip&&prefEquipActive(def)){ const item=STATE.equipment.find(x=>x.on&&(x.caps||[]).includes(def.prefEquip)&&x.bar); if(item) return item.bar; }
+  const req=def.requires||[];
   let cap = req.includes("trapbar")?"trapbar": req.includes("barbell")?"barbell": req.includes("ezbar")?"ezbar":"barbell";
   const item=STATE.equipment.find(x=>x.on&&(x.caps||[]).includes(cap)&&x.bar);
   return item?item.bar:45;
@@ -1375,6 +1404,32 @@ function readiness(){
   return out;
 }
 function lastFocus(){ return STATE.workouts.length?STATE.workouts[0].focus:null; }
+// Single source of truth for "what duration is actually in effect for this focus" — used
+// by BOTH the duration picker's highlight and generate()'s actual call, so they can never
+// disagree. Before this, the picker highlighted purely off STATE.settings.duration while
+// generate() ran a separate, more complex rule involving _durPicked — two independent
+// computations of the same fact, exactly the failure mode already logged as
+// two-formulas-diverge. A focus with its own default (lower=60) could show 45 highlighted
+// while silently generating at 60, because nothing kept the two in sync.
+function resolvedDuration(focus){ const fd=(FOCI[focus]||{}).defaultDuration;
+  if(STATE.settings._durPicked) return STATE.settings.duration;
+  // Was: fell back to "whatever STATE.settings.duration currently is" — which meant
+  // visiting a focus WITH its own default (Lower=60) and then switching to one WITHOUT
+  // one (push/pull/core/metcon) left duration stuck at 60 forever, since nothing ever
+  // reverted it. baseDuration is the user's own separate, stable preference (45 unless
+  // they've explicitly set otherwise) — the thing to fall back to, not the last focus's
+  // leftover default.
+  return fd||STATE.settings.baseDuration;
+}
+// Self-heals stale state: if the picker would show a duration that ISN'T what generate()
+// will actually use (e.g. Lower was already the active focus from before this feature
+// existed, so _durPicked was never true to begin with), snap the stored value to match.
+// Called both when a focus is freshly tapped AND right before every generate() call, so
+// it corrects even when the focus was already active and never re-tapped. Only ever
+// touches the display value (duration), never baseDuration — that's the user's own
+// preference and a focus-driven display correction has no business overwriting it.
+function syncDurationToFocus(focus){ const r=resolvedDuration(focus);
+  if(r!==STATE.settings.duration){ STATE.settings.duration=r; STATE.settings._durPicked=false; } }
 function recommendFocus(){
   const r=readiness(), lf=lastFocus();
   // Core is on a fixed rotation cadence rather than competing on readiness score: it
@@ -1545,7 +1600,7 @@ function generate(focusKey,duration,mode){
   }
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const recent=recentExerciseIds(3);
-  const sCount=(()=>{ const base=STRENGTH_COUNT[duration]; const g=goalDef(); const sc=g.scheme||{};
+  const sCount=(()=>{ const g=goalDef(); const sc=g.scheme||{};
     // average seconds per set for this goal (work + rest), weighted toward accessories.
     // A pure core-focus session is 100% core-role exercises, so it should budget off
     // core's own rest value, not the compound/accessory blend everything else uses —
@@ -1864,7 +1919,10 @@ function exStations(e){ const s=[...(e.stations||[])]; const r=e.requires||[]; i
 const XCONFLICT={benchrack:["cable_high","cable_low","hangbar"],cable_high:["benchrack"],cable_low:["benchrack"],hangbar:["benchrack"]};
 function stationConflict(stations,e){ const es=exStations(e); if(es.some(s=>stations.includes(s))) return true; return es.some(s=>(XCONFLICT[s]||[]).some(x=>stations.includes(x))); }
 function implOf(e){ const r=e.requires||[]; if(r.includes("dumbbells")) return "db"; if(r.includes("kettlebell")) return "kb"; return null; }
-const IMPL_CAP={db:1,kb:2}; // one adjustable DB pair · two adjustable KBs
+// Caps how many exercises sharing an implement can sit in ONE circuit round — not a
+// statement about how many are owned. Circuit members alternate turns rather than run
+// simultaneously, so kb:2 doesn't require two physical kettlebells (the user owns one).
+const IMPL_CAP={db:1,kb:2};
 function capOK(group,cand){ const im=implOf(cand); if(!im) return true; const cur=group.filter(e=>implOf(e)===im).length; return cur<(IMPL_CAP[im]||99); }
 function groupExercises(list,mode){
   const size=mode==="circuit"?3:2; const groups=[]; let remaining=[...list];
@@ -1891,7 +1949,23 @@ function swapCandidates(exData,w){
   if(group) group.items.filter(id=>id!==exData.id).forEach(id=>{ const o=exById(id); if(!o) return; others.push(o); exStations(o).forEach(s=>groupStations.push(s)); });
   const inWO=new Set(w.exercises.map(e=>e.id)); const blocked=new Set(STATE.settings.blocked||[]);
   const simBlockedIds=new Set(); [...inWO].filter(id=>id!==exData.id).forEach(id=>simFamilyOf(id).forEach(x=>simBlockedIds.add(x)));
-  const baseFilter=e=>e.type==="strength"&&exAvailable(e,owned)&&e.id!==exData.id&&!inWO.has(e.id)&&!blocked.has(e.id)&&!stationConflict(groupStations,e)&&capOK(others,e)&&!simBlockedIds.has(e.id);
+  // Session-level exposure caps, mirroring the generator's own muscleOK/cfxOK exactly.
+  // Was: swapCandidates only checked ITEM-level constraints (equipment, family, station)
+  // and had no idea how many of a muscle or core-function were already in the session —
+  // confirmed via a 500-session sweep, a manual swap pushed a pull day to 5 back-primary
+  // exercises (cap is 4), and a core-function cap violation was traced to the same root
+  // cause. "Other" = every exercise in this workout except the slot being replaced.
+  const otherAll=w.exercises.map(e=>exById(e.id)).filter(o=>o&&o.id!==exData.id);
+  const MUSCLE_CAP=4;
+  const muscleCount={}; otherAll.forEach(o=>{ const p=(o.primary||[])[0]; if(p) muscleCount[p]=(muscleCount[p]||0)+1; });
+  // Skip for core: every core exercise shares primary="core" by design, so a normal
+  // 6-exercise core session already has 5+ "core" hits — the real generator's own
+  // core-focus branch never calls muscleOK either, relying on cfxOK alone for variety.
+  const muscleOK=e=>{ const p=(e.primary||[])[0]; return !p||p==="core"||(muscleCount[p]||0)<MUSCLE_CAP; };
+  const CFX_CAP=w.exercises.length>=8?3:2;
+  const cfxCount={}; otherAll.forEach(o=>{ if(o.cfx) cfxCount[o.cfx]=(cfxCount[o.cfx]||0)+1; });
+  const cfxOK=e=>{ if(!e.cfx) return true; return (cfxCount[e.cfx]||0)<CFX_CAP; };
+  const baseFilter=e=>e.type==="strength"&&exAvailable(e,owned)&&e.id!==exData.id&&!inWO.has(e.id)&&!blocked.has(e.id)&&!stationConflict(groupStations,e)&&capOK(others,e)&&!simBlockedIds.has(e.id)&&muscleOK(e)&&cfxOK(e);
   // Was: fell through to the ENTIRE strength database with no focus check at all once the
   // same-muscle pool ran dry — measured firing on 74% of swap slots after the exercise
   // library was curated down (20-exercise lower pool + per-circuit station/family
@@ -2231,6 +2305,7 @@ function renderToday(){
     ${(()=>{ const cur=s._focus||""; const F=FOCI[cur]; if(!F||!F.machineSess||F.machineSess==="sledS"||F.machineSess==="ruck") return ""; return `<div class="row" style="gap:7px;margin-bottom:8px;align-items:center"><span class="hint">Intensity</span><button class="chip ${!UI.hardDay?"on":""}" data-action="hardday" data-v="0">Easy · ${zTxt(2)}</button><button class="chip ${UI.hardDay?"on":""}" data-action="hardday" data-v="1">Hard intervals</button></div>`; })()}
     <div class="seg" id="focusSeg" style="margin-bottom:8px">${(()=>{ const pl2=feat("planner")?((STATE.settings.plan||{})[new Date().getDay()]||{}):{}; const slot=new Date().getHours()<12?"am":"pm"; const p=(pl2[slot]&&FOCI[pl2[slot]])?pl2[slot]:((pl2.am&&FOCI[pl2.am])?pl2.am:((pl2.pm&&FOCI[pl2.pm])?pl2.pm:null)); const sel=s._focus||(p?p:rec); return Object.keys(FOCI).map(k=>`<button data-focus="${k}" class="${k===sel?"on":""}">${k===rec?"★ ":""}${FOCI[k].name}</button>`).join(""); })()}</div>
     ${(()=>{ const rc=focusRecency(); const keys=["push","pull","lower","core","metcon","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
+    ${(()=>{ const f2=s._focus||rec; const before=STATE.settings.duration; syncDurationToFocus(f2); if(STATE.settings.duration!==before) pSet(); return ""; })()}
     <div class="eyebrow" style="margin:4px 0 6px">Time</div>
     <div class="seg" id="durSeg" style="margin-bottom:12px">${[30,45,60].map(d=>`<button data-dur="${d}" class="${d===s.duration?"on":""}">${d} min</button>`).join("")}</div>
     <div class="eyebrow" style="margin:4px 0 6px">Style</div>
@@ -2305,6 +2380,13 @@ function renderExercise(ex,idx,editable,w,grouped){
     h+=`<div class="ctrls">
       ${grouped?"":`<button class="chip rest" data-action="rest" data-sec="${ex.restSec}" data-key="${ex.id}" data-name="${esc(ex.name)}"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M12 2h0M9 2h6"/></svg>${esc(fmt(restFor(ex)))}</button>`}
       ${(ex.barbell||ex.landmine)?`<button class="chip ${UI.openPlates.has(ex.id)?"on":""}" data-action="plates" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M4 8v8M7 6v12M17 6v12M20 8v8M7 12h10"/></svg>Plates</button>`:""}
+      ${(()=>{ const base=exById(ex.id); if(!base||!base.prefEquip) return "";
+        const owned=(STATE.equipment||[]).some(x=>x.on&&(x.caps||[]).includes(base.prefEquip));
+        if(!owned) return "";
+        // Persistent per-exercise choice — "always squat on the Smith, always deadlift on
+        // the free bar" — not a session-only flip. Reflects ex.smith (the resolved state
+        // this exercise is actually using right now, computed in buildLoggable).
+        return `<button class="chip ${ex.smith?"on":""}" data-action="smithtoggle" data-id="${ex.id}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>${ex.smith?"Smith":"Free bar"}</button>`; })()}
       ${warmupRamp(ex)?`<button class="chip ${UI.openWarmup.has(ex.id)?"on":""}" data-action="warmup" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0116 0M12 6V3M6 8L4 6M18 8l2-2"/></svg>Warmup</button>`:""}
       ${ytChip(ex.name,ex.id)}
       <button class="chip ${UI.openSwap.has(ex.id)?"on":""}" data-action="swap" data-ex="${idx}"><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>Swap</button>
@@ -2820,7 +2902,7 @@ function importData(json){
   if(d.settings){
     STATE.settings.pinned=[...new Set([...(STATE.settings.pinned||[]),...(d.settings.pinned||[])])];
     STATE.settings.blocked=[...new Set([...(STATE.settings.blocked||[]),...(d.settings.blocked||[])])];
-    ["daysPerWeek","duration","mode","experience","goal","alarmVol","alarmSound","sledLane","barbellReloadSec","stationChangeSec","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
+    ["daysPerWeek","duration","baseDuration","mode","experience","goal","alarmVol","alarmSound","sledLane","barbellReloadSec","stationChangeSec","smithPref","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
     if(d.settings.recWeights) STATE.settings.recWeights=Object.assign(STATE.settings.recWeights||{},d.settings.recWeights);
     if(d.settings.exNotes) STATE.settings.exNotes=Object.assign(STATE.settings.exNotes||{},d.settings.exNotes);
     if(d.settings.restOverrides) STATE.settings.restOverrides=Object.assign(STATE.settings.restOverrides||{},d.settings.restOverrides);
@@ -2832,7 +2914,13 @@ function importData(json){
   if(Array.isArray(d.bw)&&d.bw.length){ const seen=new Set((STATE.bw||[]).map(x=>x.t)); STATE.bw=[...(STATE.bw||[]),...d.bw.filter(x=>x&&x.t&&!seen.has(x.t))].sort((a,b)=>b.t-a.t); pBW(); }
   if(Array.isArray(d.equipment)){
     const byId={}; d.equipment.forEach(e=>byId[e.id]=e);
-    STATE.equipment.forEach(e=>{ if(byId[e.id]) e.on=byId[e.id].on; });
+    STATE.equipment.forEach(e=>{ if(byId[e.id]){
+      // Restoring a backup exported before the Smith was delivered (its own saved bar
+      // still 33) must not clobber the current device's correct on=true/bar=35 — same
+      // migration signal as boot()'s equipment merge.
+      if(e.id==="smith"&&byId[e.id].bar===33) return;
+      e.on=byId[e.id].on;
+    } });
     d.equipment.filter(e=>e.custom&&!STATE.equipment.find(x=>x.id===e.id)).forEach(e=>STATE.equipment.push(e));
   }
   pWo(); pSet(); pEq(); return true;
@@ -2854,15 +2942,20 @@ view.addEventListener("click",e=>{
   if(RD_LP.fired){ RD_LP.fired=false; e.preventDefault(); e.stopPropagation(); return; } // long-press just opened the sheet — don't also run the tap-cycle
   const pp=e.target.closest("[data-prog-p]"); if(pp){ UI.progPeriod=pp.dataset.progP; renderProgress(); return; }
   const seg=e.target.closest("#focusSeg button,#durSeg button,#modeSeg button");
-  if(seg){ if(seg.dataset.focus) STATE.settings._focus=seg.dataset.focus; if(seg.dataset.dur){ STATE.settings.duration=+seg.dataset.dur; STATE.settings._durPicked=true; pSet(); } if(seg.dataset.mode){ STATE.settings.mode=seg.dataset.mode; pSet(); }
+  if(seg){ if(seg.dataset.focus){ STATE.settings._focus=seg.dataset.focus; syncDurationToFocus(seg.dataset.focus); pSet(); }
+    if(seg.dataset.dur){ STATE.settings.duration=+seg.dataset.dur; STATE.settings._durPicked=true;
+      // Only feeds baseDuration when the CURRENT focus has no default of its own — an
+      // explicit pick on push/pull/core/metcon IS the user's general preference. An
+      // override on Lower (which has its own 60-min default) is a one-off for that
+      // session and shouldn't silently redefine what push/pull/core fall back to.
+      if(!(FOCI[STATE.settings._focus]||{}).defaultDuration) STATE.settings.baseDuration=+seg.dataset.dur;
+      pSet(); } if(seg.dataset.mode){ STATE.settings.mode=seg.dataset.mode; pSet(); }
     seg.parentElement.querySelectorAll("button").forEach(x=>x.classList.remove("on")); seg.classList.add("on"); return; }
   const act=e.target.closest("[data-action]"); if(!act) return; const a=act.dataset.action;
 
   if(a==="generate"){ const focus=STATE.settings._focus||recommendFocus(); UI.openSwap.clear(); UI.openPlates.clear();
-    // A focus can declare its own default duration (lower = 60 min, since one merged day
-    // covers quads/posterior/glutes/calves). The user's picked duration still wins if they
-    // explicitly chose one for this session.
-    const dur=(STATE.settings._durPicked?STATE.settings.duration:((FOCI[focus]||{}).defaultDuration||STATE.settings.duration));
+    syncDurationToFocus(focus); // self-heal: if the picker's showing a stale duration for this focus (e.g. Lower already active from before this feature shipped, never re-tapped), fix it before generating, not just on a fresh focus click
+    const dur=resolvedDuration(focus);
     STATE.current=generate(focus,dur,STATE.settings.mode); pCur(); render(); toast("Workout built"); return; }
   if(a==="toggleset"){ const row=act.closest(".setrow"); const exi=+row.dataset.ex; const ex=STATE.current.exercises[exi]; const s=ex.sets[+row.dataset.set]; s.done=!s.done; act.classList.toggle("done",s.done);
     // stamp actual rest taken onto whichever set most recently triggered a rest timer
@@ -2888,6 +2981,14 @@ view.addEventListener("click",e=>{
       inp.addEventListener("change",()=>{ const f=inp.files&&inp.files[0]; if(!f){ return; } const rd=new FileReader(); rd.onload=()=>{ if(importData(String(rd.result))){ STATE.tab="log"; render(); toast("Imported & merged from file"); } else toast("Couldn’t read that file"); }; rd.readAsText(f); inp.value=""; }); }
     inp.click(); return; }
   if(a==="exhist"){ renderExHistModal(act.dataset.id); return; }
+  if(a==="smithtoggle"){ const id=act.dataset.id; const base=exById(id); if(!base||!base.prefEquip) return;
+    if(!STATE.settings.smithPref) STATE.settings.smithPref={};
+    const cur=STATE.settings.smithPref[id]!=null?STATE.settings.smithPref[id]:true;
+    STATE.settings.smithPref[id]=!cur; pSet();
+    delete UI.plateBar[id]; // stale manual bar-weight override would otherwise mask the new implement's bar weight
+    const live=(STATE.current&&STATE.current.exercises||[]).find(e=>e.id===id);
+    if(live){ live.smith=prefEquipActive(base); live.name=exDisplayName(base); live.cue=exDisplayCue(base); live.barbell=isBarbellEx(base); }
+    render(); return; }
   if(a==="grest"){ const gi=+act.dataset.gi; const g=STATE.current.groups[gi];
     if(g){ const doneCounts=g.items.map(id=>{ const ex=STATE.current.exercises.find(e=>e.id===id); return ex?ex.sets.filter(s=>s.done).length:0; });
       const round=Math.min(...doneCounts); // the round currently in progress for this group
