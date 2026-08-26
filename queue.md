@@ -2,23 +2,18 @@ QUEUE — approved work not yet built. Newest first. Check alongside mistake.md 
 any build session. Remove an item once it ships (note the build number).
 
 ---
-QUEUED: 2026-08-24 — screen lock re-activates after tapping Ungroup
-Reported: mid-workout, tapping Ungroup causes the phone's lock screen to come back on
-(the wake-lock/keep-awake protection stops holding). Traced the code path: ungroup's
-handler calls pCur() then renderToday(), and renderToday() DOES end with the correct
-wake-lock check — `if(STATE.current&&STATE.current.startedAt){ startWoTimer();
-requestWake(); } else { stopWoTimer(); releaseWake(); }` — so on paper, an active
-workout (startedAt set) should re-request (or no-op if already held) rather than
-release. Nothing in ungroup's own logic touches startedAt or calls releaseWake()
-directly. Static reading doesn't show an obvious JS bug.
-SUSPECTED CAUSE (unconfirmed without live device testing): the Screen Wake Lock API has
-real, spec-level quirks — some browsers require a wake-lock (re)request to be tied
-closely to a user gesture, and can silently refuse a request if too much async/render
-work happens between the tap and the request (requestWake's catch block is empty,
-so a silent failure here would be invisible). Also possible: the API auto-releases on
-any visibility-state hiccup, and the visibilitychange listener that's supposed to
-re-acquire it doesn't fire or loses the race.
-FIX DIRECTION: needs live reproduction on the actual device (or at least logging what
-requestWake()'s catch block is silently swallowing) before a real fix can be targeted —
-static code reading found the intended logic looks correct, so this is likely a runtime/
-browser-API timing issue, not a straightforward code bug to patch blind.
+SHIPPED v36 (pending on-device confirmation) — 2026-08-24 — screen lock re-activates after tapping Ungroup
+Reported: mid-workout, tapping Ungroup let the phone's lock screen come back on (the
+wake-lock stopped holding). Root-cause theory (from the original trace): the Wake Lock
+API silently drops the lock on events like a screen dim, and some browsers refuse a
+re-request unless it is tied closely to a user gesture — and Ungroup only re-requested
+from renderToday(), AFTER a full DOM rebuild, far enough from the tap that the browser
+could reject it. requestWake()'s catch block was also empty, so any failure was invisible.
+FIX (v36): the main click handler now calls requestWake() synchronously at the top, inside
+the user-gesture window, on EVERY tap during an active workout (before the action's own
+async render) — so Ungroup and every other button keep the screen awake. requestWake()
+no-ops when the lock is already held, so it's cheap. Also: requestWake() now records the
+last failure in `_wakeErr` instead of swallowing it silently, for future diagnosis.
+STILL NEEDS: confirmation on the actual Pixel 9 Pro Fold that the lock screen no longer
+returns after Ungroup mid-workout. If it still recurs, capture `_wakeErr` from the console
+— that will show what the browser is refusing. Remove this entry once confirmed on device.

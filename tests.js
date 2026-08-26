@@ -306,6 +306,17 @@ T("regression: render errors", rerr===0, rerr);
   T("injury: sessions still fill with an injury flagged", on.shortSessions===0, on.shortSessions+" empty");
   T("injury: flagged exercises reduced vs feature-off", on.flagged<off.flagged, "on="+on.flagged+" off="+off.flagged);
   STATE.settings.feat=savedFeat; STATE.settings.injuries=savedInj; }
+// --- loadsFor unions all owned entries for a cap (the one adjustable KB is modelled as
+// two range-entries; snapping must span the full range, not just the first entry) ---
+{ const kl=loadsFor("kettlebell")||[];
+  T("loadsFor: kettlebell spans the full range (heavy loads present)", kl.includes(53), JSON.stringify(kl));
+  T("loadsFor: returns a sorted unique list", kl.every((v,i)=>i===0||v>kl[i-1]), JSON.stringify(kl)); }
+// --- GUIDES hygiene: every guide key is a live exercise/cond id or is still referenced by
+// saved history (openHowto reads GUIDES[id] for logged workouts). Prevents orphan re-growth. ---
+{ const live=new Set(EXERCISES.map(e=>e.id));
+  const histIds=new Set(); (SEED_DATA.workouts||[]).forEach(w=>{ (w.exercises||[]).forEach(e=>histIds.add(e.id)); (w.conditioning||[]).forEach(c=>histIds.add(c.id)); });
+  const stray=Object.keys(GUIDES).filter(k=>!live.has(k)&&!histIds.has(k));
+  T("GUIDES: no orphaned guide keys (not live, not in history)", stray.length===0, stray.join(",")); }
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));

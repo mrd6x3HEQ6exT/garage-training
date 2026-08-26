@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v35";
+const BUILD="v36";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -665,16 +665,11 @@ const GUIDES={
   bb_incl:"Bench at ~30°. Same tight setup as flat bench; lower to the upper chest just below the collarbone, press up. Don't set the incline so steep it becomes a shoulder press.",
   db_bench:"Bells over the chest, wrists stacked over elbows. Lower until the elbows are just below the bench, press up without clanking the bells. Keep the shoulder blades retracted.",
   db_incl:"Incline ~30°. Lower the bells with control for a deep chest stretch, press up over the upper chest.",
-  db_floor:"Lie on the floor and press; let the triceps lightly touch the floor each rep. The floor limits the range and spares the shoulders.",
   lm_press:"Tuck the bar end into your shoulder, stand staggered and braced. Press up and slightly forward, one arm at a time. Don't lean back to heave it up.",
   dips:"Grip the bars and lean the torso forward for chest emphasis. Lower until the shoulders are level with the elbows, press back up. Don't shrug at the top.",
-  pushup:"Hands under the shoulders, body in a straight line, abs braced. Lower the chest to just off the floor and push up. Add the vest for load.",
-  cable_fly:"Pulleys low or mid, a slight fixed bend in the elbows. Sweep the handles together in a hugging arc, squeeze, control back out.",
   bb_ohp:"Bar on the front delts, grip just outside the shoulders. Squeeze glutes and abs, press overhead, move the head back slightly so the bar clears the chin then back under at lockout.",
   db_ohp:"Seated with back support. Press from shoulder height to overhead without banging the bells together. Keep the ribs down — don't arch the lower back.",
-  db_ohp_st:"Standing and strict — no leg drive. Brace hard and press overhead. Builds shoulder stability.",
   lat_raise:"Slight forward lean, soft elbows. Lead with the elbows up to shoulder height, like pouring water. Don't swing or shrug.",
-  cable_lat:"Low pulley across the body; raise the arm out to the side against constant tension. One side at a time.",
   face_pull:"Rope on the high pulley. Pull toward the forehead, thumbs rotating back, elbows high. Squeeze the rear delts — great for posture.",
   rear_fly:"Chest on an incline bench, light bells. Sweep the arms out to the sides leading with the pinkies. No momentum.",
   pushdown:"Rope on the high pulley, elbows pinned to your sides. Extend down and spread the rope at the bottom, control back up.",
@@ -685,17 +680,6 @@ const GUIDES={
   pullup_neutral:"Grip the close neutral handles with your palms facing each other and pull until your chin clears. This is the most shoulder-friendly pull-up variation and lets the biceps contribute, so most people are strongest here.",
   pullup_neutral_wide:"Same neutral palms-facing grip but on the wide handles. The wider hand position shifts work outward across the upper back and lats, and it is a little harder than the close version.",
   pullup_wide:"Hands wide on the straight bar, palms forward. Think about driving the elbows down and in toward your ribs rather than pulling with the arms. Lats do more work, biceps do less.",
-  pullup_angled:"Use the 30-degree drop grips. The angle sits between a pronated and a neutral grip, which many lifters find is the sweet spot for wrist and elbow comfort under load.",
-  pullup_inner:"The 80-degree inner tubes put your hands narrow and nearly vertical. Expect a strong biceps and lower-lat emphasis, and a deeper range at the top.",
-  pullup_globe_sm:"Hang from the small 3.1 inch globes. The thick round grip makes your hands and forearms the limiting factor long before your back tires. Keep reps low and honest; grip strength is the training goal.",
-  pullup_globe_lg:"The 4 inch globes. Even harder to hold than the small ones. Expect a fraction of your normal pull-up reps, and treat every set as grip work that happens to include a pull-up.",
-  pullup_band:"Loop a band over the bar and put your knees or feet in it. The band helps most at the bottom where you are weakest. Step down to a lighter band as you get stronger; the goal is to eventually need none.",
-  pullup_negative:"Jump, step, or use a box to reach the top position, then lower yourself as slowly as you can, aiming for five seconds. You are far stronger lowering than lifting, which is exactly why this builds your first strict pull-up.",
-  pullup_lsit:"Hold your legs straight out in front of you, parallel to the floor, and keep them there for the entire pull-up. The core holds an isometric while the back does the pulling. Reduce to a tucked knee hold if the legs drop.",
-  pullup_archer:"Pull yourself up and across toward one hand while the opposite arm stays straight out along the bar. Alternate sides. It loads one arm heavily and is a genuine step on the road to a one-arm pull-up.",
-  pullup_typewriter:"Pull to the top, then travel side to side along the bar while keeping your chin above it. Stay high the whole time. Advanced move; earn it with clean archer pull-ups first.",
-  scap_pullup:"Hang with straight arms. Without bending your elbows at all, pull your shoulder blades down and back so your body rises an inch or two, then let it settle. Builds the scapular control that protects the shoulders in every pull.",
-  dead_hang:"Hang from the bar with a full grip and relaxed shoulders, breathing normally. Builds grip endurance and decompresses the spine and shoulders. Log the time rather than reps.",
   chinup:"Underhand grip. Pull the chin over the bar driving the elbows down — hits the biceps harder than a pull-up.",
   pulldown:"Tall chest, slight lean back. Pull the bar to the upper chest leading with the elbows, control it back up. Don't yank with the lower back.",
   bb_row:"Hinge to ~45°, neutral spine, bar hanging. Row to the lower ribs/belt, squeeze, lower with control. Keep the torso angle fixed.",
@@ -712,43 +696,16 @@ const GUIDES={
   bb_squat:"Bar on the upper back, abs braced. Break at the hips and knees together, sit to at least parallel keeping the chest up, drive up through mid-foot. Don't let the knees cave in.",
   front_squat:"Bar on the front delts, elbows high. Stay upright as you squat — more quad and core. Drive the elbows up out of the bottom.",
   trap_squat:"Stand inside the trap bar, hinge and squat to the handles, stand tall. Knees track over the toes.",
-  goblet:"Hold a bell at the chest, elbows inside the knees. Sit between the hips keeping the torso tall, drive up.",
-  bss:"Rear foot on the bench, front foot forward. Drop straight down sending the back knee toward the floor, drive up through the front heel. Per leg.",
-  walk_lunge:"Step forward into a lunge, back knee toward the floor, push off and bring the rear leg through to the next step. Long strides for glutes.",
-  step_up:"Plant the whole foot on the bench, drive through that heel to stand tall, control the way down. Minimal push off the floor.",
   lm_squat:"Hold the landmine bar end at the chest, heels can sit on the wedge. Squat down and drive up — easy on the back.",
-  heel_squat:"Heels on the wedge, hold a bell. The elevation lets you stay upright and bias the quads.",
   deadlift:"Bar over mid-foot, hinge and grip just outside the knees, flat back, chest up. Take the slack out, then push the floor away and stand tall, bar dragging up the legs. Don't round the lower back or jerk it off the floor.",
   trap_dl:"Stand in the trap bar, grip the handles, flat back. Drive through the floor; hips and shoulders rise together. The most beginner-friendly deadlift.",
   bb_rdl:"Start standing with the bar. Soft knees, push the hips back and slide the bar down the thighs until you feel a hamstring stretch, then drive the hips forward. It's a hinge, not a squat — keep the back flat.",
-  db_rdl:"The same hinge as the RDL but with dumbbells kept close to the legs.",
   lm_rdl:"Hinge while the landmine bar arcs down in front of you, then drive the hips to stand.",
-  ghr:"Anchor the feet, body straight from knee to head. Lower slowly using the hamstrings, then pull back up. Very hard — shorten the range to scale.",
   nordic:"Pin your ankles under the bench leg roller and kneel tall with the body in a straight line. Resist falling forward as slowly as you can, then push off lightly to reset. Loop a band around your chest and anchor it in front to take load off while you build strength. Brutal hamstring eccentric.",
-  ghr_curl:"Lie on your back with your heels on the roller's foot tray. Drive the hips up into a bridge and hold that height, then curl the heels toward your butt. The hips must not sag as the roller comes in — that sag is where the hamstring work gets stolen by the glutes.",
-  ghr_curl_sl:"Same as the supine leg curl but with one foot on the tray and the other leg held off the floor. Keep the hips level and square as you curl. Expect a big drop in reps versus two legs.",
-  ghr_curl_cable:"Attach the included strap and handle to the roller and clip it to the low pulley. Set up for a supine leg curl; now the stack pulls the roller away from you the whole time. This is the version you can progressively overload week to week.",
-  ghr_curl_band:"Anchor a band behind the roller and set up for a supine curl. Resistance builds as the roller travels in, loading the shortened position hardest. Use when the cable stack is tied up.",
-  ghr_bridge_curl:"Bridge the hips up first and hold a hard glute squeeze. From there, curl the heels in and press them back out without ever letting the hips drop. Combines a glute bridge isometric with the hamstring curl.",
-  ghr_slideout:"Start hips-high with the heels on the tray. Let the legs slowly extend out under control, fighting it the whole way, then reset with your hands or a bent-knee return. Purely eccentric — take four or five seconds on the way out.",
-  ghr_lat_lunge:"Stand with one foot on the roller. Slide it out to the side while sitting back and down into the standing leg, then pull it back in. The standing leg does the work; the roller leg just travels.",
-  ghr_rev_lunge:"One foot on the roller, slide it straight back into a lunge, drop the back knee toward the floor, then pull the foot home. Constant tension, zero impact — kind on the knees.",
-  ghr_curtsy:"Slide the roller foot back and diagonally across behind your standing leg, sit into the hip, then return. Targets the glute medius and the hip stability most lunges miss.",
-  ghr_rollout:"Kneel with your hands on the roller, ribs down and glutes squeezed. Roll it out in front of you only as far as you can go without your lower back arching or hips sagging, then pull it back. Range is earned, not forced.",
-  ghr_rollout_stand:"The kneeling rollout performed from your feet. Enormous demand on the abs and lats to keep the spine from extending. Only attempt after you own full-range kneeling rollouts.",
-  ghr_rollout_cable:"Clip the roller's strap to the low pulley so the stack resists the roll-out. It loads the deepest, hardest part of the movement and lets you add weight instead of just chasing range.",
-  ghr_bodysaw:"Get into a forearm plank with your feet on the tray. Push back through the shoulders so the whole body slides away, then pull back to the start. The hips stay level for every inch of travel.",
-  ghr_tuck:"From a push-up plank with feet on the tray, pull the knees in toward the chest, then extend back out slowly. The slow extension is the part that builds the abs.",
-  ghr_pike:"Plank with feet on the tray. Keeping the legs straight, drive the hips up toward the ceiling into an inverted V, then lower back to a flat plank under control.",
-  ghr_oblique_tuck:"Plank with feet on the tray. Tuck the knees diagonally toward one elbow, extend back, then tuck to the other side. Hits the obliques through rotation under load.",
-  ghr_knee_raise_band:"Loop a band around the roller and your feet. From a supported plank or V-sit, raise the knees against the band's pull and lower slowly. Adds resistance to an otherwise bodyweight-only move.",
-  ghr_climber:"Plank with feet on the tray. Drive one knee in at a time as fast as you can while keeping the hips flat and the shoulders stacked over the hands. Core work with a conditioning bite.",
   kb_swing:"Hinge and hike the bell back between the legs, then snap the hips forward to float it to chest height. It's a hip drive, not an arm raise.",
   hip_thrust:"Shoulder blades on the bench, padded bar across the hips. Drive through the heels and squeeze the glutes at the top, ribs down — don't overarch the back.",
-  db_thrust:"Same as the barbell hip thrust with a dumbbell across the hips; pause and squeeze at lockout.",
   pull_through:"Face away from a low cable, rope between the legs. Hinge back, then snap the hips forward to lockout. Glute-focused hinge.",
   kickback:"Ankle cuff on a low cable, slight forward lean. Drive the heel back and up, squeeze the glute, control back. Per side.",
-  band_walk:"Band above the knees, half-squat. Step sideways keeping tension on the band and the feet pointing forward. Burns the side glute.",
   calf_db:"Hold dumbbells, balls of the feet on a plate or the wedge. Rise as high as possible, pause, lower for a full stretch.",
   hlr:"Hang from the bar. Curl the pelvis and raise the legs with no swing — control is everything. Bend the knees to scale.",
   hang_knee:"Hang and raise the knees to the chest, control the lower. An easier progression of the leg raise.",
@@ -757,13 +714,7 @@ const GUIDES={
   pallof:"Peg a band at chest height and stand side-on to it. Press the handle straight out from your chest and resist the pull trying to rotate you. Anti-rotation core — a lighter band or standing farther out makes it harder.",
   lm_twist:"Hold the landmine bar end in both hands, pivot it side to side in an arc, rotating through the hips and trunk.",
   decline_situp:"Anchor the feet on a decline bench, hold a plate or DB at the chest. Sit up with control, lower slowly.",
-  reverse_crunch:"On your back, curl the hips and knees toward the chest, lifting the glutes off the floor. Control the lower.",
-  russian:"Sit leaning back, feet up, rotate a weight side to side touching near each hip. Keep the chest tall.",
-  side_plank:"On one forearm, body in a straight line, hips stacked and lifted. Hold. Add the vest for load. Per side.",
-  copenhagen:"Top shin on the bench, body sideways in a straight line, drive the hip up and hold. Tough adductor/core move — use a shorter lever to scale. Per side.",
   hollow:"On your back, low back glued to the floor, arms and legs extended and lifted, ribs down. Hold the tension.",
-  plank:"Forearms down, body in one line head to heels, glutes and abs squeezed. Don't let the hips sag. Vest for load.",
-  suitcase:"Hold one bell at your side and walk tall without leaning. Fights the sideways bend — strong oblique work. Per side.",
   farmer:"Heavy bells at the sides, braced and tall, walk with quick controlled steps. Grip, core, and conditioning.",
   bike_int:"Air bike — push hard with the arms and legs through the work intervals, ease off in the rest. Pick a target RPM and hold it.",
   bike_ss:"Steady, conversational-pace ride to flush the legs and build the aerobic base.",
@@ -791,11 +742,7 @@ const GUIDES={
   ruck:"Put the vest on and keep moving — walk, carries, step-ups — for the whole time block.",
   burpee:"Chest to the floor, jump the feet in, stand and hop. Full-body — pace it so you keep moving.",
   incline_db_fly:"Incline bench, a slight fixed elbow bend. Open the arms wide for a deep chest stretch, then hug them back together over the chest.",
-  cable_cross_high:"Pulleys set high. Sweep both handles down and together in front of your hips, squeezing the lower chest, control back.",
-  feet_up_pushup:"Feet on the bench, hands under the shoulders, body in a line. Lower the chest and press up — biases the upper chest. Vest for load.",
   db_fly_floor:"On your back on the floor, slight elbow bend; open the arms until the upper arms tap down, then hug back up. The floor caps the stretch and protects the shoulders.",
-  arnold:"Start with palms facing you at chin height; press overhead while rotating the palms to face forward, reverse on the way down.",
-  z_press:"Sit on the floor with legs straight out and press the bar overhead — zero back support, so the core and strict shoulder strength do everything.",
   front_raise:"Raise the bells straight out in front to shoulder height with soft elbows, lower under control. No swinging.",
   cable_upright:"Low cable; pull the bar or rope up the front of the body to chest height leading with the elbows. Back off if the shoulders pinch.",
   band_pull_apart:"Band at shoulder height, arms straight; pull it apart to your chest, squeezing the shoulder blades. Great rear-delt and posture work.",
@@ -804,67 +751,21 @@ const GUIDES={
   kickback_tri:"Hinge over, upper arm pinned to your side; extend the elbow straight back and squeeze the triceps.",
   sa_pulldown:"Arms nearly straight; drive the bar from overhead down to your thighs using only the lats. Big stretch at the top.",
   inverted_row:"Set the bar in the rack, hang underneath with a straight body, and pull your chest to the bar. Raise the bar height to make it easier.",
-  db_shrug:"Heavy bells at your sides; shrug straight up toward the ears, pause, lower slow. Don't roll the shoulders.",
-  trap_shrug:"Stand loaded in the trap bar and shrug the shoulders straight up, squeezing the traps hard.",
   ng_pulldown:"Neutral, palms-facing handle pulled to the upper chest, elbows leading. Easier on the shoulders than a wide grip.",
   incline_curl:"Lie back on an incline bench, arms hanging; curl with the elbows staying behind the body for a big biceps stretch.",
   conc_curl:"Seated, elbow braced against the inner thigh; curl one bell with a hard peak squeeze at the top.",
-  spider_curl:"Chest on an incline bench, arms hanging straight down; curl up strictly with no momentum.",
-  reverse_curl:"Overhand (palms-down) grip on the EZ bar; curl up. Builds the forearms and brachialis.",
   box_squat:"Squat back to lightly touch the bench/box, stay braced and tight, then drive up. Teaches depth and explosive hips.",
-  rev_lunge:"Step backward into a lunge, back knee toward the floor, then drive through the front heel to stand. Easier on the knees than forward lunges.",
-  sissy_squat:"Hold something for balance; rise onto the balls of the feet and lean back, bending the knees forward. Deep quad burn — go slow.",
-  lm_rev_lunge:"Hold the landmine bar at your chest, step back into a lunge, drive up through the front leg. Per side.",
-  curtsy_lunge:"Step one leg back and across behind the other into a curtsy, drop straight down, return. Hits the side glute.",
-  sl_rdl:"Balance on one leg; hinge at the hip letting the free leg float back, keep a flat back, return to standing. Hamstring strength and balance.",
   good_morning:"Bar on the upper back, soft knees; hinge the torso forward keeping a flat back, then drive the hips to stand. Start light.",
   back_ext:"Hips on the GHR pad, feet anchored. Hug a plate to the chest, round down under control, then extend to a flat-backed lockout — squeeze the low back and glutes at the top, don't crank into hyperextension.",
   superman:"Face down on the floor, arms ahead. Lift the chest, arms and thighs off the ground and hold, squeezing the low back and glutes. No equipment needed.",
-  sumo_dl:"Wide stance, toes turned out, hands grip inside the knees. Push the floor away with a tall chest, bar dragging close.",
   trap_rdl:"In the trap bar with soft knees, push the hips back and slide down to a hamstring stretch, then stand tall.",
-  sl_hip_thrust:"Shoulders on the bench, one foot planted and the other extended; drive through the heel and squeeze the glute. Per side.",
-  frog_pump:"Lie on your back, soles of the feet together and knees out; drive the hips up squeezing the glutes, for high reps.",
-  kb_dl:"Bell between the feet; hinge and grip it, flat back, then stand tall driving the hips. A great entry to deadlifting.",
-  sl_calf:"One foot on a plate or the wedge; rise as high as possible, pause, lower for a full stretch. Per side.",
-  toes_to_bar:"Hang from the bar, brace, and bring the toes up to touch it, then control the lower. Scale with knee raises.",
-  vup:"On your back, lift the legs and torso at the same time into a V, reaching for the toes, then lower with control.",
-  deadbug:"On your back with the low back pinned down, slowly lower the opposite arm and leg, then return. Anti-extension core.",
-  ww:"Hang from the bar with the legs raised; rotate them side to side like windshield wipers. Advanced oblique work.",
-  standing_oblique:"Hold a bell in one hand; bend sideways toward that hip, then crunch back up. Per side.",
-  oh_carry:"Press the bells overhead to lockout and walk tall, ribs down, arms by the ears. Shoulder stability and core.",
-  bicycle:"Alternate bringing the opposite elbow to knee while fully extending the other leg. Slow and deliberate beats fast and sloppy.",
-  flutter:"Legs straight and just off the floor; make small, quick alternating up-down kicks. Hold for time and keep the low back down.",
-  hollow_rock:"Get into a hollow hold — low back pressed down, arms and legs off the floor — then rock back and forth as one rigid piece.",
-  bird_dog:"On all fours, extend the opposite arm and leg until level, pause, then switch. Keep the hips square and the core tight.",
-  renegade_row:"In a push-up position gripping the dumbbells, row one bell to the ribs while bracing hard against rotation, then the other. Widen the feet for stability.",
   ghr:"Anchor your feet under the bench pad or a loaded bar. Loop a resistance band from something overhead/in front and hold it for assistance. Keeping the body in a straight line from knees to head, lower yourself toward the floor as slowly as you can, then pull back up — the band takes some of your weight so you can control the movement. Lighter band = harder.",
-  bb_thruster:"Take the bar in a front-rack position. Drop into a full front squat, then drive up explosively and let that momentum carry the bar into a full overhead press — squat and press are one continuous movement. Bar finishes locked out overhead.",
-  l_sit:"Support yourself on the dip bars (or hang from the pull-up bar), press down through the hands, and lift your legs straight out to form an L. Hold. Scale by tucking the knees.",
-  bear_crawl:"On hands and feet with knees hovering just off the floor, crawl forward moving opposite hand and foot together. Keep the hips low and the core braced so you don't rock side to side.",
-  db_side_bend:"Hold a dumbbell in one hand at your side. Bend sideways toward that hip, then contract the opposite obliques to pull yourself back upright. Do both sides.",
-  hang_oblique:"Hang from the bar and raise your knees up and toward one side, then lower and alternate to the other side. Controlled — the obliques do the twisting.",
-  plank_saw:"In a forearm plank, rock your whole body forward and back on your toes so your shoulders travel past and behind your elbows. Small range, big tension on the abs.",
-  jackknife:"Sit on the end of the bench gripping the sides, lean your torso back and extend your legs out, then draw your knees and chest together into a tuck. Extend and repeat.",
   dragon_flag:"Grip the bench behind your head; keeping the body straight and rigid, raise it toward vertical, then lower slowly without bending at the hips. Very advanced — scale the range.",
-  bb_pause_bench:"Unrack and lower the bar to your chest under control. Come to a complete dead stop — 1 to 2 seconds, no bounce — then press explosively. Builds power right off the chest where most benches stall.",
-  bb_spoto:"Lower the bar to about an inch above your chest, stop and hold it there without touching, then press back up. Constant tension the whole set; brutal for control and the mid-range.",
-  bb_pin_press:"Set the safety pins in the rack at chest height. Each rep starts from a dead stop resting on the pins — no stretch reflex, so it's pure pressing strength from your weak point.",
   bb_floor_press_bb:"Lie on the floor inside the rack, lower until your upper arms rest on the deck, pause, then press. The floor limits range and takes the shoulders/legs out — triceps and lockout focus.",
-  bb_larsen:"Bench with your legs straight out and feet off the floor. No leg drive means your chest and shoulders do everything, and you learn to stay tight without pushing through the legs.",
   bb_push_press:"From the front rack, dip a few inches at the knees, then explosively extend and drive the bar overhead, finishing with a hard lockout. Lets you overload the shoulders past a strict press.",
-  bb_pin_ohp:"Press from pins set around forehead height. Starting overhead from a dead stop trains the exact sticking point of your overhead press.",
   bb_seated_ohp:"Set an upright bench in the rack. Press the bar strictly overhead with no leg drive — seated removes the cheat and isolates the shoulders.",
   rack_pull:"Set the bar on pins at about knee height. Pull to lockout with deadlift form. You can handle more than a full deadlift, overloading grip, traps, and the top of the pull while sparing the lower back.",
-  bb_yates_row:"Underhand (supinated) grip, torso around 45 degrees, row the bar to your lower abs. The angle and grip let you move heavier weight than a strict row — great back builder.",
   bb_pause_row:"Row the bar to your ribcage and hold for a full second at the top, squeezing the back, before lowering under control. The pause kills momentum and builds contraction strength.",
-  bb_pause_squat:"Descend to full depth and pause 2 to 3 seconds in the bottom, staying tight, then drive up. Removes the bounce and builds strength out of the hole.",
-  bb_pin_squat:"Squat down onto pins set at your target depth, settle for a moment, then drive up from a complete stop. Trains raw starting strength with no stretch reflex.",
-  bb_tempo_squat:"Lower for a slow 4-count, brief pause at the bottom, then stand at normal speed. Time under tension and rock-solid control; use lighter weight than a normal squat.",
-  bb_pause_front:"Front-rack the bar, sit to depth, pause, then drive up staying tall. The front load and pause expose and fix any forward lean or weak upper back.",
-  bb_deficit_dl:"Stand on a 1 to 2 inch plate so the bar starts lower. The longer range builds strength off the floor. Keep a flat back — only use a deficit you can hold position through.",
-  bb_block_pull:"Rest the bar on blocks just below the knee and pull to lockout. Overloads the top half of the deadlift and reinforces the lockout without the hardest bottom portion.",
-  bb_pause_dl:"On the way up, pause 1 to 2 seconds just below the knee, staying tight, then finish the lockout. Reinforces bar path and position under load.",
-  bb_jm_press:"A hybrid of close-grip bench and skullcrusher: lower the bar toward your throat with elbows traveling forward, then press. Loads the triceps hard while staying a pressing movement.",
   bb_calf_raise:"Bar on your upper back, balls of your feet on a plate or block with heels hanging. Drop into a full stretch, then rise all the way onto your toes. Slow and full range.",
   bb_bb_shrug:"Hold a heavy bar (pull it from the rack), shrug your shoulders straight up toward your ears, hold the squeeze, and lower slowly. Straps help — the traps give out well before the grip.",
 };
@@ -1141,7 +1042,15 @@ function prefEquipActive(e){ if(!e||!e.prefEquip) return false;
 }
 function exDisplayName(e){ return prefEquipActive(e)&&e.prefName?e.prefName:e.name; }
 function exDisplayCue(e){ return prefEquipActive(e)&&e.prefCue?e.prefCue:e.cue; }
-function loadsFor(cap){ const e=STATE.equipment.find(x=>x.on&&(x.caps||[]).includes(cap)&&x.loads); return e?e.loads:null; }
+function loadsFor(cap){
+  // Union the loads of EVERY owned entry that provides this capability, not just the first.
+  // The single adjustable kettlebell is modelled as two range-entries (kb1 8–16 kg,
+  // kb2 16–24 kg); the old "find first" returned only kb1's 18–35 lb, so heavier bells
+  // never snapped. Merging gives the full range regardless of how the gear is split.
+  const all=STATE.equipment.filter(x=>x.on&&(x.caps||[]).includes(cap)&&x.loads).flatMap(x=>x.loads);
+  if(!all.length) return null;
+  return [...new Set(all)].sort((a,b)=>a-b);
+}
 function snap(val,cap){ const loads=loadsFor(cap); if(!loads||val==null) return val; return loads.reduce((a,b)=>Math.abs(b-val)<Math.abs(a-val)?b:a); }
 function startOfWeek(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d.getTime(); }
 function isBarbellEx(e){
@@ -2106,7 +2015,8 @@ function updateHRChip(){ const el=document.getElementById("hrChip"); if(!el) ret
 
 /* keep the screen awake during an active workout (where the platform allows it) */
 let wakeLock=null;
-async function requestWake(){ try{ if(STATE.settings.keepAwake&&"wakeLock"in navigator&&!wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); wakeLock.addEventListener&&wakeLock.addEventListener("release",()=>{ wakeLock=null; }); } }catch(e){} }
+let _wakeErr=null; // last wake-lock failure, for diagnosis (was silently swallowed)
+async function requestWake(){ try{ if(STATE.settings.keepAwake&&"wakeLock"in navigator&&!wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); _wakeErr=null; wakeLock.addEventListener&&wakeLock.addEventListener("release",()=>{ wakeLock=null; }); } }catch(e){ _wakeErr=(e&&e.message)||String(e); wakeLock=null; } }
 function releaseWake(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&STATE.current&&STATE.current.startedAt&&STATE.settings.keepAwake) requestWake(); });
 
@@ -2983,6 +2893,15 @@ view.addEventListener("click",e=>{
       pSet(); } if(seg.dataset.mode){ STATE.settings.mode=seg.dataset.mode; pSet(); }
     seg.parentElement.querySelectorAll("button").forEach(x=>x.classList.remove("on")); seg.classList.add("on"); return; }
   const act=e.target.closest("[data-action]"); if(!act) return; const a=act.dataset.action;
+  // Re-acquire the screen wake lock on EVERY tap during an active workout, synchronously
+  // here inside the user-gesture window — before the action's own async render work runs.
+  // The Wake Lock API silently drops the lock on things like a screen dim, and some
+  // browsers refuse a re-request unless it's tied closely to a user gesture. Ungroup (and
+  // any other button) previously re-requested only from renderToday(), AFTER a full DOM
+  // rebuild — far enough from the tap that the browser could reject it, letting the lock
+  // screen return mid-workout (queue: "screen lock re-activates after tapping Ungroup").
+  // requestWake() no-ops when the lock is already held, so this is cheap on every tap.
+  if(STATE.current&&STATE.current.startedAt&&STATE.settings.keepAwake) requestWake();
 
   if(a==="generate"){ const focus=STATE.settings._focus||recommendFocus(); UI.openSwap.clear(); UI.openPlates.clear();
     syncDurationToFocus(focus); // self-heal: if the picker's showing a stale duration for this focus (e.g. Lower already active from before this feature shipped, never re-tapped), fix it before generating, not just on a fresh focus click
