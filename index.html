@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v34";
+const BUILD="v35";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -465,7 +465,7 @@ const DEFAULT_EQUIPMENT=[
   {id:"hip", cat:"Accessories",name:"Hip bands (light/med/hard)",note:"glute work",caps:["hipbands"],on:true},
   {id:"band",cat:"Accessories",name:"REP resistance bands",note:"X-light → heavy",caps:["resistancebands"],on:true},
   {id:"wedge",cat:"Accessories",name:"Power Press squat wedge block",note:"heel elevation",caps:["wedge"],on:true},
-  // Smith ships OFF — not delivered yet. Every Smith-preferred lift also lists its barbell
+  // Smith is delivered and ON by default. Every Smith-preferred lift also lists its barbell
   // requirements, so with this off they all still generate on the free bar; turning it on
   // just switches the preferred implement, cue, and (cheaper) changeover cost.
   {id:"smith",cat:"Rack & bench",name:"REP Smith machine rack attachment",note:'outside the rack · 450 lb · integrated safeties · 78" usable clearance',caps:["smith"],on:true,bar:35},
@@ -516,10 +516,10 @@ const EXERCISES=[
   X("front_squat","Barbell front squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith front squat",prefCue:"Bar in the front rack, guided path.",cue:"Elbows high, upright torso."}),
   X("trap_squat","Trap-bar squat","squat","compound",["quads"],["glutes","hams"],["trapbar"],["trapbar"],{cue:"Knees track over toes, tall finish."}),
   X("lm_squat","Landmine squat","squat","accessory",["quads"],["glutes","core"],["landmine"],["landmine"],{cue:"Hug the sleeve, heels on the wedge.",loadCap:"wedge"}),
-  X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith deadlift",prefCue:"Stand on the blocks so the bar starts at true floor height — otherwise this is a block pull.",cue:"Neutral spine, push the floor away."}),
-  X("trap_dl","Trap-bar deadlift","hinge","compound",["hams"],["quads","glutes","back"],["trapbar"],["trapbar"],{cue:"Hips and shoulders rise together."}),
-  X("bb_rdl","Barbell RDL","hinge","compound",["hams"],["glutes","back"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith RDL",prefCue:"Hinge back, bar close, guided path.",cue:"Soft knees, push hips back, feel the stretch."}),
-  X("lm_rdl","Landmine RDL","hinge","accessory",["hams"],["glutes"],["landmine"],["landmine"],{cue:"Hinge with the bar arcing down."}),
+  X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes","erectors"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith deadlift",prefCue:"Stand on the blocks so the bar starts at true floor height — otherwise this is a block pull.",cue:"Neutral spine, push the floor away."}),
+  X("trap_dl","Trap-bar deadlift","hinge","compound",["hams"],["quads","glutes","back","erectors"],["trapbar"],["trapbar"],{cue:"Hips and shoulders rise together."}),
+  X("bb_rdl","Barbell RDL","hinge","compound",["hams"],["glutes","back","erectors"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith RDL",prefCue:"Hinge back, bar close, guided path.",cue:"Soft knees, push hips back, feel the stretch."}),
+  X("lm_rdl","Landmine RDL","hinge","accessory",["hams"],["glutes","erectors"],["landmine"],["landmine"],{cue:"Hinge with the bar arcing down."}),
   X("ghr","Glute-ham roller","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Full GHR — knee flexion and hip extension together."}),
   X("nordic","Nordic curl","hinge","accessory",["hams"],["glutes"],["ghr"],["ghr"],{cue:"Ankles locked in the GHR, lower under control as slowly as you can, push back up."}),
   X("sl_bridge_pullover","SL alternating glute bridge KB pullover","core","core",["core"],["glutes","hams","back"],["kettlebell"],[],{cfx:"antiext",cue:"One foot planted in a glute bridge, KB pullover overhead while bracing against pelvis drop; alternate legs."}),
@@ -533,12 +533,12 @@ const EXERCISES=[
   // pattern-level removal can't silently wipe hip stability work again.
   X("cable_abduction","Cable hip abduction","abduction","isolation",["glutes"],[],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, drive the leg out to the side, control the return.",unilateral:true}),
   X("cable_adduction","Cable hip adduction","abduction","isolation",["glutes"],["quads"],["cable_low","ankle_cuffs"],["cable_low"],{cue:"Ankle cuff, pull the leg across the midline against the stack.",unilateral:true}),
-  // Tibialis: the shin muscle opposing the calf. Audit gap — zero coverage. Worth having for
-  // knee/ankle resilience, and it needs no equipment.
-  // --- Grip / forearms ---
-  // Audit gap: the only grip work was dead hang + farmer carry, both incidental. Every
-  // "close-grip"/"neutral-grip" hit was a GRIP VARIATION, not forearm training. Grip is
-  // routinely the limiter on deadlifts and rows for a barbell-heavy lifter.
+  // Tibialis: not covered by design — no dedicated tibialis exercise (would land in the
+  // calves bucket). Left as a known, accepted gap rather than a phantom target.
+  // Grip / forearms: intentionally NOT a tracked muscle. The "forearms" bucket was removed
+  // (v35) because it was a phantom — a listed Pull-day target and readiness bar that no
+  // strength exercise trained. Grip still gets worked incidentally (dead-hang pull-ups,
+  // farmer/suitcase carries); it just isn't a first-class muscle in the recovery model.
   /* ---- core / abs (expanded) ---- */
   X("hang_knee","Hanging knee raise","core","core",["core"],[],["hangbar"],["hangbar"],{cfx:"hipflex",cue:"Knees to chest, control the lower."}),
   X("cable_crunch","Weighted cable crunch","core","core",["core"],[],["cable_high"],["cable_high"],{cfx:"flexion",cue:"Kneeling, rope at the head, crunch the ribs to the hips — hips stay put."}),
@@ -574,22 +574,22 @@ const EXERCISES=[
   X("incline_curl","Incline DB curl","arms","isolation",["biceps"],[],["dumbbells","bench"],["bench"],{cue:"Lie back, arms hang, curl with elbows behind you for a stretch."}),
   X("conc_curl","Concentration curl","arms","isolation",["biceps"],[],["dumbbells"],[],{cue:"Elbow braced on the thigh, hard peak squeeze."}),
   X("box_squat","Box squat","squat","compound",["quads"],["glutes"],["barbell","plates","rack","bench"],["barbell","rack","bench"],{prefEquip:"smith",prefName:"Smith box squat",prefCue:"Squat back to the bench, guided path, stay tight.",cue:"Squat back to lightly touch the bench, stay tight, drive up."}),
-  X("good_morning","Good morning","hinge","accessory",["hams"],["glutes","back"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith good morning",prefCue:"Bar on the back, hinge forward, guided path.",cue:"Bar on the back, soft knees, hinge forward flat-backed, drive hips."}),
-  X("trap_rdl","Trap-bar RDL","hinge","accessory",["hams"],["glutes"],["trapbar"],["trapbar"],{cue:"Soft knees, push hips back to a stretch, then stand."}),
+  X("good_morning","Good morning","hinge","accessory",["hams"],["glutes","back","erectors"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith good morning",prefCue:"Bar on the back, hinge forward, guided path.",cue:"Bar on the back, soft knees, hinge forward flat-backed, drive hips."}),
+  X("trap_rdl","Trap-bar RDL","hinge","accessory",["hams"],["glutes","erectors"],["trapbar"],["trapbar"],{cue:"Soft knees, push hips back to a stretch, then stand."}),
   /* ---- more core ---- */
   X("dragon_flag","Dragon flag","core","core",["core"],[],["bench"],["bench"],{cfx:"antiext",cue:"Grip the bench overhead, raise the whole body to vertical, lower slow and straight. Advanced."}),
   /* ---- thrusters (batch) ---- */
   /* ---- more core (batch) ---- */
   /* ---- REP glute-ham roller (wheeled roller + foot tray) ---- */
   // --- Spinal extension / lower back isolation ---
-  // Audit gap: the app had NO dedicated erector work at all. Lower back was only ever a
-  // SECONDARY on heavy hinges (deadlift/RDL/good morning), meaning it could never be trained
-  // directly or programmed for — you had to load a deadlift to touch it.
+  // Covered as of v35: the "erectors" muscle bucket (label "Low back") plus back_ext and
+  // superman (see LOWER — spinal extension, below) isolate the extensors directly, and the
+  // heavy hinges now carry "erectors" as a secondary so the readiness bar reflects them.
   /* ---- rack & barbell variations (efficiency batch) ---- */
   X("bb_floor_press_bb","Barbell floor press","horiz_push","compound",["chest"],["triceps"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith floor press",prefCue:"Flat on the floor under the bar — dead-stop at the bottom, no rolling the bar into place.",cue:"Lie on the floor, upper arms stop on the deck, press. Triceps and lockout, shoulder-friendly."}),
   X("bb_push_press","Barbell push press","vert_push","compound",["shoulders"],["triceps","quads"],["barbell","plates","rack"],["barbell","rack"],{cue:"Short dip in the knees, then drive the bar overhead explosively. Move more weight than strict press."}),
   X("bb_seated_ohp","Seated barbell press","vert_push","compound",["shoulders"],["triceps"],["barbell","plates","rack","bench"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith seated overhead press",prefCue:"Seated under the bar — fits the 78-inch clearance where standing does not.",cue:"Bench upright in the rack, press strict overhead — no leg drive, pure shoulders."}),
-  X("rack_pull","Rack pull","hinge","compound",["back"],["hams","glutes"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith rack pull",prefCue:"Set the hooks at knee height, heavy partial pull.",cue:"Bar set at knee height on the pins; pull to lockout. Overload the top of the deadlift, spare the back."}),
+  X("rack_pull","Rack pull","hinge","compound",["back"],["hams","glutes","erectors"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith rack pull",prefCue:"Set the hooks at knee height, heavy partial pull.",cue:"Bar set at knee height on the pins; pull to lockout. Overload the top of the deadlift, spare the back."}),
   X("bb_pause_row","Paused barbell row","horiz_pull","accessory",["back"],["biceps"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith paused row",prefCue:"Row to the ribs, 1s pause, guided path.",cue:"Row to the ribs and pause 1s at the top before lowering. Builds a brutal contraction."}),
   X("bb_calf_raise","Barbell calf raise","calf","isolation",["calves"],[],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith standing calf raise",prefCue:"Bar on the back, balls of the feet on the blocks, full stretch.",cue:"Bar on the back, balls of the feet on a plate or block, full stretch to full contraction."}),
   X("bb_bb_shrug","Barbell shrug","horiz_pull","isolation",["back"],[],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith shrug",prefCue:"Guided path, straight up, pause at the top.",cue:"Heavy bar in the rack, shrug straight up to the ears, hold, lower slow. Traps."}),
@@ -621,6 +621,11 @@ const EXERCISES=[
   X("cable_rev_crunch","Cable reverse crunch","core","core",["core"],[],["cable_low"],["cable_low"],{cfx:"hipflex",cue:"Ankles cuffed or feet hooked, curl the pelvis toward the ribs against the stack."}),
   X("rev_crunch_hold","Weighted reverse crunch hold","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Curl the hips up and HOLD at the top — the hold is the exercise.",metric:"time",loadCap:"dumbbells"}),
   X("bench_legraise_thrust","Flat bench leg raise + hip thrust","core","core",["core"],[],["bench"],["bench"],{cfx:"hipflex",cue:"Legs to vertical, then thrust the hips straight up off the bench.",loadCap:"dumbbells"}),
+  // ===== LOWER — spinal extension / erectors =====
+  // The app had no dedicated lower-back work — erectors were only ever a secondary on heavy
+  // hinges. These isolate the extensors directly so "Low back" is trainable and trackable.
+  X("back_ext","Weighted back extension","hinge","accessory",["erectors"],["glutes","hams"],["ghr"],["ghr"],{cue:"Hips on the GHR pad, hug a plate to the chest, extend from rounded to a flat-backed lockout — squeeze, don't hyperextend.",loadCap:"plates"}),
+  X("superman","Superman hold","hinge","isolation",["erectors"],["glutes"],[],[],{cue:"Face down, lift chest and thighs off the floor and hold — squeeze the low back and glutes.",metric:"time"}),
   {id:"bike_int",name:"Echo Bike intervals",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"6 rounds — 20s all-out / 40s easy",45:"8 rounds — 30s hard / 30s easy",60:"10 rounds — 40s hard / 20s easy"}},
   {id:"bike_ss",name:"Echo Bike steady",type:"conditioning",requires:["echobike"],stations:["echobike"],muscles:["cond"],proto:{30:"8 min @ conversational pace",45:"12 min steady RPE 6",60:"18 min steady RPE 6"}},
   {id:"ski_int",name:"SkiErg intervals",type:"conditioning",requires:["skierg"],stations:["skierg"],muscles:["cond"],proto:{30:"8 × 100 m, walk back",45:"10 × 150 m / 45s rest",60:"6 × 250 m / 60s rest"}},
@@ -643,9 +648,9 @@ const EXERCISES=[
   {id:"bb_thruster_c",name:"Barbell thruster",type:"conditioning",requires:["barbell","plates"],stations:["barbell"],muscles:["cond","quads","shoulders"],proto:{30:"5 rounds — 8 reps / 60s rest",45:"7 rounds — 8 reps",60:"10 rounds — 8 reps"}},
   {id:"sled_sprint",name:"Sled sprint (light)",type:"conditioning",requires:["sled"],stations:["sled"],muscles:["cond","quads"],proto:{30:"8 lengths light & fast, walk back",45:"12 lengths, full recovery",60:"16 lengths, full recovery"}},
   {id:"sled_carry",name:"Sled push + farmer return",type:"conditioning",requires:["sled","dumbbells"],stations:["sled"],muscles:["cond","glutes","core"],proto:{30:"5 rounds — push down, carry back",45:"7 rounds",60:"10 rounds"}},
-  {id:"farmer_c",name:"Farmer carry (heavy, continuous)",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","core","forearms"],proto:{30:"6 rounds — 40 steps heavy",45:"8 rounds — 40 steps",60:"12 rounds — 40 steps"}},
+  {id:"farmer_c",name:"Farmer carry (heavy, continuous)",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","core"],proto:{30:"6 rounds — 40 steps heavy",45:"8 rounds — 40 steps",60:"12 rounds — 40 steps"}},
   {id:"oh_carry_c",name:"Overhead carry",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","shoulders","core"],proto:{30:"6 rounds — 30 steps/side",45:"8 rounds — 30 steps/side",60:"10 rounds — 40 steps/side"}},
-  {id:"suitcase_c",name:"Suitcase carry",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","core","forearms"],proto:{30:"6 rounds — 40 steps/side",45:"8 rounds — 40 steps/side",60:"12 rounds — 40 steps/side"}},
+  {id:"suitcase_c",name:"Suitcase carry",type:"conditioning",requires:["kettlebell"],stations:[],muscles:["cond","core"],proto:{30:"6 rounds — 40 steps/side",45:"8 rounds — 40 steps/side",60:"12 rounds — 40 steps/side"}},
   {id:"bb_complex",name:"Barbell complex",type:"conditioning",requires:["barbell","plates"],stations:["barbell"],muscles:["cond","back","shoulders","quads"],proto:{30:"4 rounds — 6 each: clean, press, row, squat",45:"6 rounds",60:"8 rounds"}},
   {id:"db_complex",name:"Dumbbell complex",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","back","shoulders","quads"],proto:{30:"4 rounds — 8 each: clean, press, row, squat",45:"6 rounds",60:"8 rounds"}},
   {id:"devils_press",name:"Devil's press",type:"conditioning",requires:["dumbbells"],stations:[],muscles:["cond","shoulders","chest"],proto:{30:"5 rounds — 6 reps / 60s rest",45:"7 rounds — 8 reps",60:"10 rounds — 8 reps"}},
@@ -813,6 +818,8 @@ const GUIDES={
   curtsy_lunge:"Step one leg back and across behind the other into a curtsy, drop straight down, return. Hits the side glute.",
   sl_rdl:"Balance on one leg; hinge at the hip letting the free leg float back, keep a flat back, return to standing. Hamstring strength and balance.",
   good_morning:"Bar on the upper back, soft knees; hinge the torso forward keeping a flat back, then drive the hips to stand. Start light.",
+  back_ext:"Hips on the GHR pad, feet anchored. Hug a plate to the chest, round down under control, then extend to a flat-backed lockout — squeeze the low back and glutes at the top, don't crank into hyperextension.",
+  superman:"Face down on the floor, arms ahead. Lift the chest, arms and thighs off the ground and hold, squeezing the low back and glutes. No equipment needed.",
   sumo_dl:"Wide stance, toes turned out, hands grip inside the knees. Push the floor away with a tall chest, bar dragging close.",
   trap_rdl:"In the trap bar with soft knees, push the hips back and slide down to a hamstring stretch, then stand tall.",
   sl_hip_thrust:"Shoulders on the bench, one foot planted and the other extended; drive through the heel and squeeze the glute. Per side.",
@@ -825,7 +832,6 @@ const GUIDES={
   ww:"Hang from the bar with the legs raised; rotate them side to side like windshield wipers. Advanced oblique work.",
   standing_oblique:"Hold a bell in one hand; bend sideways toward that hip, then crunch back up. Per side.",
   oh_carry:"Press the bells overhead to lockout and walk tall, ribs down, arms by the ears. Shoulder stability and core.",
-  frontrack_carry:"Bells racked at the shoulders, braced and tall; walk with controlled steps.",
   bicycle:"Alternate bringing the opposite elbow to knee while fully extending the other leg. Slow and deliberate beats fast and sloppy.",
   flutter:"Legs straight and just off the floor; make small, quick alternating up-down kicks. Hold for time and keep the low back down.",
   hollow_rock:"Get into a hollow hold — low back pressed down, arms and legs off the floor — then rock back and forth as one rigid piece.",
@@ -833,7 +839,6 @@ const GUIDES={
   renegade_row:"In a push-up position gripping the dumbbells, row one bell to the ribs while bracing hard against rotation, then the other. Widen the feet for stability.",
   ghr:"Anchor your feet under the bench pad or a loaded bar. Loop a resistance band from something overhead/in front and hold it for assistance. Keeping the body in a straight line from knees to head, lower yourself toward the floor as slowly as you can, then pull back up — the band takes some of your weight so you can control the movement. Lighter band = harder.",
   bb_thruster:"Take the bar in a front-rack position. Drop into a full front squat, then drive up explosively and let that momentum carry the bar into a full overhead press — squat and press are one continuous movement. Bar finishes locked out overhead.",
-  kb_thruster:"Hold two kettlebells in the front rack at the shoulders. Squat to depth, then explode up and press both bells overhead in one motion. Reset to the rack and repeat.",
   l_sit:"Support yourself on the dip bars (or hang from the pull-up bar), press down through the hands, and lift your legs straight out to form an L. Hold. Scale by tucking the knees.",
   bear_crawl:"On hands and feet with knees hovering just off the floor, crawl forward moving opposite hand and foot together. Keep the hips low and the core braced so you don't rock side to side.",
   db_side_bend:"Hold a dumbbell in one hand at your side. Bend sideways toward that hip, then contract the opposite obliques to pull yourself back upright. Do both sides.",
@@ -863,9 +868,13 @@ const GUIDES={
   bb_calf_raise:"Bar on your upper back, balls of your feet on a plate or block with heels hanging. Drop into a full stretch, then rise all the way onto your toes. Slow and full range.",
   bb_bb_shrug:"Hold a heavy bar (pull it from the rack), shrug your shoulders straight up toward your ears, hold the squeeze, and lower slowly. Straps help — the traps give out well before the grip.",
 };
-const MUSCLE_LABEL={chest:"Chest",back:"Back",shoulders:"Delts",biceps:"Biceps",triceps:"Triceps",forearms:"Forearms",quads:"Quads",hams:"Hams",glutes:"Glutes",calves:"Calves",core:"Core"};
-const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","forearms","quads","hams","glutes","calves","core"];
-const RECOVERY_DAYS={chest:2.5,back:2.5,shoulders:2,biceps:2,triceps:2,forearms:1.5,quads:3,hams:3,glutes:2.5,calves:2,core:1.5};
+const MUSCLE_LABEL={chest:"Chest",back:"Back",shoulders:"Delts",biceps:"Biceps",triceps:"Triceps",quads:"Quads",hams:"Hams",glutes:"Glutes",erectors:"Low back",calves:"Calves",core:"Core"};
+const MUSCLE_ORDER=["chest","back","shoulders","biceps","triceps","quads","hams","glutes","erectors","calves","core"];
+// forearms removed: it was a listed target (Pull focus + a readiness bar) that no strength
+// exercise trained — a phantom muscle. erectors added as a real bucket: the app had no
+// dedicated lower-back work, only erectors-as-a-secondary on heavy hinges (see back_ext /
+// superman below, and the erectors secondary added to the hinge lifts).
+const RECOVERY_DAYS={chest:2.5,back:2.5,shoulders:2,biceps:2,triceps:2,quads:3,hams:3,glutes:2.5,erectors:3,calves:2,core:1.5};
 const COND_STYLE={bike_int:"interval",bike_ss:"steady",ski_int:"interval",ski_ss:"steady",sled_push:"interval",sled_drag:"steady",rope:"interval",kb_metcon:"interval",ruck:"steady",burpee:"interval",kb_snatch:"interval",kb_cp:"interval",kb_thruster_c:"interval",bb_thruster_c:"interval",sled_sprint:"interval",sled_carry:"interval",farmer_c:"interval",oh_carry_c:"interval",suitcase_c:"interval",bb_complex:"interval",db_complex:"interval",devils_press:"interval",man_maker:"interval",ski_vest:"interval",trap_dl_c:"interval"};
 const COND_META={
   bike_int:{fields:[{k:"time",l:"Time"},{k:"cals",l:"Cals"},{k:"dist",l:"Dist (mi)"}]},
@@ -902,12 +911,12 @@ const MACHINE_FOCI={
 };
 const FOCI={
   push:{name:"Push",muscles:["chest","shoulders","triceps"],anchors:["horiz_push","vert_push"]},
-  pull:{name:"Pull",muscles:["back","biceps","forearms"],anchors:["vert_pull","horiz_pull"]},
+  pull:{name:"Pull",muscles:["back","biceps"],anchors:["vert_pull","horiz_pull"]},
   // Merged from legs_quad + legs_post. One lower day instead of two: the split meant
   // glutes and deadlift-pattern work landed twice a cycle and was genuinely beating the
   // user up. Runs at 60 min (defaultDuration) because one session now has to cover quads,
   // posterior chain, glutes and calves — 45 min would starve the quad work.
-  lower:{name:"Lower",muscles:["quads","hams","glutes","calves"],anchors:["squat","hinge"],defaultDuration:60},
+  lower:{name:"Lower",muscles:["quads","hams","glutes","erectors","calves"],anchors:["squat","hinge"],defaultDuration:60},
   core:{name:"Core",muscles:["core"],anchors:[]},
   custom:{name:"Custom",muscles:["chest","back","quads","hams","glutes","shoulders","core"],anchors:[],custom:true},
   // Weighted conditioning. cardio:true keeps it out of the strength pipeline, but unlike
@@ -1108,15 +1117,7 @@ async function boot(){
 /* ---------------- Helpers ---------------- */
 function ownedCaps(){ const s=new Set(); STATE.equipment.filter(e=>e.on).forEach(e=>(e.caps||[]).forEach(c=>s.add(c))); return s; }
 function exAvailable(e,owned){
-  const baseOK = e.requires.every(r=>owned.has(r)) || (e.altReq&&e.altReq.every(r=>owned.has(r)));
-  if(!baseOK) return false;
-  // Some exercises need TWO of the same implement simultaneously (double kettlebell
-  // thruster, front-rack carry with a bell in each hand) — "requires" only tracks
-  // whether you own at least one, so these were indistinguishable from single-implement
-  // exercises. e.pair=<cap> requires at least 2 separately-owned, switched-on equipment
-  // entries providing that capability, not just the capability being present once.
-  if(e.pair){ const cnt=(STATE.equipment||[]).filter(x=>x.on&&(x.caps||[]).includes(e.pair)).length; if(cnt<2) return false; }
-  return true;
+  return e.requires.every(r=>owned.has(r)) || (e.altReq&&e.altReq.every(r=>owned.has(r)));
 }
 function exById(id){ return EXERCISES.find(e=>e.id===id); }
 // ---- Preferred implement, with fallback ----
@@ -1559,6 +1560,7 @@ const SIM_GROUPS=[
   ["nordic","ghr"],                                                             // GHR knee-flexion
   ["cable_abduction","cable_adduction"],                                        // hip abduction/adduction
   ["bb_calf_raise","seated_calf"],                                              // calf raises
+  ["back_ext","superman"],                                                      // spinal extension / erectors
   // --- CORE ---
   ["cable_crunch","decline_situp","decline_crunch_wt","plate_oh_situp"],        // loaded spinal flexion
   ["decline_russian","kneel_woodchop","kb_halo_chop"],                          // rotation, trunk-driven
@@ -1663,13 +1665,12 @@ function generate(focusKey,duration,mode){
   // the pattern limit below is about movement pattern, not muscle. That gap let e.g. a
   // push day stack 5+ shoulder-touching exercises and 3 separate dumbbell isolation
   // moves into one session.
-  // Muscle cap is a MOVING target, not a flat constant: a focus only touches 2-3 muscles
-  // (push = chest/shoulders/triceps), so a fixed cap like 3 is already exhausted by the
-  // time an 11-exercise session is half full, and the empty-pool fallback that has to
-  // fire on every remaining pick ends up disabling the cap entirely — that was the bug
-  // in the first version of this fix. Scaling the cap with how large the session has
-  // grown so far keeps it proportionally tight at every size instead of just failing
-  // open once the session outgrows a constant.
+  // Two-tier control per primary muscle: a HARD cap (MUSCLE_CAP=4 — never more than 4
+  // exercises on one muscle in a session, kept hard through every fill tier so it can't
+  // fail open) plus a graduated SOFT down-weight (muscleVariety) that discourages piling
+  // onto a muscle well before the hard cap. An earlier attempt at a session-size-scaled
+  // moving cap fell open via its empty-pool fallback; the flat hard cap + soft weight is
+  // what actually holds — see the soft-weight-not-a-ceiling / hard-cap-fallback lessons.
   const ISO_STATION_CAP=2;
   const muscleHits={}, stationHits={};
   const bumpExposure=e=>{ const p=(e.primary||[])[0]; if(p) muscleHits[p]=(muscleHits[p]||0)+1;
@@ -1707,6 +1708,14 @@ function generate(focusKey,duration,mode){
     return pb>1?Math.min(1,pen*pb):pen; };
   PICK_WFN=e=>recW(e.id)*exReadinessFactor(e,f.muscles,rmap)*barbellBias(e)*prefBias(e)*loadableBias(e)*injFactor(e)*patVariety(e)*muscleVariety(e)*cfxVariety(e);
   const hitsFocus=e=>e.primary.some(m=>f.muscles.includes(m))||e.secondary.some(m=>f.muscles.includes(m));
+  // Injury: a flagged exercise is EXCLUDED from the strict candidate tiers (not merely
+  // down-weighted). injFactor's uniform 0.10 did nothing on a same-pattern day — a push
+  // day with a shoulder flag has almost every candidate flagged, so a shared penalty
+  // leaves the relative ranking unchanged and you still get a full day of the aggravating
+  // movement. As a real filter it steers toward whatever ISN'T flagged (e.g. triceps
+  // isolations on a shoulder-injury push day) and only relaxes — via the existing lower
+  // tiers that omit injOK — when honoring it would otherwise leave the session short.
+  const injOK=e=>!(feat("injury")&&exInjuryHits(e).length);
 
   // PINNED FIRST — before anchors, so a pinned lift always gets its slot and is never
   // blocked by a near-duplicate sibling the picker happened to grab first.
@@ -1714,7 +1723,7 @@ function generate(focusKey,duration,mode){
     pool.filter(e=>pinned.has(e.id)&&hitsFocus(e)&&e.role==="compound"&&!chosen.includes(e))
         .forEach(e=>{ if(compCount()<compCap&&chosen.length<sCount) add(e); });
   }
-  if(!isCore){ for(const pat of f.anchors){ if(compCount()>=compCap||chosen.length>=Math.min(2,sCount)) break; add(pickFrom(pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)),recent)); } }
+  if(!isCore){ for(const pat of f.anchors){ if(compCount()>=compCap||chosen.length>=Math.min(2,sCount)) break; let ac=pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)); const safe=ac.filter(injOK); if(safe.length) ac=safe; add(pickFrom(ac,recent)); } }
   // pinned non-compounds (accessories/isolation/core) — capped like anything else
   pool.filter(e=>pinned.has(e.id)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&!chosen.includes(e))
       .forEach(e=>{ if(chosen.length<sCount&&(e.role!=="compound"||compCount()<compCap)) add(e); });
@@ -1729,8 +1738,9 @@ function generate(focusKey,duration,mode){
       // same principle as the muscle cap: settle for fewer/repeat only as a true last resort.
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&!simBlocked.has(e.id));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
-    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e));
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)); // relax STATION before muscle cap — muscle cap stays hard (user: no clustering)
+    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e)&&injOK(e));
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&injOK(e)); // relax STATION, keep injury filter
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)); // relax injury before muscle cap — muscle cap stays hard (user: no clustering)
       if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
       // muscleOK is kept as a hard requirement through every tier now. Previously the last
       // resort dropped it, which let a 5th exercise pile onto one muscle whenever the pool
@@ -1743,8 +1753,9 @@ function generate(focusKey,duration,mode){
   if(!isCore&&!goalDef().skipCoreEmbed&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
   guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
     if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
-    let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e)&&cfxOK(e));
-    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&cfxOK(e)); // relax station, NOT the muscle cap or core-function cap
+    let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e)&&cfxOK(e)&&injOK(e));
+    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&cfxOK(e)&&injOK(e)); // relax station, keep injury
+    if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&cfxOK(e)); // relax injury before muscle/function caps
     if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)); // last resort: allow a repeat function rather than a short session
     const e=pickFrom(fresh.length?fresh:(cands.filter(muscleOK).length?cands.filter(muscleOK):[]),recent); if(!e) break; const before=chosen.length; add(e); if(chosen.length===before&&!fresh.length) break; }
 
@@ -1900,7 +1911,7 @@ function buildLoggable(e){
   let repLabelFinal=repLabel;
   if(metric==="reps"&&!scaledFrom&&psets&&rng){
     // Only for genuinely bodyweight movements. Two conditions, both required:
-    // 1) the exercise doesn't require a loadable implement (kb_thruster requires a
+    // 1) the exercise doesn't require a loadable implement (a KB exercise requires a
     //    kettlebell — its reps always depend on the weight chosen, so low logged reps
     //    with blank weight fields mean lazy logging, not a bodyweight capacity ceiling;
     //    audit caught exactly this: its label got overridden to "4 × 6")

@@ -2,12 +2,29 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: partial-grep-full-count
+IF: about to state a COUNT of something in the code (how many orphans, dupes, usages)
+WHAT: reported "2 orphaned CUE entries" (kb_thruster, frontrack_carry) after grepping
+     only for those two names. A full enumeration found 98 orphaned GUIDES entries —
+     leftover help-text from the scrubbed library. Also nearly bulk-deleted them before
+     checking that openHowto() reads GUIDES[id] for HISTORICAL exercises (farmer/calf_db/
+     hlr are orphans that still appear in saved workouts), which would have stripped their
+     guides — the bulk-delete-by-tag-collateral trap, one step away.
+WHY: grepped to confirm the specific instances I already suspected, not to ENUMERATE the
+     whole class. A targeted grep answers "does X exist", not "how many X are there".
+RESULT: undercounted by 50×; the real cleanup is a separate, collateral-risky task, not
+     the trivial 2-line delete I implied.
+FIX: before stating a count, enumerate the full set programmatically (script/regex over
+     all entries), not a grep for the names you already have in mind. A count is a
+     coverage question — answer it like no-coverage-audit says: measure the whole space.
 
 ---
 TAG: test-duplicates-source-of-truth

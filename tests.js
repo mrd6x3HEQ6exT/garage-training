@@ -246,7 +246,7 @@ T("regression: render errors", rerr===0, rerr);
   // single-KB exercises stay available with one kettlebell
   T("gating: single-KB core work available", exAvailable(ob("kb_deadbug"),own));
   // pair mechanism itself still functions (kept: it gates any future 2-implement exercise)
-  T("gating: pair helper present", typeof exAvailable==="function"); }
+  T("no exercise relies on the removed pair mechanism", EXERCISES.every(e=>!e.pair)); }
 // --- prefEquip (Smith) fallback: Smith-preferred lifts still generate with Smith OFF ---
 { const smith=STATE.equipment.find(x=>x.id==="smith"); const was=smith?smith.on:null;
   if(smith){ smith.on=false;
@@ -280,6 +280,32 @@ T("regression: render errors", rerr===0, rerr);
   t = STATE.workouts[0].date + 11*DAY;
   T("fatigue: chest fully recovers after rest", readiness().chest>0.95, readiness().chest.toFixed(3));
   STATE.workouts=saved; Date.now=savedNow; }
+// --- muscle coverage: every tracked muscle must be trainable (reads the app's own
+// MUSCLE_ORDER + EXERCISES — no re-declared list, per test-duplicates-source-of-truth) ---
+{ const primaries={}; EXERCISES.filter(e=>e.type==="strength").forEach(e=>(e.primary||[]).forEach(m=>primaries[m]=(primaries[m]||0)+1));
+  MUSCLE_ORDER.forEach(m=>{ T("coverage: "+m+" has a strength exercise", (primaries[m]||0)>=1, (primaries[m]||0)+" primary"); });
+  // and no exercise trains a muscle that isn't tracked (catches a phantom re-appearing)
+  const known=new Set(MUSCLE_ORDER);
+  const stray=[...new Set(EXERCISES.flatMap(e=>[...(e.primary||[]),...(e.secondary||[])]))].filter(m=>!known.has(m));
+  T("coverage: no exercise references an untracked muscle", stray.length===0, stray.join(",")); }
+// --- every core function (cfx) is represented, so a core day can actually vary ---
+{ const cfx={}; EXERCISES.filter(e=>e.cfx).forEach(e=>cfx[e.cfx]=(cfx[e.cfx]||0)+1);
+  ["antiext","antirot","antilat","rotation","hipflex","flexion"].forEach(fx=>T("coverage: core function "+fx+" exists",(cfx[fx]||0)>=1,(cfx[fx]||0))); }
+// --- injury steering: with an injury flagged, generation must still fill sessions AND
+// pick fewer flagged exercises than with the feature off (the old uniform 0.10 weight
+// couldn't — see soft-weight-not-a-ceiling) ---
+{ const savedFeat=STATE.settings.feat, savedInj=STATE.settings.injuries;
+  STATE.settings.injuries=["shoulder"];  // injury DEFINED in both passes; only the steering toggles
+  const flaggedTotal=(steer)=>{ STATE.settings.feat=steer?{injury:true}:{};
+    let flagged=0, shortSessions=0;
+    for(let i=0;i<60;i++){ const w=generate("push",45,"strength");
+      if(!w.exercises.length) shortSessions++;
+      w.exercises.forEach(e=>{ const x=EXERCISES.find(y=>y.id===e.id); if(x&&exInjuryHits(x).length) flagged++; }); }
+    return {flagged,shortSessions}; };
+  const on=flaggedTotal(true), off=flaggedTotal(false);
+  T("injury: sessions still fill with an injury flagged", on.shortSessions===0, on.shortSessions+" empty");
+  T("injury: flagged exercises reduced vs feature-off", on.flagged<off.flagged, "on="+on.flagged+" off="+off.flagged);
+  STATE.settings.feat=savedFeat; STATE.settings.injuries=savedInj; }
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));
