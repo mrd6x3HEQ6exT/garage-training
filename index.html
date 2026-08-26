@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v36";
+const BUILD="v37";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -824,8 +824,10 @@ const FOCI={
   // the machine focuses it builds from the conditioning EXERCISES library — which had no
   // path into a generated session at all before this.
   metcon:{name:"Metcon",muscles:["cond"],anchors:[],cardio:true,style:"interval",metcon:true},
-  cardio:{name:"Cardio",muscles:["cond"],anchors:[],cardio:true,style:"steady"},
-  hiit:{name:"HIIT",muscles:["cond"],anchors:[],cardio:true,style:"interval"},
+  // Removed: generic "Cardio" (steady) and "HIIT" (interval) focuses. They auto-picked
+  // whichever machine was on and duplicated the dedicated Bike / SkiErg / Sled / Ruck
+  // buttons — which now carry the steady-vs-interval choice themselves (Bike & SkiErg
+  // alternate on each regenerate; see the machineSess branch in generate()).
 };
 Object.assign(FOCI,MACHINE_FOCI);
 // Hard caps from logged performance: sets that consistently break down are not volume.
@@ -924,7 +926,7 @@ let STATE={
   settings:{daysPerWeek:5,duration:45,baseDuration:45,mode:"strength",experience:"intermediate",units:"lb",blocked:[],pinned:[],restOverrides:{},keepAwake:true,barbellReloadSec:120,stationChangeSec:60},
   workouts:[], current:null, tab:"today",
 };
-const UI={hardDay:false,cardioB:{open:false,machine:null,movement:null,mode:null,p:{}},openSwap:new Set(),openPlates:new Set(),openWarmup:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month",exHistPeriod:"month",moveGroupOpen:null};
+const UI={hardDay:null,cardioB:{open:false,machine:null,movement:null,mode:null,p:{}},openSwap:new Set(),openPlates:new Set(),openWarmup:new Set(),openCondSwap:new Set(),moreOpen:new Set(),openSections:new Set(),libOpenCats:new Set(),libView:false,plateW:{},plateBar:{},plateMode:{},plateSide:{},plateAdd:{},addExOpen:false,addExQuery:"",libQuery:"",libEquip:"All",libShowAll:false,progEx:null,progPeriod:"month",exHistPeriod:"month",moveGroupOpen:null};
 
 const SEED_DATA={"v":2,"equipment":[{"id":"db","cat":"Free weights","name":"Adjustable dumbbells (pair)","note":"5–60 lb","caps":["dumbbells"],"on":true,"loads":[5,10,15,20,25,30,35,40,45,55,60]},{"id":"bar","cat":"Free weights","name":"Barbell + plates","note":"45 lb bar · 6×45 4×10 2×25 4×5 2×2.5","caps":["barbell","plates"],"on":true,"bar":45,"plateInv":{"5":4,"10":4,"25":2,"45":6,"2.5":2}},{"id":"trap","cat":"Free weights","name":"Bells of Steel open trap bar","note":"59\" · ~45 lb","caps":["trapbar"],"on":true,"bar":45},{"id":"lm","cat":"Free weights","name":"Landmine + 35 lb landmine bar","note":"rack attachment","caps":["landmine"],"on":true,"bar":35},{"id":"ez","cat":"Free weights","name":"REP multi-grip curl bar","note":"EZ curl · ~25 lb","caps":["ezbar"],"on":true,"bar":25},{"id":"kb1","cat":"Free weights","name":"Adjustable kettlebell 8–16 kg","note":"18–35 lb","caps":["kettlebell"],"on":true,"loads":[18,22,26,31,35]},{"id":"kb2","cat":"Free weights","name":"Adjustable kettlebell 16–24 kg","note":"35–53 lb","caps":["kettlebell"],"on":true,"loads":[35,40,44,49,53]},{"id":"rack","cat":"Rack & bench","name":"REP PR-5000 squat rack","note":"80\" 6-post · J-cups","caps":["rack"],"on":true},{"id":"bench","cat":"Rack & bench","name":"REP BlackWing adjustable bench","note":"flat / incline + leg roller","caps":["bench"],"on":true},{"id":"pull","cat":"Rack & bench","name":"REP globe side-mount pull-up bar","note":"outside the rack","caps":["pullupbar"],"on":true},{"id":"hangbar","cat":"Rack & bench","name":"Hanging bar (in rack)","note":"hanging core","caps":["hangbar"],"on":true},{"id":"dip","cat":"Rack & bench","name":"REP dip station","note":"rack-mounted","caps":["dipstation"],"on":true},{"id":"cable","cat":"Cable","name":"Selectorized lat pulldown & low row","note":"200 lb stack · high + low pulley","caps":["cable_high","cable_low"],"on":true},{"id":"atlas","cat":"Cable","name":"REP × Kleva Atlas multi-grip cable","note":"+ landmine attachment","caps":["cable_high","cable_low"],"on":true},{"id":"cuff","cat":"Cable","name":"REP ankle cuffs","note":"kickbacks / abductions","caps":["ankle_cuffs"],"on":true},{"id":"bike","cat":"Conditioning","name":"Rogue Echo Bike","note":"","caps":["echobike"],"on":true},{"id":"ski","cat":"Conditioning","name":"SkiErg","note":"","caps":["skierg"],"on":true},{"id":"sled","cat":"Conditioning","name":"Torque Tank M1 push sled","note":"","caps":["sled"],"on":true},{"id":"rope","cat":"Conditioning","name":"Hyperwear weighted battle rope","note":"20 ft / 15 lb","caps":["battlerope"],"on":true},{"id":"ghr","cat":"Accessories","name":"REP glute-ham roller + leg rollers","note":"nordic / GHR","caps":["ghr"],"on":true},{"id":"vest","cat":"Accessories","name":"MiR weighted vest","note":"30 lb · 3 lb intervals","caps":["vest"],"on":true,"loads":[3,6,9,12,15,18,21,24,27,30]},{"id":"hip","cat":"Accessories","name":"Hip bands (light/med/hard)","note":"glute work","caps":["hipbands"],"on":true},{"id":"band","cat":"Accessories","name":"REP resistance bands","note":"X-light → heavy","caps":["resistancebands"],"on":true},{"id":"wedge","cat":"Accessories","name":"Power Press squat wedge block","note":"heel elevation","caps":["wedge"],"on":true}],"settings":{"daysPerWeek":5,"duration":45,"mode":"strength","experience":"intermediate","units":"lb","blocked":["cable_lat","feet_up_pushup","hollow_rock"],"pinned":[],"restOverrides":{"hollow":15,"ng_pulldown":90,"bb_ohp":90},"keepAwake":true,"_focus":null},"workouts":[
 {"id":"w1782951606850","date":1782955590494,"focus":"push","focusName":"Push","duration":45,"mode":"strength","exercises":[{"id":"bb_bench","name":"Barbell bench press","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Shoulder blades pinned, bar to mid-chest.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":9,"sets":[{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true},{"w":"175","reps":"6","done":true}]},{"id":"bb_ohp","name":"Barbell overhead press","role":"compound","muscles":["shoulders","triceps"],"scheme":"4 × 6–8","metric":"reps","rest":"1:30","restSec":90,"cue":"Squeeze glutes, bar travels past the chin.","tech":null,"dropPct":null,"unilateral":false,"barbell":true,"landmine":false,"rpe":7,"sets":[{"w":"65","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true},{"w":"70","reps":"8","done":true}]},{"id":"lat_raise","name":"Dumbbell lateral raise","role":"isolation","muscles":["shoulders"],"scheme":"3 × 12–15","metric":"reps","rest":"1:00","restSec":60,"cue":"Lead with elbows, soft at the top.","tech":"Drop set on the final set — strip ~30% and go to failure.","dropPct":0.3,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":"8","reps":"10","done":true},{"w":5,"reps":"","done":false,"drop":true}]},{"id":"dips","name":"Chest dips","role":"compound","muscles":["chest","triceps","shoulders"],"scheme":"4 × 6–8","metric":"reps","rest":"2:00","restSec":120,"cue":"Lean forward for chest emphasis.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true},{"w":"","reps":"7","done":true}]},{"id":"face_pull","name":"Cable face pull","role":"accessory","muscles":["shoulders","back"],"scheme":"3 × 10–12","metric":"reps","rest":"1:15","restSec":75,"cue":"Pull to forehead, thumbs back.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":false,"rpe":6,"sets":[{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true},{"w":"60","reps":"10","done":true}]},{"id":"lm_twist","name":"Landmine rotation","role":"core","muscles":["core","shoulders"],"scheme":"3 × 12–20","metric":"reps","rest":"0:45","restSec":45,"cue":"Pivot the feet, control the arc.","tech":null,"dropPct":null,"unilateral":false,"barbell":false,"landmine":true,"rpe":7,"sets":[{"w":"45","reps":"5","done":true},{"w":"35","reps":"6","done":true},{"w":"15","reps":"15","done":true},{"w":"15","reps":"15","done":false}]}],"conditioning":[{"id":"kb_metcon","name":"Kettlebell swing finisher","proto":"8 min EMOM — 15 swings","muscles":["cond","glutes"],"weighted":true,"loadCap":"kettlebell","fields":[{"k":"reps","l":"Reps"}],"sets":[{"w":"","vals":{"reps":""},"done":false}]}],"groups":[{"type":"straight","items":["bb_bench"]},{"type":"straight","items":["bb_ohp"]},{"type":"straight","items":["dips"]},{"type":"superset","items":["lat_raise","face_pull"]},{"type":"straight","items":["lm_twist"]}],"note":"","startedAt":1782952031156,"actualSec":3559},
@@ -976,6 +978,10 @@ async function boot(){
   if(STATE.settings.goal==="fitness") STATE.settings.goal="lean";
   if(!GOALS[STATE.settings.goal]) STATE.settings.goal="general";
   if(STATE.settings.sledLane==null) STATE.settings.sledLane=60;
+  if(STATE.settings.bikeWork==null) STATE.settings.bikeWork=40;   // bike interval work / rest (sec)
+  if(STATE.settings.bikeRest==null) STATE.settings.bikeRest=80;
+  if(STATE.settings.skiWork==null) STATE.settings.skiWork=30;     // SkiErg interval work / rest (sec)
+  if(STATE.settings.skiRest==null) STATE.settings.skiRest=30;
   if(STATE.settings.autoBackup==null) STATE.settings.autoBackup="off";
   if(!STATE.settings.rdOverride) STATE.settings.rdOverride={};
   { const ro=STATE.settings.restOverrides||{}; const gk=Object.keys(ro).filter(k=>k.startsWith("g_")); if(gk.length>40){ gk.slice(0,gk.length-40).forEach(k=>delete ro[k]); pSet(); } }
@@ -1130,9 +1136,15 @@ function buildMachineSession(key,duration,hard){
       out.push(mkSessBlock("bike","Cool-down",{30:4,45:5,60:6}[duration]+" min easy",null,{30:4,45:5,60:6}[duration]));
     } else {
       out.push(mkSessBlock("bike","Warm-up",{30:5,45:6,60:6}[duration]+" min easy \u00b7 "+z1,null,{30:5,45:6,60:6}[duration]));
-      if(duration===30){ out.push(mkSessBlock("bike","Intervals","8 \u00d7 40s hard / 80s easy \u00b7 hard = "+z4,null,16)); out.push(mkSessBlock("bike","Steady","4 min easy \u00b7 "+z2,null,4)); }
-      else if(duration===45){ out.push(mkSessBlock("bike","Intervals","10 \u00d7 60s hard / 90s easy \u00b7 hard = "+z4,null,25)); out.push(mkSessBlock("bike","Steady","8 min easy \u00b7 "+z2,null,8)); }
-      else { out.push(mkSessBlock("bike","Intervals","6 \u00d7 2 min hard / 2 min easy \u00b7 hard = "+z4,null,24)); out.push(mkSessBlock("bike","Steady","18 min easy \u00b7 "+z2,null,18)); }
+      // Work/rest come from Settings (bikeWork / bikeRest, seconds); round count is derived
+      // to fill the interval time budget for this duration. estMin matches rounds\u00d7(work+rest)
+      // so adding/removing laps later re-scales the time (see condProtoMin).
+      const work=STATE.settings.bikeWork||40, rest=STATE.settings.bikeRest||80;
+      const budgetMin={30:16,45:25,60:24}[duration]||20;
+      const rounds=Math.max(1,Math.round(budgetMin*60/(work+rest)));
+      out.push(mkSessBlock("bike","Intervals",rounds+" \u00d7 "+work+"s hard / "+rest+"s easy \u00b7 hard = "+z4,null,Math.round(rounds*(work+rest)/60)));
+      const steady={30:4,45:8,60:18}[duration]||6;
+      out.push(mkSessBlock("bike","Steady",steady+" min easy \u00b7 "+z2,null,steady));
       out.push(mkSessBlock("bike","Cool-down",{30:5,45:6,60:6}[duration]+" min easy",null,{30:5,45:6,60:6}[duration]));
     }
     return out; }
@@ -1143,13 +1155,27 @@ function buildMachineSession(key,duration,hard){
       out.push(mkSessBlock("ski","Cool-down",{30:400,45:500,60:600}[duration]+" m easy",null,{30:3,45:4,60:5}[duration]));
     } else {
       out.push(mkSessBlock("ski","Warm-up",{30:500,45:600,60:700}[duration]+" m easy \u00b7 "+z1,null,{30:4,45:5,60:6}[duration]));
-      if(duration===30){ out.push(mkSessBlock("ski","Intervals","8 \u00d7 250 m / 60s rest \u00b7 hard = "+z4,null,16)); out.push(mkSessBlock("ski","Steady","600 m easy \u00b7 "+z2,null,6)); }
-      else if(duration===45){ out.push(mkSessBlock("ski","Intervals","12 \u00d7 250 m / 60s rest \u00b7 hard = "+z4,null,25)); out.push(mkSessBlock("ski","Steady","1000 m easy \u00b7 "+z2,null,10)); }
-      else { out.push(mkSessBlock("ski","Intervals","10 \u00d7 300 m / 75s rest \u00b7 hard = "+z4,null,25)); out.push(mkSessBlock("ski","Steady","1500 m easy \u00b7 "+z2,null,17)); }
+      // Time-based work/rest from Settings (skiWork / skiRest, seconds), round count derived
+      // to fill the interval budget \u2014 same model as the bike, so both cycle and re-scale.
+      const work=STATE.settings.skiWork||30, rest=STATE.settings.skiRest||30;
+      const budgetMin={30:16,45:25,60:25}[duration]||20;
+      const rounds=Math.max(1,Math.round(budgetMin*60/(work+rest)));
+      out.push(mkSessBlock("ski","Intervals",rounds+" \u00d7 "+work+"s hard / "+rest+"s rest \u00b7 hard = "+z4,null,Math.round(rounds*(work+rest)/60)));
+      const steady={30:6,45:10,60:17}[duration]||8;
+      out.push(mkSessBlock("ski","Steady",steady+" min easy \u00b7 "+z2,null,steady));
       out.push(mkSessBlock("ski","Cool-down",{30:500,45:600,60:700}[duration]+" m easy",null,{30:4,45:5,60:6}[duration]));
     }
     return out; }
   return out;
+}
+// Resolve steady-vs-interval for a machine focus. UI.hardDay is a per-visit override
+// (the Easy/Hard chips); when it's null (Auto), Bike & SkiErg ALTERNATE on each regenerate
+// off the last session of that same focus — steady, then intervals, then steady — so the
+// button cycles through both without the user toggling. Sled/Ruck default to steady.
+function machineHard(machineSess,focusKey){
+  if(UI.hardDay!=null) return !!UI.hardDay;
+  if(machineSess==="bike"||machineSess==="ski"){ const last=STATE.workouts.find(x=>!x.ref&&x.focus===focusKey&&x.cardio); return last?!last.hardDay:false; }
+  return false;
 }
 const CB_MODE_LABEL={distance:"Distance",time:"Time",calories:"Calories",intervals:"Intervals",trips:"Trips",free:"Free"};
 function cbMachine(id){ return CARDIO_MACHINES.find(m=>m.id===id); }
@@ -1485,29 +1511,13 @@ function generate(focusKey,duration,mode){
   const blocked=new Set(STATE.settings.blocked||[]);
   const pinned=new Set(STATE.settings.pinned||[]);
   if(f.custom){ return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode,exercises:[],conditioning:[],groups:[],note:"",custom:true}; }
-  if(f.machineSess){ const conds=buildMachineSession(f.machineSess,duration,!!UI.hardDay);
-    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,hardDay:!!UI.hardDay,
+  if(f.machineSess){ const hard=machineHard(f.machineSess,focusKey); const conds=buildMachineSession(f.machineSess,duration,hard);
+    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,hardDay:hard,
       exercises:[],conditioning:conds,groups:[],note:""}; }
   if(f.metcon){
     const conds=buildMetconSession(duration);
     return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"circuit",cardio:true,
       metcon:true,exercises:[],conditioning:conds,groups:[],note:""};
-  }
-  if(f.cardio){
-    // Auto-build a full machine session (warm-up / main / cool-down) on whatever
-    // cardio gear is switched on, rotating away from whatever was used last time.
-    const hard=(f.style==="interval");
-    const keyOf={bike:"bike",ski:"ski",sled:"sledS",ruck:"ruck"};
-    let opts=CARDIO_MACHINES.filter(m=>(!m.cap||owned.has(m.cap))&&keyOf[m.id]).map(m=>keyOf[m.id]);
-    if(hard) opts=opts.filter(k=>k==="bike"||k==="ski").length?opts.filter(k=>k==="bike"||k==="ski"):opts;
-    const lastC=STATE.workouts.find(x=>!x.ref&&x.cardio&&x.machineKey);
-    let pick=null;
-    if(opts.length){ let pool2=opts.filter(k=>!lastC||lastC.machineKey!==k); if(!pool2.length) pool2=opts;
-      pick=pool2[Math.floor(Math.random()*pool2.length)]; }
-    const conds=pick?buildMachineSession(pick,duration,hard):[];
-    if(!pick) UI.cardioB={open:true,machine:null,movement:null,mode:hard?"intervals":null,p:{}};
-    return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"strength",cardio:true,
-      machineKey:pick,hardDay:hard,exercises:[],conditioning:conds,groups:[],note:""};
   }
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
   const recent=recentExerciseIds(3);
@@ -2135,9 +2145,18 @@ function fitToDuration(w,duration,isCoreFocus){
   // only the number the person actually sees changes here, at the very end.
   { const g=goalDef(); if(g.pinEstimateToDuration) w.estSec=duration*60; }
   return w; }
-function condProtoMin(c){ if(c.estMin) return c.estMin; const p=String(c.proto||""); let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
+function condProtoMin(c){ const p=String(c.proto||"");
+  // Interval blocks ("N \u00d7 <work>s \u2026 / <rest>s \u2026"): time = ACTUAL lap count \u00d7 (work+rest),
+  // read from the live set count rather than the number printed in the proto \u2014 so adding
+  // or removing laps re-scales the total (8 laps of 20/10s = 4 min; 20 laps = 10 min).
+  const iv=p.match(/(\d+)\s*(?:\u00d7|x)\s*(\d+)\s*s[^\/]*\/\s*(\d+)\s*s/i);
+  if(iv){ const laps=(c.sets&&c.sets.length)||+iv[1]; return laps*(+iv[2]+ +iv[3])/60; }
+  if(c.estMin) return c.estMin; let m=p.match(/(\d+(?:\.\d+)?)\s*min/i); if(m) return parseFloat(m[1]);
   m=p.match(/(\d+)\s*(?:\u00d7|x)\s*(\d+)\s*s\b/i); if(m) return Math.round((+m[1]*+m[2]*2)/60);
   const r=condRounds(p); return Math.max(3,Math.round(r*1.2)); }
+// Keep an interval block's printed "N \u00d7" in step with its real lap count after add/remove.
+function syncIntervalProto(c){ if(!c||!c.proto||!c.sets) return; const p=String(c.proto);
+  if(/^\s*\d+\s*(?:\u00d7|x)\s*\d+\s*s[^\/]*\/\s*\d+\s*s/i.test(p)) c.proto=p.replace(/^(\s*)\d+(\s*(?:\u00d7|x))/, "$1"+c.sets.length+"$2"); }
 // Programmed rest undercounts real recovery need at working RPE. Originally set from three
 // straight-set exercises in one session (2.1-2.4x). Recalibrated against the app's own
 // actualSec on a full completed session (build 2026.08.15, Aug 13): the formula estimated
@@ -2221,11 +2240,14 @@ function renderToday(){
 
   html+=`<div class="panel"><div class="eyebrow" style="margin-bottom:9px">Today’s session</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Recommended next: <b style="color:var(--amber)">${FOCI[rec].name}</b> — based on what’s recovered.</div>
-    <div class="hint" style="margin-bottom:10px">Tap any focus to override. Core, Cardio, and HIIT are always available.</div>
+    <div class="hint" style="margin-bottom:10px">Tap any focus to override. Core is always available.</div>
     ${(()=>{ if(!feat("planner")) return ""; const p=(STATE.settings.plan||{})[new Date().getDay()]||{}; const bits=[]; if(p.am&&FOCI[p.am]) bits.push("AM "+FOCI[p.am].name); if(p.pm&&FOCI[p.pm]) bits.push("PM "+FOCI[p.pm].name); return bits.length?`<div class="hint" style="margin-bottom:6px">📅 Today: <b style="color:var(--ink)">${bits.join(" · ")}</b></div>`:""; })()}
-    ${(()=>{ const cur=s._focus||""; const F=FOCI[cur]; if(!F||!F.machineSess||F.machineSess==="sledS"||F.machineSess==="ruck") return ""; return `<div class="row" style="gap:7px;margin-bottom:8px;align-items:center"><span class="hint">Intensity</span><button class="chip ${!UI.hardDay?"on":""}" data-action="hardday" data-v="0">Easy · ${zTxt(2)}</button><button class="chip ${UI.hardDay?"on":""}" data-action="hardday" data-v="1">Hard intervals</button></div>`; })()}
+    ${(()=>{ const cur=s._focus||""; const F=FOCI[cur]; if(!F||!F.machineSess||F.machineSess==="sledS"||F.machineSess==="ruck") return "";
+      const auto=UI.hardDay==null; const nextHard=machineHard(F.machineSess,cur);
+      const autoLbl=auto?`Auto · next: ${nextHard?"intervals":"steady"}`:"Auto · cycles";
+      return `<div class="row" style="gap:7px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span class="hint">Intensity</span><button class="chip ${auto?"on":""}" data-action="hardday" data-v="auto">${autoLbl}</button><button class="chip ${(!auto&&!UI.hardDay)?"on":""}" data-action="hardday" data-v="0">Easy · ${zTxt(2)}</button><button class="chip ${(!auto&&UI.hardDay)?"on":""}" data-action="hardday" data-v="1">Hard intervals</button></div>`; })()}
     <div class="seg" id="focusSeg" style="margin-bottom:8px">${(()=>{ const pl2=feat("planner")?((STATE.settings.plan||{})[new Date().getDay()]||{}):{}; const slot=new Date().getHours()<12?"am":"pm"; const p=(pl2[slot]&&FOCI[pl2[slot]])?pl2[slot]:((pl2.am&&FOCI[pl2.am])?pl2.am:((pl2.pm&&FOCI[pl2.pm])?pl2.pm:null)); const sel=s._focus||(p?p:rec); return Object.keys(FOCI).map(k=>`<button data-focus="${k}" class="${k===sel?"on":""}">${k===rec?"★ ":""}${FOCI[k].name}</button>`).join(""); })()}</div>
-    ${(()=>{ const rc=focusRecency(); const keys=["push","pull","lower","core","metcon","cardio"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
+    ${(()=>{ const rc=focusRecency(); const keys=["push","pull","lower","core","metcon"].filter(k=>FOCI[k]&&rc[k]!=null); if(!keys.length) return ""; return `<div class="recency">${keys.map(k=>{ const d=rc[k]; const col=d>=5?"var(--ready)":d>=3?"var(--mid)":"var(--faint)"; return `<span class="rec-item"><b>${FOCI[k].name}</b> <span style="color:${col}">${d===0?"today":d+"d"}</span></span>`; }).join("")}</div>`; })()}
     ${(()=>{ const f2=s._focus||rec; const before=STATE.settings.duration; syncDurationToFocus(f2); if(STATE.settings.duration!==before) pSet(); return ""; })()}
     <div class="eyebrow" style="margin:4px 0 6px">Time</div>
     <div class="seg" id="durSeg" style="margin-bottom:12px">${[30,45,60].map(d=>`<button data-dur="${d}" class="${d===s.duration?"on":""}">${d} min</button>`).join("")}</div>
@@ -2245,7 +2267,7 @@ function renderWorkout(w,editable){
   const idxById={}; w.exercises.forEach((e,i)=>idxById[e.id]=i);
   const liftTag=w.cardio?`${w.conditioning.length} drill${w.conditioning.length===1?"":"s"}`:`${w.exercises.length} lifts`;
   let html=`<div class="panel"><div class="wo-head"><div><div class="eyebrow">${editable?"Active workout":new Date(w.date).toLocaleDateString()}</div><div class="wo-title">${esc(w.focusName)}</div></div></div>
-    <div class="row" style="gap:6px;flex-wrap:wrap;margin:8px 0 4px"><span class="tag amber">${w.duration} min</span><span class="tag steel">${w.cardio?(w.focus==="hiit"?"Intervals":"Steady state"):(w.mode==="circuit"?"Circuit":"Strength")}</span><span class="tag">${liftTag}</span></div>`;
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:8px 0 4px"><span class="tag amber">${w.duration} min</span><span class="tag steel">${w.cardio?(w.hardDay?"Intervals":"Steady state"):(w.mode==="circuit"?"Circuit":"Strength")}</span><span class="tag">${liftTag}</span></div>`;
   if(editable){
     html+=`<div class="row" style="margin:8px 0 2px;gap:8px;flex-wrap:wrap">${w.startedAt
       ? `<span class="chip rest" style="font-size:13px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Elapsed&nbsp;<b id="woElapsed" class="mono" style="color:var(--ink)">${fmt((Date.now()-w.startedAt)/1000)}</b></span>`
@@ -2456,7 +2478,7 @@ function renderLog(){
     html+=`<div class="logitem"><div class="spread"><div>
         <div class="dt">${new Date(w.date).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${new Date(w.date).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}</div>
         <div class="ti">${esc(w.focusName)}${w.prs&&w.prs.length?` <span class="pr-badge">🏆 ${w.prs.length} PR${w.prs.length>1?"s":""}</span>`:""}</div>
-        <div class="meta">${w.duration} min${w.actualSec?" · "+fmt(w.actualSec)+" actual":""} · ${w.cardio?(w.focus==="hiit"?"HIIT":"Cardio"):(w.mode==="circuit"?"Circuit":"Strength")}${vol?" · "+Math.round(vol).toLocaleString()+" lb volume":""}${w.hrAvg?" · ♥ "+w.hrAvg+"/"+w.hrMax+" bpm":""}</div></div>
+        <div class="meta">${w.duration} min${w.actualSec?" · "+fmt(w.actualSec)+" actual":""} · ${w.cardio?(w.hardDay?"Intervals":"Steady"):(w.mode==="circuit"?"Circuit":"Strength")}${vol?" · "+Math.round(vol).toLocaleString()+" lb volume":""}${w.hrAvg?" · ♥ "+w.hrAvg+"/"+w.hrMax+" bpm":""}</div></div>
         <div class="row" style="gap:6px"><button class="btn ghost sm" data-action="expand" data-i="${i}">View</button><button class="btn sm" data-action="printlog" data-i="${i}">Print</button><button class="btn sm" data-action="exportlogtxt" data-i="${i}">📄 .txt</button></div></div>
       <div class="exp" id="exp${i}">${w.hrAvg?`<div class="er"><span>♥ Heart rate</span><span class="mono" style="color:#E06A5C">${w.hrAvg} avg · ${w.hrMax} max bpm</span></div>`:""}${w.exercises.map(e=>{ const done=(e.sets||[]).filter(s=>s.done); const sum=done.length?done.map(s=>`${s.w||"—"}×${s.reps||"—"}`).join("  "):"not completed"; const bd=e.band&&e.bandKind?bandById(e.bandKind,e.band):null; return `<div class="er"><span>${esc(e.name)}${e.rpe?` <span class="hint">RPE ${e.rpe}</span>`:""}${bd?` <span class="hint" style="color:${bd.css==="#20242b"?"var(--muted)":bd.css}">● ${bd.name} band</span>`:""}</span><span class="mono">${esc(sum)}</span></div>`; }).join("")}${(w.conditioning||[]).filter(c=>(c.sets&&c.sets.some(s=>s.done))||c.done).map(c=>{ const ds=(c.sets||[]).filter(s=>s.done); const sum=ds.length?ds.map(s=>{ const parts=[]; if(s.w) parts.push(s.w+"lb"); if(s.vals&&c.fields) c.fields.forEach(f=>{ if(s.vals[f.k]) parts.push(s.vals[f.k]); }); else if(s.result) parts.push(s.result); return parts.join(" ")||"done"; }).join("  "):"done"; return `<div class="er"><span>${esc(c.name)}</span><span class="mono">${esc(sum)}</span></div>`; }).join("")}${w.note?`<div style="margin-top:7px;font-style:italic">“${esc(w.note)}”</div>`:""}</div></div>`;
   });
@@ -2641,6 +2663,8 @@ function renderSettings(){
     <div class="frow"><label>Experience<small>Sets rep ranges and drop set / tempo cues.</small></label><select class="in" data-set="experience">${["beginner","intermediate","advanced"].map(x=>`<option value="${x}" ${x===s.experience?"selected":""}>${x[0].toUpperCase()+x.slice(1)}</option>`).join("")}</select></div>
     <div class="frow"><label>Heart-rate zones<small>Max HR and resting HR — zones use heart-rate reserve. Z2 (easy) is currently ${zTxt(2)}.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="hrMax" value="${s.hrMax||144}" style="width:64px"><span class="hint">max</span><input class="in" type="number" inputmode="numeric" data-set="hrRest" value="${s.hrRest||43}" style="width:64px"><span class="hint">rest</span></span></div>
     <div class="frow"><label>Sled lane length<small>Your one-way push distance — the sled builder's default.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="sledLane" value="${s.sledLane||60}" style="width:76px"><span class="hint">ft</span></span></div>
+    <div class="frow"><label>Bike intervals<small>Work / rest seconds for a Bike interval session. Round count fills the time; adjust laps mid-session to change total time.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="bikeWork" value="${s.bikeWork!=null?s.bikeWork:40}" style="width:64px"><span class="hint">work</span><input class="in" type="number" inputmode="numeric" data-set="bikeRest" value="${s.bikeRest!=null?s.bikeRest:80}" style="width:64px"><span class="hint">rest · s</span></span></div>
+    <div class="frow"><label>SkiErg intervals<small>Work / rest seconds for a SkiErg interval session.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="skiWork" value="${s.skiWork!=null?s.skiWork:30}" style="width:64px"><span class="hint">work</span><input class="in" type="number" inputmode="numeric" data-set="skiRest" value="${s.skiRest!=null?s.skiRest:30}" style="width:64px"><span class="hint">rest · s</span></span></div>
     <div class="frow"><label>Barbell reload time<small>Real seconds to change a barbell between lifts: strip, check, reposition, load, reset safeties. The session estimate uses this for every barbell lift after the first.</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="barbellReloadSec" value="${s.barbellReloadSec!=null?s.barbellReloadSec:120}" style="width:76px"><span class="hint">sec</span></span></div>
     <div class="frow"><label>Station change time<small>Seconds to move between different stations (rack → cable → landmine, etc.).</small></label><span class="row" style="gap:6px;align-items:center"><input class="in" type="number" inputmode="numeric" data-set="stationChangeSec" value="${s.stationChangeSec!=null?s.stationChangeSec:60}" style="width:76px"><span class="hint">sec</span></span></div>
     <div class="frow"><label>Keep screen awake<small>Holds the screen on during an active workout (where the device allows it).</small></label><div class="sw ${s.keepAwake?"on":""}" data-action="togglewake"></div></div>
@@ -2666,7 +2690,7 @@ function renderSettings(){
   { const F=[["heat","Training heatmap","26-week activity grid + streaks on Progress"],["confetti","PR confetti","Celebrate new records when you finish"],["recap","Weekly recap","Last-7-days summary card on the Train tab"],["notes","Setup notes","📌 per-exercise notes (pin heights, seat position) via •••"],["bw","Bodyweight log","Quick weigh-ins + 7-day average on Progress"],["standards","Strength standards","Est. 1RM vs bodyweight levels on Progress"],["ghost","Ghost pace","Live sets/time vs your last same-focus session"],["metro","Tempo metronome","Audible tick on tempo-cued lifts via •••"],["deload","Deload hints","Flags 3 rising weeks + high RPE"],["bigrest","Full-screen rest timer","Giant countdown; tap to shrink; returns for the last 10s"],["budget","Time budget","⏱ button trims remaining sets to fit your minutes"],["injury","Injury flags","Mark sore joints; the generator steers around them"],["planner","Weekly planner","Assign a focus to each weekday"],["reorder","Reorder groups","▲▼ arrows to resequence a session"],["voice","Voice logging (experimental)","🎤 say “185 for 8” — needs internet, can mishear"],["wrapped","Year so far","Annual totals card on Progress"]];
     let fb=F.map(([k,n,d])=>`<div class="frow"><label>${n}<small>${d}</small></label><div class="sw ${feat(k)?"on":""}" data-action="feat" data-k="${k}"></div></div>`).join("");
     if(feat("injury")) fb+=`<div class="eq-cat" style="margin:14px 0 6px">Sore / protect right now</div><div class="cb-row">${INJ_AREAS.map(([k,n])=>`<button class="chip ${STATE.settings.injuries.includes(k)?"on":""}" data-action="injury" data-a="${k}">${n}</button>`).join("")}</div><div class="hint">Flagged areas get strongly avoided by the generator (not banned) and marked ⚠ on cards. Unflag when healed.</div>`;
-    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","lower","core","metcon","bike","ski","sledS","ruck","cardio","hiit","custom"];
+    if(feat("planner")){ const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const opts=["","push","pull","lower","core","metcon","bike","ski","sledS","ruck","custom"];
       fb+=`<div class="eq-cat" style="margin:14px 0 6px">Weekly plan</div><div class="planrow"><span class="pd"></span><span class="hint" style="flex:1">AM</span><span class="hint" style="flex:1">PM</span></div>`+DN.map((d,i)=>{ const p=(STATE.settings.plan||{})[i]||{};
         const sel=(slot)=>`<select class="in" data-plan="${i}" data-slot="${slot}" style="flex:1">${opts.map(o=>`<option value="${o}" ${String(p[slot]||"")===o?"selected":""}>${o===""?"—":FOCI[o]?FOCI[o].name:o}</option>`).join("")}</select>`;
         return `<div class="planrow"><span class="pd">${d}</span>${sel("am")}${sel("pm")}</div>`; }).join("")+`<div class="hint" style="margin-top:4px">Two slots a day — morning cardio, afternoon lift. The Train tab pre-selects whichever fits the time of day.</div>`; }
@@ -2843,7 +2867,7 @@ function importData(json){
   if(d.settings){
     STATE.settings.pinned=[...new Set([...(STATE.settings.pinned||[]),...(d.settings.pinned||[])])];
     STATE.settings.blocked=[...new Set([...(STATE.settings.blocked||[]),...(d.settings.blocked||[])])];
-    ["daysPerWeek","duration","baseDuration","mode","experience","goal","alarmVol","alarmSound","sledLane","barbellReloadSec","stationChangeSec","smithPref","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
+    ["daysPerWeek","duration","baseDuration","mode","experience","goal","alarmVol","alarmSound","sledLane","bikeWork","bikeRest","skiWork","skiRest","barbellReloadSec","stationChangeSec","smithPref","hrMax","hrRest","autoBackup","backupFolder","keepAwake","lastBackupTs","lastRecapTs"].forEach(k=>{ if(d.settings[k]!=null) STATE.settings[k]=d.settings[k]; });
     if(d.settings.recWeights) STATE.settings.recWeights=Object.assign(STATE.settings.recWeights||{},d.settings.recWeights);
     if(d.settings.exNotes) STATE.settings.exNotes=Object.assign(STATE.settings.exNotes||{},d.settings.exNotes);
     if(d.settings.restOverrides) STATE.settings.restOverrides=Object.assign(STATE.settings.restOverrides||{},d.settings.restOverrides);
@@ -2977,8 +3001,8 @@ view.addEventListener("click",e=>{
     if(s.done&&c._running&&c._lapStart){ const lap=Math.round((Date.now()-c._lapStart)/1000); const tf=(c.fields||[]).find(f=>f.k==="time"); if(tf){ if(!s.vals) s.vals={}; if(!s.vals.time) s.vals.time=fmt(lap); } c._lapStart=Date.now(); }
     pCur();
     if(s.done){ startRest(restForKey("cond_"+c.id,60),c.name+" rest","cond_"+c.id); } return; }
-  if(a==="condaddset"){ const c=STATE.current.conditioning[+act.dataset.ci]; if(!c.sets) c.sets=[]; const ns=mkCondSet(c.fields||[{k:"result",l:"Result"}]); ns.w=(c.sets[c.sets.length-1]||{}).w||""; c.sets.push(ns); pCur(); renderToday(); return; }
-  if(a==="condrmset"){ const c=STATE.current.conditioning[+act.dataset.ci]; if(c.sets&&c.sets.length>1) c.sets.pop(); pCur(); renderToday(); return; }
+  if(a==="condaddset"){ const c=STATE.current.conditioning[+act.dataset.ci]; if(!c.sets) c.sets=[]; const ns=mkCondSet(c.fields||[{k:"result",l:"Result"}]); ns.w=(c.sets[c.sets.length-1]||{}).w||""; c.sets.push(ns); syncIntervalProto(c); pCur(); renderToday(); return; }
+  if(a==="condrmset"){ const c=STATE.current.conditioning[+act.dataset.ci]; if(c.sets&&c.sets.length>1) c.sets.pop(); syncIntervalProto(c); pCur(); renderToday(); return; }
   if(a==="condswap"){ const c=STATE.current.conditioning[+act.dataset.ci]; if(UI.openCondSwap.has(c.id)) UI.openCondSwap.delete(c.id); else UI.openCondSwap.add(c.id); renderToday(); return; }
   if(a==="docondswap"){ const ci=+act.dataset.ci; const ex=EXERCISES.find(e=>e.id===act.dataset.id); if(ex){ UI.openCondSwap.delete(STATE.current.conditioning[ci].id); STATE.current.conditioning[ci]=buildCond(ex,STATE.current.duration); pCur(); renderToday(); } return; }
   if(a==="workt"){ startWork(act.dataset.name); return; }
@@ -3038,7 +3062,7 @@ view.addEventListener("click",e=>{
       try{ if(window.caches){ const ks=await caches.keys(); for(const k of ks) await caches.delete(k); } }catch(e){}
       location.reload(); },600);
     return; }
-  if(a==="hardday"){ UI.hardDay=act.dataset.v==="1"; renderToday(); return; }
+  if(a==="hardday"){ const v=act.dataset.v; UI.hardDay=(v==="auto")?null:(v==="1"); renderToday(); return; }
   if(a==="rdcycle"){ rdCycle(act.dataset.m); renderToday(); return; }
   if(a==="recapdone"){ STATE.settings.lastRecapTs=Date.now(); pSet(); renderToday(); return; }
   if(a==="exnote"){ const id=act.dataset.id; const cur=STATE.settings.exNotes[id]||""; const v=prompt("Setup note (pins, seat, grip…):",cur); if(v==null) return; const t=String(v).trim(); if(t) STATE.settings.exNotes[id]=t; else delete STATE.settings.exNotes[id]; pSet(); renderToday(); return; }
@@ -3111,6 +3135,10 @@ view.addEventListener("input",e=>{
   if(inp.dataset.set==="hrRest"){ STATE.settings.hrRest=Math.max(30,Math.min(110,+inp.value||43)); pSet(); renderSettings(); return; }
   if(inp.dataset.set==="autoBackup"){ STATE.settings.autoBackup=inp.value; pSet(); renderSettings(); return; }
   if(inp.dataset.set==="sledLane"){ STATE.settings.sledLane=Math.max(5,Math.min(2000,+inp.value||60)); pSet(); return; }
+  if(inp.dataset.set==="bikeWork"){ STATE.settings.bikeWork=Math.max(5,Math.min(600,+inp.value||40)); pSet(); return; }
+  if(inp.dataset.set==="bikeRest"){ STATE.settings.bikeRest=Math.max(5,Math.min(600,+inp.value||80)); pSet(); return; }
+  if(inp.dataset.set==="skiWork"){ STATE.settings.skiWork=Math.max(5,Math.min(600,+inp.value||30)); pSet(); return; }
+  if(inp.dataset.set==="skiRest"){ STATE.settings.skiRest=Math.max(5,Math.min(600,+inp.value||30)); pSet(); return; }
   if(inp.dataset.set==="barbellReloadSec"){ STATE.settings.barbellReloadSec=Math.max(0,Math.min(600,+inp.value||120)); pSet(); return; }
   if(inp.dataset.set==="stationChangeSec"){ STATE.settings.stationChangeSec=Math.max(0,Math.min(600,+inp.value||60)); pSet(); return; }
   if((inp.dataset.ck||inp.dataset.cf)&&STATE.current){ const row=inp.closest(".setrow"); const c=STATE.current.conditioning[+row.dataset.ci]; if(!c.sets) c.sets=[mkCondSet(c.fields)]; const s=c.sets[+row.dataset.cset]; if(inp.dataset.ck==="w"){ s.w=inp.value; } else { if(!s.vals) s.vals={}; s.vals[inp.dataset.cf]=inp.value; } pCur(); return; }

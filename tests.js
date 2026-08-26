@@ -171,14 +171,18 @@ T("note escaped", !renderWorkout(STATE.current,true).includes('<img src=x')); de
   T("no inherited RPE on fresh sessions", rpe===0, rpe);
   T("scheme label matches set count", label===0, label);
   T("scaled sets prefill reps", blank===0, blank); }
-// cardio focus buttons must build a real session (was silently empty)
-{ let empty=0,worst=0,ww="";
-  for(const f of ["cardio","hiit","bike","ski","sledS","ruck"]) for(const d of [30,45,60]){
+// machine focus buttons must build a real session (was silently empty), at both intensities
+{ let empty=0,worst=0,ww=""; const savedHard=UI.hardDay;
+  for(const f of ["bike","ski","sledS","ruck"]) for(const d of [30,45,60]) for(const hd of [false,true]){
+    UI.hardDay=hd;
     const w=generate(f,d,"strength");
     if(!(w.conditioning||[]).length) empty++;
-    const m=estimateSessionSec(w)/60, err=Math.abs(m-d)/d; if(err>worst){worst=err;ww=f+"/"+d+"="+Math.round(m)+"min";} }
-  T("cardio focuses never build empty sessions", empty===0, empty);
-  T("cardio sessions land near their target time", worst<=0.20, ww+" ("+Math.round(worst*100)+"%)"); }
+    const m=estimateSessionSec(w)/60, err=Math.abs(m-d)/d; if(err>worst){worst=err;ww=f+"/"+d+"/"+(hd?"hard":"easy")+"="+Math.round(m)+"min";} }
+  UI.hardDay=savedHard;
+  T("machine focuses never build empty sessions", empty===0, empty);
+  T("machine sessions land near their target time", worst<=0.20, ww+" ("+Math.round(worst*100)+"%)"); }
+// removed generic focuses are gone
+{ T("Cardio/HIIT focuses removed from FOCI", !FOCI.cardio&&!FOCI.hiit, Object.keys(FOCI).filter(k=>k==="cardio"||k==="hiit").join(",")); }
 // per-set HR capture + no fabrication when the strap is off
 { STATE.current=generate("push",45,"circuit"); STATE.current.startedAt=Date.now();
   HR.connected=true; HR._win={n:0,sum:0,max:0,min:999};
@@ -317,6 +321,29 @@ T("regression: render errors", rerr===0, rerr);
   const histIds=new Set(); (SEED_DATA.workouts||[]).forEach(w=>{ (w.exercises||[]).forEach(e=>histIds.add(e.id)); (w.conditioning||[]).forEach(c=>histIds.add(c.id)); });
   const stray=Object.keys(GUIDES).filter(k=>!live.has(k)&&!histIds.has(k));
   T("GUIDES: no orphaned guide keys (not live, not in history)", stray.length===0, stray.join(",")); }
+// --- interval lap count drives time: condProtoMin scales with the live set count ---
+{ const c={proto:"8 × 20s hard / 10s rest",sets:new Array(8).fill(0).map(()=>({}))};
+  const m8=condProtoMin(c);
+  c.sets=new Array(20).fill(0).map(()=>({})); syncIntervalProto(c);
+  const m20=condProtoMin(c);
+  T("interval time scales with laps (8→4min)", Math.round(m8)===4, m8);
+  T("interval time scales with laps (20→10min)", Math.round(m20)===10, m20);
+  T("syncIntervalProto rewrites the printed lap count", /^20\s*×/.test(c.proto), c.proto); }
+// --- Bike/SkiErg cycle steady <-> interval on regenerate (machineHard alternates) ---
+{ const savedHard=UI.hardDay, savedWk=STATE.workouts; UI.hardDay=null;
+  STATE.workouts=[];
+  const first=machineHard("bike","bike");                       // no history -> steady
+  STATE.workouts=[{focus:"bike",cardio:true,hardDay:false,date:Date.now()}];
+  const afterSteady=machineHard("bike","bike");                 // last was steady -> interval
+  STATE.workouts=[{focus:"bike",cardio:true,hardDay:true,date:Date.now()}];
+  const afterHard=machineHard("bike","bike");                   // last was interval -> steady
+  T("bike first session is steady", first===false, first);
+  T("bike alternates steady->interval", afterSteady===true, afterSteady);
+  T("bike alternates interval->steady", afterHard===false, afterHard);
+  // explicit Easy/Hard override wins over auto
+  UI.hardDay=true; T("explicit intensity overrides auto-cycle", machineHard("bike","bike")===true);
+  UI.hardDay=savedHard; STATE.workouts=savedWk; }
+// --- loadsFor still unions after all the above (regression guard) ---
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));
