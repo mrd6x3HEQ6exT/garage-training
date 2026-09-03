@@ -344,6 +344,21 @@ T("regression: render errors", rerr===0, rerr);
   UI.hardDay=true; T("explicit intensity overrides auto-cycle", machineHard("bike","bike")===true);
   UI.hardDay=savedHard; STATE.workouts=savedWk; }
 // --- loadsFor still unions after all the above (regression guard) ---
+// --- pallof press is a band exercise (moved off the cable) ---
+{ const p=ob("pallof_kneel");
+  T("pallof: requires resistance bands", (p.requires||[]).includes("resistancebands"), JSON.stringify(p.requires));
+  T("pallof: no longer on the cable", !(p.requires||[]).includes("cable_low"), JSON.stringify(p.requires));
+  const lg=buildLoggable(p); T("pallof: logs as a band (band picker, not weight)", lg.bandKind==="power", lg.bandKind); }
+// --- metcon autofill: conditioning drills prefill from their last logged instance ---
+{ const drill=EXERCISES.find(e=>e.type==="conditioning"&&e.id==="kb_metcon"); const savedW=STATE.workouts;
+  STATE.workouts=[{date:Date.now(),ref:false,focus:"metcon",exercises:[],conditioning:[{id:"kb_metcon",sets:[{w:"35",vals:{reps:"15"},done:true},{w:"35",vals:{reps:"12"},done:true}]}]}].concat(savedW);
+  const built=buildCond(drill,45);
+  T("metcon autofill: load carried forward", built.sets[0].w==="35", built.sets[0].w);
+  T("metcon autofill: result field carried forward", built.sets[0].vals.reps==="15", JSON.stringify(built.sets[0].vals));
+  T("metcon autofill: extra rounds fall back to last logged set", built.sets[built.sets.length-1].vals.reps==="12", JSON.stringify(built.sets[built.sets.length-1].vals));
+  STATE.workouts=savedW;
+  const blank=buildCond(drill,45); // no history now -> must be blank, not crash
+  T("metcon autofill: blank when no history", blank.sets[0].w===""&&blank.sets[0].vals.reps==="", JSON.stringify(blank.sets[0])); }
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));

@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v37";
+const BUILD="v38";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -547,7 +547,7 @@ const EXERCISES=[
   // Audit gap: anti-rotation is one of the best-evidenced core categories (resisting rotation
   // is what actually protects the spine day to day) and the app had essentially ONE exercise
   // for it. Everything else was flexion, rotation, or planks.
-  X("pallof_kneel","Half-kneeling Pallof press + overhead reach","core","core",["core"],["glutes","shoulders"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Press out, then reach overhead — resist the twist through the whole path.",unilateral:true}),
+  X("pallof_kneel","Half-kneeling Pallof press + overhead reach","core","core",["core"],["glutes","shoulders"],["resistancebands"],[],{cfx:"antirot",cue:"Anchor a band at chest height, half-kneeling side-on to it. Press out, then reach overhead — resist the twist through the whole path.",unilateral:true}),
   X("sa_cable_press","Single-arm cable press","core","core",["core"],["chest","shoulders"],["cable_low"],["cable_low"],{cfx:"antirot",cue:"Standing, press one arm forward — the load tries to rotate you and the core has to stop it.",unilateral:true}),
   X("lm_twist","Landmine rotation","core","core",["core"],["shoulders"],["landmine"],["landmine"],{cfx:"rotation",cue:"Pivot the feet, control the arc."}),
   X("decline_situp","Weighted decline sit-up","core","core",["core"],[],["bench"],["bench"],{cfx:"flexion",cue:"Bench on decline, hold a plate or DB.",loadCap:"dumbbells"}),
@@ -1236,7 +1236,18 @@ function condRounds(proto){ if(!proto) return 1; const s=String(proto);
   m=s.match(/(\d+)\s*min\s*EMOM/i); if(m){ const n=+m[1]; if(n>=2&&n<=30) return n; }
   m=s.match(/EMOM[^0-9]*(\d+)/i); if(m){ const n=+m[1]; if(n>=2&&n<=30) return n; }
   return 1; }
-function buildCond(c,duration){ const m=COND_META[c.id]||{}; const fields=m.fields||[{k:"result",l:"Result"}]; const proto=c.proto[duration]; const n=condRounds(proto); const sets=[]; for(let i=0;i<n;i++) sets.push(mkCondSet(fields)); return {id:c.id,name:c.name,proto,muscles:c.muscles,weighted:!!m.weighted,loadCap:m.loadCap||null,fields,sets}; }
+function buildCond(c,duration){ const m=COND_META[c.id]||{}; const fields=m.fields||[{k:"result",l:"Result"}]; const proto=c.proto[duration]; const n=condRounds(proto);
+  // Prefill from the last logged instance of this drill (same carry-forward strength gets
+  // via buildLoggable) — load and each result field, per set, so a metcon comes up filled
+  // with last time's numbers instead of blank. Falls back to the last completed set when
+  // this session has more rounds than the previous one.
+  const prev=lastCond(c.id); const psets=prev?prev.sets.filter(s=>s.done):null;
+  const sets=[];
+  for(let i=0;i<n;i++){ const s=mkCondSet(fields);
+    if(psets&&psets.length){ const src=psets[i]||psets[psets.length-1];
+      if(src){ if(src.w!=null) s.w=src.w; (fields||[]).forEach(f=>{ if(src.vals&&src.vals[f.k]!=null&&src.vals[f.k]!=="") s.vals[f.k]=src.vals[f.k]; }); } }
+    sets.push(s); }
+  return {id:c.id,name:c.name,proto,muscles:c.muscles,weighted:!!m.weighted,loadCap:m.loadCap||null,fields,sets}; }
 function barWeightFor(e){
   if(e&&UI.plateBar[e.id]!=null) return UI.plateBar[e.id];
   const def=(e&&exById(e.id))||e||{};
@@ -1407,6 +1418,11 @@ function recentPatterns(n){ const c={}; STATE.workouts.filter(w=>!w.ref).slice(0
 function recentExerciseIds(n){ const s=new Set(); STATE.workouts.slice(0,n).forEach(w=>w.exercises.forEach(e=>s.add(e.id))); return s; }
 function lastSession(exId){ for(const w of STATE.workouts){ const e=w.exercises.find(x=>x.id===exId); if(e&&e.sets&&e.sets.length) return e; } return null; }
 function lastRealSession(exId){ for(const w of STATE.workouts){ if(w.ref) continue; const e=w.exercises.find(x=>x.id===exId); if(e&&e.sets&&e.sets.length) return e; } return null; }
+// Conditioning history lookup — the strength lastSession() only searches w.exercises, but
+// conditioning drills live in w.conditioning, so they had NO prefill path at all (metcon
+// sessions always came up blank). Newest-first; returns the most recent logged instance of
+// this drill (as a finisher on any day counts too) that has at least one completed set.
+function lastCond(id){ for(const w of STATE.workouts){ if(w.ref) continue; const c=(w.conditioning||[]).find(x=>x.id===id); if(c&&c.sets&&c.sets.some(s=>s.done)) return c; } return null; }
 function parseTopReps(scheme){ const m=String(scheme).match(/(\d+)\s*[–-]\s*(\d+)/); if(m) return +m[2]; const s=String(scheme).match(/×\s*(\d+)/); return s?+s[1]:null; }
 function incFor(ex){ const m=ex.muscles||[]; return (ex.barbell&&m.some(x=>["quads","hams","glutes","back"].includes(x)))?10:5; }
 // Progressive-overload nudge: did they clear the top of the rep range on every set last time?
@@ -1500,7 +1516,7 @@ const SIM_GROUPS=[
   ["cable_crunch","decline_situp","decline_crunch_wt","plate_oh_situp"],        // loaded spinal flexion
   ["decline_russian","kneel_woodchop","kb_halo_chop"],                          // rotation, trunk-driven
   ["woodchop","woodchop_low_high"],                                             // cable chops
-  ["pallof_kneel","sa_cable_press","cable_antirot_hold"],                       // cable anti-rotation
+  ["pallof_kneel","sa_cable_press","cable_antirot_hold"],                       // anti-rotation (band pallof + cable presses/holds)
   ["hollow","bench_pullover_hollow","dragon_flag"],                             // hollow/anti-extension holds
   ["cable_rev_crunch","rev_crunch_hold","bench_legraise_thrust","hang_knee","decline_leg_raise"], // hip flexion
   ["kb_deadbug","kb_plank_pull","kb_around_world"],                             // KB floor/plank core
