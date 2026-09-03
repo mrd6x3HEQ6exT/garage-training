@@ -359,6 +359,22 @@ T("regression: render errors", rerr===0, rerr);
   STATE.workouts=savedW;
   const blank=buildCond(drill,45); // no history now -> must be blank, not crash
   T("metcon autofill: blank when no history", blank.sets[0].w===""&&blank.sets[0].vals.reps==="", JSON.stringify(blank.sets[0])); }
+// --- kettlebell consolidation: kb1+kb2 collapse into one kb entry (reads real migrateKettlebell) ---
+{ const old=[{id:"db",caps:["dumbbells"],on:true},{id:"kb1",caps:["kettlebell"],on:true,loads:[18,22,26,31,35]},{id:"kb2",caps:["kettlebell"],on:false,loads:[35,40,44,49,53]},{id:"rack",caps:["rack"],on:true}];
+  migrateKettlebell(old);
+  T("kb migrate: collapses to a single kb entry", old.filter(e=>["kb","kb1","kb2"].includes(e.id)).length===1 && !!old.find(e=>e.id==="kb"), JSON.stringify(old.map(e=>e.id)));
+  const kb=old.find(e=>e.id==="kb");
+  T("kb migrate: unions the full load range", JSON.stringify(kb.loads)===JSON.stringify([18,22,26,31,35,40,44,49,53]), JSON.stringify(kb.loads));
+  T("kb migrate: ON if either entry was on", kb.on===true, kb.on);
+  T("kb migrate: keeps the earlier slot (before rack)", old.findIndex(e=>e.id==="kb")<old.findIndex(e=>e.id==="rack"));
+  T("kb migrate: exactly one kettlebell-capable entry", old.filter(e=>(e.caps||[]).includes("kettlebell")).length===1); }
+{ const off=[{id:"kb1",caps:["kettlebell"],on:false,loads:[18,35]},{id:"kb2",caps:["kettlebell"],on:false,loads:[40,53]}];
+  migrateKettlebell(off); T("kb migrate: OFF when both were off", off.find(e=>e.id==="kb").on===false); }
+{ const fresh=STATE.equipment.filter(e=>(e.caps||[]).includes("kettlebell"));
+  T("kb: fresh install has exactly one KB entry (id kb)", fresh.length===1&&fresh[0].id==="kb", JSON.stringify(fresh.map(e=>e.id)));
+  const copy=JSON.parse(JSON.stringify(STATE.equipment)); migrateKettlebell(copy);
+  T("kb migrate: idempotent on already-single state", copy.filter(e=>(e.caps||[]).includes("kettlebell")).length===1);
+  T("kb: full range snaps (loadsFor spans 18–53)", (loadsFor("kettlebell")||[]).includes(53)&&(loadsFor("kettlebell")||[]).includes(18)); }
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));

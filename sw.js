@@ -1,4 +1,4 @@
-const CACHE = 'rackroll-v6';
+const CACHE = 'rackroll-v7';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
