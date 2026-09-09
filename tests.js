@@ -4,7 +4,10 @@
    Every build must pass this before upload. Add checks; never delete them. */
 const fs=require("fs");
 const html=fs.readFileSync(__dirname+"/index.html","utf8"); global.__html=html;
-const m=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]).sort((a,b)=>b.length-a.length)[0];
+// `i` flag: silences CodeQL js/bad-tag-filter. This is a local build tool extracting the
+// app's own <script> block for testing, not a sanitizer on untrusted input — but the `i`
+// flag is free (index.html only uses lowercase tags) and removes the false positive.
+const m=[...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map(x=>x[1]).sort((a,b)=>b.length-a.length)[0];
 global.viewHTML="";
 function realCL(){const s=new Set();return{add:(...x)=>x.forEach(v=>s.add(v)),remove:(...x)=>x.forEach(v=>s.delete(v)),toggle:()=>{},contains:x=>s.has(x)};}
 function mkEl(){return new Proxy(function(){},{apply:()=>mkEl(),get:(t,p)=>{if(p==='innerHTML')return global.viewHTML;if(p==='value')return '';if(p==='classList')return realCL();if(p==='dataset')return{};if(p==='style')return{};if(p==='querySelector')return()=>mkEl();return(typeof p==='symbol')?undefined:mkEl();},set:(t,p,v)=>{if(p==='innerHTML'){global.viewHTML=v;}return true;}});}
