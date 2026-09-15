@@ -2,13 +2,36 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): fit-before-layout > angle-norm-360-boundary > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
 
+---
+TAG: fit-before-layout
+IF: a custom View computes a scale/zoom/fit from its own width/height
+WHAT: PlanView.items setter called fit() the moment data arrived, before the view had been
+     laid out (width=0) -> scale computed from a 100px fallback -> first render zoomed to
+     nothing; and fit() cleared the needFit flag so onSizeChanged never re-fit.
+WHY: treated "data present" as the trigger for fitting; the real precondition is "data
+     present AND view measured". Caught by re-reading the diff, not by compile or tests.
+RESULT: would have shipped a blank first map view on every launch
+FIX: any fit/scale that reads width/height must no-op while width==0 and leave the
+     "needs fit" flag set so onSizeChanged performs it. Compile-clean Android UI code still
+     needs a pass for lifecycle ordering (measure/layout/sensors/permissions) since none of
+     it can be run in the authoring environment.
+---
+TAG: angle-norm-360-boundary
+IF: normalising an angle into [0,360) (or any half-open range) with `% 360; if <0 += 360`
+WHAT: normDeg(-1e-15) returned exactly 360.0: the negative remainder plus 360 rounds to 360
+     in floating point, violating the [0,360) contract. Circular mean of 350° and 10°
+     showed as "360°".
+WHY: the two-step remainder+shift assumes exact arithmetic at the boundary
+RESULT: caught by a unit test on the circular-mean path; would have shown "360°" headings
+FIX: after the shift, add `if (x >= 360) x -= 360`. Test angle helpers at the exact
+     boundary (tiny negative, exactly 360, 720).
 ---
 TAG: partial-grep-full-count
 IF: about to state a COUNT of something in the code (how many orphans, dupes, usages)
