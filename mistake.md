@@ -2,12 +2,30 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): scratch-files-in-repo > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: scratch-files-in-repo
+IF: about to run a shell command that writes a file (test output, logs, downloads) — or
+    about to end a session in which any shell command ran
+WHAT: while building an unrelated tool, test runs wrote f.jpg and raw.log into the
+     project root. Commands used relative output paths after an earlier `cd` to the
+     scratchpad, but the shell cwd reset to the repo between calls, so the paths
+     resolved into the project. The stop hook then asked for them to be committed.
+WHY: assumed cwd persists across (and within) Bash calls, and used relative paths for
+     throwaway output. Also ran background jobs whose redirects inherited the wrong cwd —
+     the same reason a "server failed to start" log went missing during testing.
+RESULT: two junk files untracked in the repo, one hook prompt away from being committed
+     into the app repo as if they were work product.
+FIX: write every scratch file to an ABSOLUTE path under the scratchpad dir — never a
+     relative one, never `> file.log` after a `cd`. Before ending any session that ran
+     shell commands, `git status --short`: untracked files are guilty until inspected,
+     and a hook asking to commit them is not authorization to do so.
 
 ---
 TAG: partial-grep-full-count
