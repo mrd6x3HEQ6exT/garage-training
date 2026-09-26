@@ -2,12 +2,23 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): scratch-files-in-repo > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): annotated-output-in-code-fence > scratch-files-in-repo > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: annotated-output-in-code-fence
+IF: quoting command output back to a user with arrows/labels added for emphasis
+WHAT: put an annotated `ls -lh` listing inside a fenced block; user pasted it
+     straight into bash and got a screen of "command not found"
+WHY: in a terminal-facing chat a fenced block reads as "paste this." Inline
+     annotations do not cancel that signal - the fence wins
+RESULT: wasted round trip, user briefly thought their shell or the fix had broken
+FIX: annotated or illustrative output goes in a table or in prose. Fenced blocks
+     are reserved for text that is safe to paste verbatim, nothing else.
 
 ---
 TAG: scratch-files-in-repo
