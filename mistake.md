@@ -2,12 +2,33 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): annotated-output-in-code-fence > scratch-files-in-repo > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): unblocked-rate-broke-storage-budget > annotated-output-in-code-fence > scratch-files-in-repo > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: unblocked-rate-broke-storage-budget
+IF: a fix removes a bottleneck or speeds up anything that writes into a finite
+    store (disk, table, quota) on a fixed retention window
+WHAT: disabled wavelet denoise to clear an indi-allsky image-queue backlog,
+     27.2s/frame -> 3.1s/frame. Capture cadence was 15s, so the pipeline went
+     from dropping most frames to saving all of them. Nightly image volume
+     roughly doubled against an unchanged 10-day retention on a 117GB card
+WHY: treated the denoise change as a latency fix and stopped at "queue drains
+     now." Never asked what the higher keep-rate does to the disk budget -
+     removing a bottleneck IS a capacity change, not just a speed change
+RESULT: card hit 100% in ~6 days; indi-allsky wrote truncated JPEGs, the MJPEG
+     loop had 0 frames to serve, Blue Iris threw "Error: ffffffff (Socket
+     error) 0". Then I misdiagnosed it as "the card was always too small" -
+     but it had run a year fine. The user's "this started after we changed
+     things, and took days to show up" was correct and I argued past it
+FIX: when a change raises the rate of anything that accumulates, recompute the
+     store's budget in the SAME change and adjust retention/quota then. And
+     when a user says a problem began after a specific change, treat the
+     timeline as evidence to explain, not an intuition to correct.
 
 ---
 TAG: annotated-output-in-code-fence
