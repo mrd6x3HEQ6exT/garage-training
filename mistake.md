@@ -2,12 +2,37 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): stale-artifact-compared > timeout-assumed-slow > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: stale-artifact-compared
+IF: re-running a multi-step verify pipeline (generate inputs -> recalc -> compare)
+WHAT: regenerated BOTH old+new test workbooks, recalculated only the new ones, then ran
+     the comparison — the old ones read as all-empty and showed 5,700 "mismatches".
+     Caught before reporting, but it looked exactly like a regression.
+WHY: ran the steps by hand and re-ran only the half I had just changed; the other
+     half's inputs had been regenerated too
+RESULT: one wasted cycle; nearly a false "your old file disagrees" claim
+FIX: a step that regenerates inputs must re-run EVERY downstream step for EVERY artifact
+     it touched — script the chain as one command. A wall of mismatches right after a
+     pipeline change = suspect the pipeline before the code.
+
+---
+TAG: timeout-assumed-slow
+IF: a tool/process times out and I'm about to explain it as "the workload is heavy"
+WHAT: LibreOffice recalc timed out at 5 min; started reasoning about which formulas
+     were slow. The process had used ~1s of CPU — Calc wasn't installed (core only),
+     so it was hung, not busy. A 3-cell test file timed out too.
+WHY: explained the symptom from my own work (big workbook) instead of first testing
+     the tool on a trivial input
+RESULT: ~10 min spent on a performance theory with no basis
+FIX: on any timeout, check CPU use and run the same tool on a trivial input first.
+     Hung != slow. Blame the workload only after the tool works on something tiny.
 
 ---
 TAG: partial-grep-full-count
