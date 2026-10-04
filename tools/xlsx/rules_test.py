@@ -67,7 +67,7 @@ def _find_blocks(header):
                 return i
         return None
     steps = {k: first_after(k, 0) for k in ("tab", "section", "step #", "type", "max", "critical", "part",
-                                            "minimum group", "switch", "column")}
+                                            "minimum group", "switch", "column", "row")}
     g_tab = first_after("tab", (steps["switch"] or 0) + 1)
     groups = {"tab": g_tab, "group": first_after("minimum group", g_tab or 0),
               "minimum": first_after("minimum", g_tab or 0)}
@@ -86,7 +86,9 @@ def spec_from_rules_sheet(wb, path):
         for i, v in enumerate(r):
             if _norm(v).lower().startswith("scalable (s) step minimum") and i + 1 < len(r) and isinstance(r[i + 1], (int, float)):
                 s_min = int(r[i + 1])
-    spec = {"source": str(path), "layout": "rows", "s_min": s_min, "pes": {}}
+    # "Column" = steps run across (one row per student); "Row" = steps run down (one column per student)
+    orientation = "cols" if st["row"] is not None and st["column"] is None else "rows"
+    spec = {"source": str(path), "layout": "rows", "orientation": orientation, "s_min": s_min, "pes": {}}
     for r in rows[1:]:
         tab = r[st["tab"]]
         if not tab or r[st["step #"]] is None:
@@ -95,10 +97,11 @@ def spec_from_rules_sheet(wb, path):
                                           "stated_part_max": {}, "views": {}, "notes": []})
         sid = len(pe["steps"])
         typ = _norm(r[st["type"]]).upper()
+        loc = int(r[st["row"]]) if orientation == "cols" else _norm(r[st["column"]])
         pe["steps"].append(_step(sid, _norm(r[st["section"]]), r[st["step #"]], typ, r[st["max"]],
                                  _norm(r[st["critical"]]).upper() in ("Y", "YES", "1", "TRUE", "★"),
                                  _norm(r[st["part"]]) or None, _norm(r[st["minimum group"]]) or None,
-                                 _norm(r[st["switch"]]) or None, _norm(r[st["column"]])))
+                                 _norm(r[st["switch"]]) or None, loc))
     for r in rows[1:]:
         tab = r[gr["tab"]] if gr["tab"] is not None else None
         if tab and tab in spec["pes"] and r[gr["group"]]:
@@ -695,6 +698,79 @@ class RowsLayout:
         return wbv[tab].cell(self.first_row + slot, out["col"]).value
 
 
+class ColsLayout:
+    """Steps run down the rows, one column per student. Found by labels, not fixed addresses:
+    a header column holds "Result", "Final %", "Booth %", "Report %" and "Student"; the student
+    columns start right after it; each student's name cell points at the roster cell to fill.
+    Switches are cells reading "<switch> steps: graded" / "<switch> steps: NOT graded"."""
+    name = "cols"
+    LABELS = {"RESULT": ("result", None), "FINAL %": ("final", None),
+              "BOOTH %": ("part_pct", "Booth"), "REPORT %": ("part_pct", "Report")}
+
+    def __init__(self, wb):
+        self.wb = wb
+        self._geo = {}
+
+    def _geometry(self, tab):
+        if tab in self._geo:
+            return self._geo[tab]
+        ws = self.wb[tab]
+        rows, label_col = {}, None
+        for r in range(1, 16):
+            for c in range(1, 12):
+                v = _norm(ws.cell(r, c).value).upper()
+                if v in self.LABELS or v == "STUDENT":
+                    label_col = c
+                    rows[v] = r
+        if label_col is None or "STUDENT" not in rows:
+            raise SystemExit(f"{tab}: could not find the Result / Student labels")
+        first = label_col + 1
+        roster = []
+        c = first
+        while True:
+            f = formula_text(ws.cell(rows["STUDENT"], c).value)
+            m = re.search(r"([A-Za-z0-9_ ]+|'[^']+')!\$?([A-Z]{1,3})\$?(\d+)", f or "")
+            if not m:
+                break
+            roster.append((m.group(1).strip("'"), f"{m.group(2)}{m.group(3)}"))
+            c += 1
+        switches = {}
+        for r in range(1, 16):
+            for cc in range(1, label_col + 1):
+                v = ws.cell(r, cc).value
+                if isinstance(v, str) and " steps: " in v and not v.startswith("="):
+                    switches[v.split(" steps: ")[0]] = ws.cell(r, cc).coordinate
+        self._geo[tab] = {"rows": rows, "first": first, "roster": roster, "switches": switches}
+        return self._geo[tab]
+
+    def capacity(self, tab):
+        return len(self._geometry(tab)["roster"])
+
+    def outputs(self, tab, pe):
+        g = self._geometry(tab)
+        outs = []
+        for lab, (kind, part) in self.LABELS.items():
+            if lab in g["rows"]:
+                outs.append({"kind": kind, "part": part, "row": g["rows"][lab],
+                             "label": f"{lab.title()} (row {g['rows'][lab]})"})
+        return outs
+
+    def write(self, wb, tab, slot, pe, values, switches):
+        g = self._geometry(tab)
+        sheet, cell = g["roster"][slot]
+        wb[sheet][cell] = f"Test student {slot + 1:03d}"
+        ws = wb[tab]
+        col = g["first"] + slot
+        for s in pe["steps"]:
+            ws.cell(int(s["loc"]), col).value = values.get(s["id"])
+        for name, state in switches.items():
+            if name in g["switches"]:
+                ws[g["switches"][name]] = f"{name} steps: {'graded' if state else 'NOT graded'}"
+
+    def read(self, wbv, tab, slot, out):
+        return wbv[tab].cell(out["row"], self._geometry(tab)["first"] + slot).value
+
+
 # =========================================================================== run
 
 def _same(exp, act):
@@ -718,7 +794,12 @@ def run(file, layout="auto", pes=None, keep=None, max_fail=12):
     spec = load_spec(file, layout)
     layout = spec["layout"]
     wb0 = load(file)
-    adapter = V9Layout(wb0) if layout == "v9" else RowsLayout(wb0)
+    if layout == "v9":
+        adapter = V9Layout(wb0)
+    elif spec.get("orientation") == "cols":
+        adapter = ColsLayout(wb0)
+    else:
+        adapter = RowsLayout(wb0)
     tabs = [t for t in spec["pes"] if (not pes or t in pes) and t in wb0.sheetnames]
     plan = {}
     for tab in tabs:

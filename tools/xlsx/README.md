@@ -36,6 +36,8 @@ Run the tools with `python3 /path/to/tools/xlsx/<tool>.py ...`. Each one prints 
 The rules are read from the workbook, never typed into the script:
 
 - **`rows` layout:** a hidden `Rules` sheet listing each step's tab, section, step number, type (S/NS), max, critical flag, part (Booth/Report), minimum group and switch. It also has a minimum-group table and a GO-floor table.
+  - A `Column` header means steps run across, one row per student.
+  - A `Row` header means steps run down, one column per student; that layout is read through its "Result", "Final %", "Student" labels.
 - **`v9` layout:** students in columns and steps in rows, with `GO / NG:` in A2. Rules come from the overall GO/NG formula. The red step numbers and every pass/fail row below the steps are read as extra "views" and compared against it.
 
 Commands:
