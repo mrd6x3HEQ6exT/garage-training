@@ -2,12 +2,25 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): vague-ask-no-specifics > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: vague-ask-no-specifics
+IF: asking the user to decide, confirm, or supply something
+WHAT: gradebook review plan said "confirm the rules / you decide on the critical steps"
+     and "send me the checklist text" — never named WHICH steps or WHAT text. User had
+     to ask "which critical steps?" and "checklist text??? what do you mean?"
+WHY: the specifics were in my analysis but got trimmed from the final message for
+     length; used my own shorthand ("checklist text") instead of the user's terms
+RESULT: wasted a round-trip; user confused about what was being asked of them
+FIX: every ask names the exact items (tab, section, step #) and says in plain words
+     what's needed and why. After trimming a message, re-check each ask still carries
+     its specifics. Before asking for data, check whether the files already hold it.
 
 ---
 TAG: partial-grep-full-count
