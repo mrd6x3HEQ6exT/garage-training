@@ -1,0 +1,10 @@
+# Spreadsheets and xlsx-tool output never go in git (they hold course data)
+*.xlsx
+*.xlsm
+*.xlsb
+*.xls
+*.xltx
+*.xltm
+*.ods
+xlsx_out/
+__pycache__/

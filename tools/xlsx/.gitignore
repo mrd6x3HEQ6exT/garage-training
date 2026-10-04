@@ -1,0 +1,16 @@
+# Never commit spreadsheets or anything the tools produce from them (it contains their data)
+*.xlsx
+*.xlsm
+*.xlsb
+*.xls
+*.xltx
+*.xltm
+*.ods
+*.csv
+*.json
+*.pdf
+*.png
+*.md
+!README.md
+xlsx_out/
+__pycache__/
