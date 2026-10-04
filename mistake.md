@@ -2,12 +2,27 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): vague-ask-no-specifics > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): tool-failed-not-diagnosed > vague-ask-no-specifics > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: tool-failed-not-diagnosed
+IF: a tool/command fails or times out (LibreOffice recalc, a build, a test runner)
+WHAT: recalc.py timed out 3x; I retried with longer timeouts, then told the user
+     "LibreOffice won't run in this container" and swapped in a hand-rolled Python
+     evaluator. Real cause: only libreoffice-core was installed, no libreoffice-calc
+     (can't open .xlsx at all). One apt install fixed it; full v9 recalcs in ~7s.
+WHY: treated the timeout as an environment limit instead of reading the script and
+     checking what was installed. A timeout can mean "missing piece", not "slow" —
+     longer timeouts were wasted retries.
+RESULT: verified with a weaker method; the user noticed and had to ask for the fix
+FIX: when a tool fails, diagnose before declaring it unavailable: version check,
+     installed components (dpkg -l), run the failing step by hand. If I do move on,
+     say plainly "not diagnosed yet", never "it can't run here".
 
 ---
 TAG: vague-ask-no-specifics
