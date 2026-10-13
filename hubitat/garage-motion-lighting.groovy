@@ -5,7 +5,8 @@
  *
  *  Behaviour
  *  ---------
- *  - Any selected motion sensor going ACTIVE turns the lights on (if it is dark enough / late enough).
+ *  - Any selected motion sensor going ACTIVE turns ALL selected lights on (if it is dark enough / late enough).
+ *    If some lights are already on, motion brings the rest on without re-checking brightness.
  *  - While any sensor stays active the lights stay on. No timer runs during activity.
  *  - When ALL sensors are inactive, a countdown starts (default 10 min). New motion cancels it.
  *  - When the countdown expires the lights turn off.
@@ -129,8 +130,14 @@ def motionActiveHandler(evt) {
         logDebug "Manual-off hold is set; not turning on until all motion has stopped"
         return
     }
+    if (allLightsOn()) {
+        logDebug "All lights already on; countdown cancelled"
+        return
+    }
     if (anyLightOn()) {
-        logDebug "Lights already on; countdown cancelled"
+        // Some lights are on and some are not (e.g. one wall switch was flipped). Motion means
+        // the room is in use, so bring the rest on without re-checking brightness.
+        turnLightsOn("motion on ${evt.displayName}; bringing remaining lights on")
         return
     }
     if (!isDarkEnough()) {
@@ -241,6 +248,10 @@ boolean anyMotionActive() {
 
 boolean anyLightOn() {
     return lights?.any { it.currentValue("switch") == "on" } ?: false
+}
+
+boolean allLightsOn() {
+    return lights ? lights.every { it.currentValue("switch") == "on" } : false
 }
 
 /** True if either the sun window or the lux sensors say it is dark. */

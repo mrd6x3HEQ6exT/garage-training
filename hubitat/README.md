@@ -4,7 +4,7 @@ A small Hubitat app that replaces "Lights on Motion Plus" for the garage.
 
 ## What it does
 
-- Any motion sensor seeing movement turns the lights on, as long as it is dark enough.
+- Any motion sensor seeing movement turns **all** selected lights on, as long as it is dark enough. If one light is already on, motion brings the others on too.
 - The lights stay on for as long as any sensor keeps seeing movement. No timer runs while you are moving.
 - Once **all** sensors have gone quiet, a 10 minute countdown starts. Any new motion cancels it. When it runs out, the lights go off.
 - "Dark enough" means either of these is true:
@@ -20,7 +20,7 @@ A small Hubitat app that replaces "Lights on Motion Plus" for the garage.
 2. **Apps** > **Add User App** > **Garage Motion Lighting**.
 3. Fill in:
    - **Motion sensors**: `2.5 - Garage - Workbench Motion Sensor` and `2.5 - Garage - Storage Rack Motion Sensor`.
-   - **Lights**: `2.5 - Garage - WorkBench Light`.
+   - **Lights**: select **both** garage lights (`2.5 - Garage - WorkBench Light` and the other one). The picker allows multiple devices; every selected light is switched on and off together.
    - **Off delay**: 10.
    - **Sunset window**: on, 45 minutes before sunset, 0 after sunrise.
    - **Lux sensors**: the same two Zooz Q sensors (they report illuminance). Threshold 50 to start; look at the lux values the sensors report on a bright day with the door open vs. shut and adjust.
