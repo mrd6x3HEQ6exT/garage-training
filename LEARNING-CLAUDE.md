@@ -186,6 +186,51 @@ Type `/schedule` in any Cowork task, or click "Scheduled" in the sidebar. Schedu
 
 ---
 
+## Lesson 5 – Skills (10 minutes)
+
+A skill is a folder with a SKILL.md file that teaches Claude a repeatable workflow: how to run this repo's tests, how you like commits written, how to build a document in your house style. Claude loads a skill on its own when your request matches its description, or you run it by name with a slash command. The same idea works in Claude Code, claude.ai and Cowork. Sources: [Skills in Claude Code](https://code.claude.com/docs/en/skills), [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude).
+
+**In Claude Code**
+
+| Scope | Where it lives | Notes |
+| --- | --- | --- |
+| Project | `.claude/skills/<name>/SKILL.md` | Commit it so everyone on the repo gets it |
+| Personal | `~/.claude/skills/<name>/SKILL.md` | Follows you across all projects |
+| Plugin | Installed as a bundle | Run as `/plugin-name:skill-name` |
+
+The smallest useful skill is a few lines:
+
+```markdown
+---
+name: run-tests
+description: Run the test suite in tests.js and report any failures
+---
+
+Run the tests in tests.js with node. Report each failing test by name
+with the assertion message. Do not change any code unless asked.
+```
+
+Only the description is really needed; Claude reads it to decide when the skill applies. Add `disable-model-invocation: true` to make a skill run only when you call it, which is right for anything that deploys or sends. Custom slash commands in `.claude/commands/` are the same thing and still work. Type `/skills` to list what is loaded, or `/` to browse.
+
+**In claude.ai and Cowork**
+
+- Skills need code execution on: Settings > Capabilities, then "Code execution and file creation".
+- Built-in skills for Excel, Word, PowerPoint and PDF are already there and run on their own when you ask for one of those files. Toggle them under Customize > Skills.
+- To add your own: zip the skill folder, go to Customize > Skills, click "+", then "+ Create skill" and "Upload a skill".
+- Plugins bundle skills with connectors for a role, and once added they work in chat, Cowork and Claude Code.
+
+**Exercise, using this repo**
+
+- [ ] Create `.claude/skills/run-tests/SKILL.md` with the example above.
+- [ ] Start `claude` in the repo and type `/skills`. Confirm run-tests is listed.
+- [ ] Type `/run-tests` and read the report.
+- [ ] Start a new session and ask "are the tests passing?" without naming the skill. Watch whether Claude picks it up on its own.
+- [ ] In claude.ai, turn on the Word skill under Customize > Skills and ask for a one-page workout plan as a Word document.
+
+**Tip:** CLAUDE.md is for facts that are always true about the project. A skill is for a procedure you would otherwise explain every time. If you catch yourself typing the same three-step instruction twice, that is a skill.
+
+---
+
 ## Putting it together: a one-week practice plan
 
 Each day is twenty minutes on one real thing you already care about. By Friday the four tools are working on the same project, which is where they pay off.
@@ -230,6 +275,16 @@ The weekend step is the one most people skip and the one that compounds. Every r
 | `/schedule` | Make the current task recurring, runs in the cloud |
 | "+" menu | Add connectors |
 | Settings > Cowork | Global instructions |
+
+**Skills**
+
+| Where | Does |
+| --- | --- |
+| `/skills` | List the skills loaded in this session |
+| `/skill-name` | Run a skill by hand, with arguments after it |
+| `.claude/skills/<name>/SKILL.md` | Project skill, committed with the repo |
+| `~/.claude/skills/<name>/SKILL.md` | Personal skill, every project |
+| Customize > Skills (claude.ai, Cowork) | Toggle built-in skills, upload your own as a zip |
 
 **Projects and Artifacts**
 
