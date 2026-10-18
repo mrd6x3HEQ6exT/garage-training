@@ -14,6 +14,13 @@ the user-gesture window, on EVERY tap during an active workout (before the actio
 async render) — so Ungroup and every other button keep the screen awake. requestWake()
 no-ops when the lock is already held, so it's cheap. Also: requestWake() now records the
 last failure in `_wakeErr` instead of swallowing it silently, for future diagnosis.
+FIX (v42, 2026-10-18): found a race — the click handler's requestWake() and renderToday()'s
+both fired while the first request was still awaiting, so ONE tap was granted TWO locks and
+the first was orphaned (releaseWake() freed only one; the screen stayed held after Finish).
+requestWake() now shares a single in-flight request and drops a late grant if the workout
+ended. Failures are no longer only in `_wakeErr`: a refusal (e.g. battery saver) or a
+system release while the app is on screen shows a 6 s toast "Screen may lock: <reason>"
+once per workout, and a system release re-requests immediately.
 STILL NEEDS: confirmation on the actual Pixel 9 Pro Fold that the lock screen no longer
-returns after Ungroup mid-workout. If it still recurs, capture `_wakeErr` from the console
-— that will show what the browser is refusing. Remove this entry once confirmed on device.
+returns after Ungroup mid-workout. If it still recurs, the "Screen may lock: …" toast now
+shows the reason on screen (no console needed). Remove this entry once confirmed on device.

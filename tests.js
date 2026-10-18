@@ -404,6 +404,32 @@ T("regression: render errors", rerr===0, rerr);
   let rep=0; for(let i=0;i<40;i++){ const w=generate("push",45,"strength"); if(w.exercises.some(e=>e.id==="db_ohp"||e.id==="skull")) rep++; }
   T("rotation: generate() skips last push session's non-(+) lifts", rep===0, rep+"/40");
   STATE.workouts=savedW; STATE.settings.recWeights=savedR; }
+// --- v42 hinges stay off Pull days (still on Lower) ---
+{ let pullHinge=0, lowerHinge=0;
+  for(let i=0;i<60;i++){ if(generate("pull",45,"strength").exercises.some(e=>ob(e.id)&&ob(e.id).pattern==="hinge")) pullHinge++;
+    if(generate("lower",60,"strength").exercises.some(e=>ob(e.id)&&ob(e.id).pattern==="hinge")) lowerHinge++; }
+  T("pull: no hinge exercises generated", pullHinge===0, pullHinge+"/60");
+  T("lower: hinges still generated", lowerHinge>30, lowerHinge+"/60"); }
+// --- v42 wake lock: one in-flight request, no orphans, visible warnings (mock Wake Lock API) ---
+await (async()=>{ const savedCur=STATE.current, savedKA=STATE.settings.keepAwake;
+  let requests=0, held=0, deny=null; const sentinels=[];
+  navigator.wakeLock={ request:()=>{ requests++; return new Promise((res,rej)=>setTimeout(()=>{ if(deny) return rej(new Error(deny)); held++;
+    const h=[]; const s={released:false,addEventListener:(t,f)=>h.push(f),release:()=>{ if(s.released) return; s.released=true; held--; h.forEach(f=>f()); }}; sentinels.push(s); res(s); },5)); } };
+  const tick=()=>new Promise(r=>setTimeout(r,20));
+  releaseWake(); STATE.settings.keepAwake=true; STATE.current={startedAt:Date.now(),exercises:[],groups:[]};
+  requestWake(); requestWake(); await tick();
+  T("wake: two taps in a row make ONE request", requests===1&&held===1, "requests="+requests+" held="+held);
+  releaseWake(); await tick();
+  T("wake: finishing releases every lock (no orphan)", held===0, held);
+  requestWake(); await tick(); sentinels[sentinels.length-1].release(); await tick();
+  T("wake: phone revokes it mid-workout → warns and re-requests", _wakeWarned===true&&held===1&&requests===3, "warned="+_wakeWarned+" held="+held+" req="+requests);
+  releaseWake(); await tick();
+  T("wake: releaseWake resets the warning for the next workout", _wakeWarned===false);
+  deny="Wake Lock permission request denied"; requestWake(); await tick();
+  T("wake: refusal is surfaced, not swallowed", _wakeWarned===true&&/denied/.test(_wakeErr||"")&&held===0, _wakeErr);
+  deny=null; releaseWake(); requestWake(); STATE.current=null; await tick();
+  T("wake: workout ended while pending → lock released immediately", held===0&&wakeLock===null, held);
+  delete navigator.wakeLock; STATE.current=savedCur; STATE.settings.keepAwake=savedKA; releaseWake(); })();
 // --- v40 landmine press is the half-kneeling version (same id, so history stays linked) ---
 { const lp=ob("lm_press");
   T("lm_press: half-kneeling name", !!lp&&lp.name==="Half-kneeling landmine press", lp&&lp.name);

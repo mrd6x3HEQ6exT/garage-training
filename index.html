@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v41";
+const BUILD="v42";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1576,7 +1576,11 @@ function generate(focusKey,duration,mode){
     return {id:"w"+Date.now(),date:Date.now(),focus:focusKey,focusName:f.name,duration,mode:"circuit",cardio:true,
       metcon:true,exercises:[],conditioning:conds,groups:[],note:""};
   }
-  const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
+  // v42: hinges stay off Pull days (user request). deadlift / trap_dl / bb_rdl / good_morning
+  // list "back" as a secondary muscle (rack_pull as primary), so hitsFocus let them onto Pull —
+  // good morning landed on ~half of Pull days. All five remain on Lower; rows, pulldowns and
+  // shrugs still cover back, so no Pull muscle loses coverage. Manual swaps are not filtered.
+  const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id)&&!(focusKey==="pull"&&e.pattern==="hinge"));
   const recent=recentExerciseIds(3); recentSameFocusIds(focusKey).forEach(id=>recent.add(id));
   const sCount=(()=>{ const g=goalDef(); const sc=g.scheme||{};
     // average seconds per set for this goal (work + rest), weighted toward accessories.
@@ -2083,8 +2087,34 @@ function updateHRChip(){ const el=document.getElementById("hrChip"); if(!el) ret
 /* keep the screen awake during an active workout (where the platform allows it) */
 let wakeLock=null;
 let _wakeErr=null; // last wake-lock failure, for diagnosis (was silently swallowed)
-async function requestWake(){ try{ if(STATE.settings.keepAwake&&"wakeLock"in navigator&&!wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); _wakeErr=null; wakeLock.addEventListener&&wakeLock.addEventListener("release",()=>{ wakeLock=null; }); } }catch(e){ _wakeErr=(e&&e.message)||String(e); wakeLock=null; } }
-function releaseWake(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
+// v42: one in-flight request at a time. A single tap used to fire two requests (the click
+// handler's re-request + renderToday's) while the first was still awaiting, so two locks
+// were granted and the first was orphaned — releaseWake() then freed only one, leaving the
+// screen held after the workout ended.
+let _wakePending=null;
+let _wakeWarned=false; // one visible warning per workout, not one per tap
+const wakeActive=()=>!!(STATE.current&&STATE.current.startedAt&&STATE.settings.keepAwake);
+// v42: say so when the phone refuses or revokes the lock (battery saver is the usual cause)
+// instead of only recording it in _wakeErr — the lock screen returning was otherwise silent.
+function wakeWarn(){ if(_wakeWarned) return; _wakeWarned=true; toast("Screen may lock: "+(_wakeErr||"keep-awake refused"),6000); }
+function requestWake(){
+  if(!STATE.settings.keepAwake||!("wakeLock"in navigator)) return Promise.resolve();
+  if(wakeLock) return Promise.resolve();
+  if(_wakePending) return _wakePending;
+  _wakePending=(async()=>{ try{
+      const s=await navigator.wakeLock.request("screen");
+      if(!wakeActive()){ try{ s.release(); }catch(e){} return; } // workout ended while the request was pending
+      wakeLock=s; _wakeErr=null;
+      s.addEventListener&&s.addEventListener("release",()=>{ if(wakeLock!==s) return; // releaseWake() already let go
+        wakeLock=null;
+        // Released by the system while the app is on screen mid-workout = the lock screen
+        // can come back. (A release because the page was hidden is normal; visibilitychange
+        // re-requests on return.)
+        if(document.visibilityState==="visible"&&wakeActive()){ _wakeErr="the phone released keep-awake"; wakeWarn(); requestWake(); } });
+    }catch(e){ _wakeErr=(e&&e.message)||String(e); wakeLock=null; if(wakeActive()) wakeWarn(); }
+    finally{ _wakePending=null; } })();
+  return _wakePending; }
+function releaseWake(){ const s=wakeLock; wakeLock=null; _wakeWarned=false; try{ if(s) s.release(); }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&STATE.current&&STATE.current.startedAt&&STATE.settings.keepAwake) requestWake(); });
 
 document.getElementById("modal").addEventListener("click",e=>{ const m=e.currentTarget; if(e.target===m){ m.classList.remove("show"); return; } const ac=e.target.closest("[data-action]"); if(!ac) return; const a=ac.dataset.action;
@@ -2111,7 +2141,7 @@ document.getElementById("modal").addEventListener("input",e=>{ const inp=e.targe
 
 /* ---------------- Render ---------------- */
 const view=document.getElementById("view"), toastEl=document.getElementById("toast"); let toastT;
-function toast(m){ toastEl.textContent=m; toastEl.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),1700); }
+function toast(m,ms){ toastEl.textContent=m; toastEl.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),ms||1700); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function ytChip(name,id){ return `<button class="chip yt" data-action="howto" data-id="${esc(id||"")}" data-name="${esc(name)}"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z" fill="currentColor" stroke="none"/></svg>How-to</button>`; }
 function ytURL(name){ return "https://www.youtube.com/results?search_query="+encodeURIComponent("how to "+name+" proper form"); }
