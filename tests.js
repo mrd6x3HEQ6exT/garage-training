@@ -378,6 +378,18 @@ T("regression: render errors", rerr===0, rerr);
   const copy=JSON.parse(JSON.stringify(STATE.equipment)); migrateKettlebell(copy);
   T("kb migrate: idempotent on already-single state", copy.filter(e=>(e.caps||[]).includes("kettlebell")).length===1);
   T("kb: full range snaps (loadsFor spans 18–53)", (loadsFor("kettlebell")||[]).includes(53)&&(loadsFor("kettlebell")||[]).includes(18)); }
+// --- v40 one-time ban reset (reads real migrateClearBans) ---
+{ const s={blocked:["bb_ohp","cable_lat","hollow_rock"],pinned:["lm_row"]};
+  T("ban reset: clears the whole banned list", migrateClearBans(s)===true&&Array.isArray(s.blocked)&&s.blocked.length===0, JSON.stringify(s.blocked));
+  T("ban reset: leaves pins alone", JSON.stringify(s.pinned)==='["lm_row"]', JSON.stringify(s.pinned));
+  s.blocked.push("bb_push_press");
+  T("ban reset: runs once — a ban made afterwards sticks", migrateClearBans(s)===false&&JSON.stringify(s.blocked)==='["bb_push_press"]', JSON.stringify(s.blocked));
+  T("ban reset: boot left the banned list empty and flagged", (STATE.settings.blocked||[]).length===0&&STATE.settings._bansClearedV40===true, JSON.stringify(STATE.settings.blocked));
+  T("ban reset: seed ships no bans", Array.isArray(SEED_DATA.settings.blocked)&&SEED_DATA.settings.blocked.length===0); }
+// --- v40 landmine press is the half-kneeling version (same id, so history stays linked) ---
+{ const lp=ob("lm_press");
+  T("lm_press: half-kneeling name", !!lp&&lp.name==="Half-kneeling landmine press", lp&&lp.name);
+  T("lm_press: cue and guide say kneeling", /knee/i.test(lp.cue)&&/kneel/i.test(GUIDES.lm_press||""), lp.cue); }
 STATE.settings.goal="general";
 ["today","log","prog","gear","set"].forEach(t=>{STATE.tab=t;try{render();}catch(e){T("tab "+t,false,e.message);}});
 console.log("\n"+pass+" passed · "+fail+" failed"+(fail?"  ← DO NOT SHIP":"  — clear to ship"));
