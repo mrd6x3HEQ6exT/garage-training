@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v40";
+const BUILD="v41";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -1446,6 +1446,17 @@ function recommendFocus(){
 }
 function recentPatterns(n){ const c={}; STATE.workouts.filter(w=>!w.ref).slice(0,n).forEach(w=>w.exercises.forEach(e=>{ const x=EXERCISES.find(y=>y.id===e.id); if(x&&x.pattern) c[x.pattern]=(c[x.pattern]||0)+1; })); return c; }
 function recentExerciseIds(n){ const s=new Set(); STATE.workouts.slice(0,n).forEach(w=>w.exercises.forEach(e=>s.add(e.id))); return s; }
+// v41: rotation against the previous session of the SAME focus. recentExerciseIds(3) counts
+// any workout, and the user's AM cardio + other strength days fill that window, so the
+// last Push day (~a week back) was never seen — each Push day was a memoryless draw
+// (measured over a 40-week sim: good morning repeated on 56% of consecutive Pull days).
+// "Recommend more" (+) and prefBias>1 lifts are exempt: they are explicit requests to see
+// a lift MORE (see variety-cancelled-user-preference). Pins are added before pickFrom and
+// are unaffected. pickFrom's own fallback still allows a repeat when nothing fresh is left.
+function recentSameFocusIds(focusKey){ const s=new Set(); if(!focusKey||focusKey==="custom") return s;
+  const w=STATE.workouts.find(x=>x&&!x.ref&&x.focus===focusKey&&(x.exercises||[]).length);
+  if(w) w.exercises.forEach(e=>{ const d=exById(e.id); if(recFlag(e.id)!==1&&!(d&&d.prefBias>1)) s.add(e.id); });
+  return s; }
 function lastSession(exId){ for(const w of STATE.workouts){ const e=w.exercises.find(x=>x.id===exId); if(e&&e.sets&&e.sets.length) return e; } return null; }
 function lastRealSession(exId){ for(const w of STATE.workouts){ if(w.ref) continue; const e=w.exercises.find(x=>x.id===exId); if(e&&e.sets&&e.sets.length) return e; } return null; }
 // Conditioning history lookup — the strength lastSession() only searches w.exercises, but
@@ -1566,7 +1577,7 @@ function generate(focusKey,duration,mode){
       metcon:true,exercises:[],conditioning:conds,groups:[],note:""};
   }
   const pool=EXERCISES.filter(e=>e.type==="strength"&&exAvailable(e,owned)&&!blocked.has(e.id));
-  const recent=recentExerciseIds(3);
+  const recent=recentExerciseIds(3); recentSameFocusIds(focusKey).forEach(id=>recent.add(id));
   const sCount=(()=>{ const g=goalDef(); const sc=g.scheme||{};
     // average seconds per set for this goal (work + rest), weighted toward accessories.
     // A pure core-focus session is 100% core-role exercises, so it should budget off

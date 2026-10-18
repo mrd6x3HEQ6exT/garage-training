@@ -386,6 +386,24 @@ T("regression: render errors", rerr===0, rerr);
   T("ban reset: runs once — a ban made afterwards sticks", migrateClearBans(s)===false&&JSON.stringify(s.blocked)==='["bb_push_press"]', JSON.stringify(s.blocked));
   T("ban reset: boot left the banned list empty and flagged", (STATE.settings.blocked||[]).length===0&&STATE.settings._bansClearedV40===true, JSON.stringify(STATE.settings.blocked));
   T("ban reset: seed ships no bans", Array.isArray(SEED_DATA.settings.blocked)&&SEED_DATA.settings.blocked.length===0); }
+// --- v41 same-focus rotation (reads real recentSameFocusIds / recW flags) ---
+{ const savedW=STATE.workouts, savedR=STATE.settings.recWeights;
+  STATE.settings.recWeights={bb_bench:1};
+  STATE.workouts=[
+    {id:"c1",date:5,focus:"bike",exercises:[],conditioning:[{id:"x"}]},
+    {id:"l1",date:4,focus:"lower",exercises:[{id:"bb_squat",sets:[]}]},
+    {id:"p1",date:3,focus:"push",exercises:[{id:"bb_bench",sets:[]},{id:"db_ohp",sets:[]},{id:"skull",sets:[]}]},
+    {id:"p0",date:2,focus:"push",exercises:[{id:"dips",sets:[]}]},
+    {id:"r0",date:1,ref:true,focus:"push",exercises:[{id:"lat_raise",sets:[]}]}];
+  const s=recentSameFocusIds("push");
+  T("rotation: takes the LAST push session, past cardio/other days", s.has("db_ohp")&&s.has("skull")&&!s.has("dips"), JSON.stringify([...s]));
+  T("rotation: (+) recommend-more lifts are exempt", !s.has("bb_bench"));
+  T("rotation: custom focus has no rotation set", recentSameFocusIds("custom").size===0);
+  T("rotation: no prior session → empty set", recentSameFocusIds("pull").size===0);
+  // generator honors it: with the last push session holding db_ohp, 40 push generations never repeat it
+  let rep=0; for(let i=0;i<40;i++){ const w=generate("push",45,"strength"); if(w.exercises.some(e=>e.id==="db_ohp"||e.id==="skull")) rep++; }
+  T("rotation: generate() skips last push session's non-(+) lifts", rep===0, rep+"/40");
+  STATE.workouts=savedW; STATE.settings.recWeights=savedR; }
 // --- v40 landmine press is the half-kneeling version (same id, so history stays linked) ---
 { const lp=ob("lm_press");
   T("lm_press: half-kneeling name", !!lp&&lp.name==="Half-kneeling landmine press", lp&&lp.name);
