@@ -2,12 +2,29 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): manual-by-exclusion > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: manual-by-exclusion
+IF: classifying an event as "the user did this by hand" (manual switch, manual override)
+WHAT: Hubitat garage app labeled ANY switch-off it did not send as "manual" (20s
+     timestamp window). Another automation (old Lights on Motion Plus, a switch
+     auto-off timer) turning the light off while a sensor is active sets the
+     manual-off hold; while motion continues the sensor never re-fires "active", so
+     the hold never clears and lights stay off. Matches "workbench never lights"
+     report. Harness never modelled a second automation on the same switch.
+WHY: inferred "manual" as "not me" instead of reading the authoritative field
+     (evt.type == "physical" from the switch driver). Same root as
+     used-approx-not-authoritative-field.
+RESULT: possible cause of user-visible failure; unconfirmed until hub logs checked
+FIX: classify manual from the event's own physical/digital field, not by
+     exclusion. When testing automation logic, include "something else also
+     controls this device" as a scenario.
 
 ---
 TAG: partial-grep-full-count
