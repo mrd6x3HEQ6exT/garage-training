@@ -429,12 +429,51 @@ T("regression: render errors", rerr===0, rerr);
     const ok=m&&L.sets.filter(s=>!s.drop).every(s=>+s.reps>=+m[1]&&+s.reps<=+m[2]);
     T("v44: planned reps inside the scheme ("+id+")", ok, L.scheme+" → "+L.sets.map(s=>s.w+"x"+s.reps).join(" ")); }
   STATE.workouts=savedW; STATE.settings.goal=savedGoal; }
+// --- v45: presses, planner migration, Lower quads at 45, swaps follow the rules ---
+{ // the user's in-progress Push session (2026-10-19): Smith incline, push press, close-grip bench, then 2 triceps moves
+  const real=["bb_incl","bb_push_press","cgbp","pushdown_bar","lat_raise","cable_oh_ext"].map(ob);
+  T("v45: close-grip bench is triceps + barbell press + bench variant", ["triceps","barbell_press","bench_variant"].every(j=>jobsOf("cgbp").includes(j)), jobsOf("cgbp").join(","));
+  T("v45: the user's session breaks the press rules (fixture proves the checks)", pressRun(real)>=3&&!jobsOK(real.slice(0,2),ob("cgbp")));
+  let run3=0, bench2=0, bar3=0, tri3=0, n=0;
+  for(const [f,d] of [["push",45],["push",60],["custom",60]]) for(let i=0;i<50;i++){ n++; const w=generate(f,d,"strength");
+    const order=[]; (w.groups||[]).forEach(g=>g.items.forEach(id=>order.push(ob(id))));
+    if(pressRun(order)>=3) run3++;
+    const cnt=j=>order.filter(x=>jobsOf(x.id).includes(j)).length;
+    if(cnt("bench_variant")>1) bench2++; if(cnt("barbell_press")>2) bar3++; if(cnt("triceps")>2) tri3++; }
+  T("v45: never 3 pressing lifts in a row", run3===0, run3+"/"+n);
+  T("v45: at most 1 bench-press variant", bench2===0, bench2+"/"+n);
+  T("v45: at most 2 barbell/Smith presses", bar3===0, bar3+"/"+n);
+  T("v45: at most 2 triceps exercises (close-grip counts)", tri3===0, tri3+"/"+n);
+  // planner: {am,pm} objects with pre-merge names migrate, on boot (via helper) and on import
+  const plan={1:{am:"bike",pm:"push"},4:{am:"bike",pm:"legs_quad"},5:{am:"ski",pm:"legs_post"},6:"legs_quad"};
+  T("v45: planner legacy names migrate", migratePlanFoci(plan)===true&&plan[4].pm==="lower"&&plan[5].pm==="lower"&&plan[6]==="lower"&&plan[1].pm==="push"&&plan[4].am==="bike", JSON.stringify(plan));
+  const savedPlan=JSON.parse(JSON.stringify(STATE.settings.plan||{}));
+  importData(JSON.stringify({settings:{plan:{4:{am:"bike",pm:"legs_quad"}}}}));
+  T("v45: importing an old backup migrates its planner too", STATE.settings.plan[4]&&STATE.settings.plan[4].pm==="lower", JSON.stringify(STATE.settings.plan[4]));
+  STATE.settings.plan=savedPlan;
+  // Lower at every duration gets 2 quad exercises
+  let q1=0; for(const d of [30,45,60]) for(let i=0;i<30;i++){ const w=generate("lower",d,"strength"); if(w.exercises.filter(e=>(ob(e.id).primary||[]).includes("quads")).length<2) q1++; }
+  T("v45: Lower has 2 quad exercises at 30/45/60 min", q1===0, q1+"/90");
+  // swaps: every suggestion respects the rules for its slot
+  const musc=o=>(o.primary||[]).concat(o.secondary||[]); let bad=0, why="", nSw=0;
+  for(const f of ["push","pull","lower"]) for(let i=0;i<12;i++){ const w=generate(f,45,"strength");
+    const order=[]; (w.groups||[]).forEach(g=>g.items.forEach(id=>order.push(id)));
+    for(const ex of w.exercises){ const pos=order.indexOf(ex.id); const others=w.exercises.map(e=>ob(e.id)).filter(o=>o.id!==ex.id);
+      const grp=(w.groups||[]).find(g=>g.items.includes(ex.id)); const mates=(grp?grp.items:[]).filter(id=>id!==ex.id).map(ob);
+      for(const c of swapCandidates({id:ex.id},w)){ nSw++; const e=c.ex; const seq=order.map(id=>id===ex.id?e:ob(id));
+        const after=order.slice(pos+1).map(ob), before=order.slice(0,pos).map(ob);
+        const r=!jobsOK(others,e)?"job":(f==="pull"&&e.pattern==="hinge")?"hinge":pressRun(seq)>=3?"press-run"
+          :(e.role==="compound"&&mates.some(o=>o.role==="compound"))?"2-compounds"
+          :(e.role!=="compound"&&after.some(o=>o.role==="compound"&&(e.primary||[]).some(m=>musc(o).includes(m))))?"pre-fatigue"
+          :(e.role==="compound"&&before.some(o=>o.role!=="compound"&&(o.primary||[]).some(m=>musc(e).includes(m))))?"pre-fatigue":null;
+        if(r){ bad++; why=why||(ex.id+"→"+e.id+" "+r); } } } }
+  T("v45: swap suggestions follow job/hinge/pairing/order/press rules ("+nSw+" checked)", bad===0, why); }
 // --- v43 job caps: never more than JOB_CAP of one JOB_GROUPS job per session, any focus/duration ---
 { const worst={}; let n=0;
   for(const [f,d] of [["push",45],["push",60],["pull",45],["pull",60],["lower",60],["lower",45],["custom",60]]) for(let i=0;i<40;i++){ n++;
-    const c={}; generate(f,d,"strength").exercises.forEach(e=>{ const j=jobOf(e.id); if(j) c[j]=(c[j]||0)+1; });
+    const c={}; generate(f,d,"strength").exercises.forEach(e=>{ jobsOf(e.id).forEach(j=>{ c[j]=(c[j]||0)+1; }); });
     for(const j in c) worst[j]=Math.max(worst[j]||0,c[j]); }
-  T("job caps: no job over JOB_CAP across "+n+" sessions", Object.values(worst).every(v=>v<=JOB_CAP), JSON.stringify(worst));
+  T("job caps: no job over its cap across "+n+" sessions (v45: every job an exercise belongs to, per-job caps)", Object.keys(worst).every(j=>worst[j]<=jobCap(j)), JSON.stringify(worst));
   T("job caps: every JOB_GROUPS id exists in the library", Object.values(JOB_GROUPS).flat().every(id=>!!ob(id)), Object.values(JOB_GROUPS).flat().filter(id=>!ob(id)).join(",")); }
 // --- v43 landmine squat removed (guide kept for logged history); squats no longer a knee flag ---
 { T("lm_squat: gone from the library", !ob("lm_squat"));

@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v44";
+const BUILD="v45";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -996,7 +996,7 @@ async function boot(){
   if(Array.isArray(wo)) wo.forEach(w=>{ if(w&&FOCUS_MIGRATE[w.focus]){ w.focus=FOCUS_MIGRATE[w.focus]; w.focusName=(FOCI.lower||{}).name||"Lower"; } });
   if(cur&&FOCUS_MIGRATE[cur.focus]){ cur.focus=FOCUS_MIGRATE[cur.focus]; cur.focusName=(FOCI.lower||{}).name||"Lower"; }
   if(STATE.settings._focus&&FOCUS_MIGRATE[STATE.settings._focus]) STATE.settings._focus=FOCUS_MIGRATE[STATE.settings._focus];
-  if(STATE.settings.plan) Object.keys(STATE.settings.plan).forEach(k=>{ const v=STATE.settings.plan[k]; if(FOCUS_MIGRATE[v]) STATE.settings.plan[k]=FOCUS_MIGRATE[v]; });
+  if(migratePlanFoci(STATE.settings.plan)) pSet(); // v45: also {am,pm} objects
   if(!STATE.settings.blocked) STATE.settings.blocked=[];
   if(!STATE.settings.pinned) STATE.settings.pinned=[];
   if(!STATE.settings.restOverrides) STATE.settings.restOverrides={};
@@ -1516,6 +1516,9 @@ function renderMuscleMap(w){
 function recFlag(id){ return (STATE.settings.recWeights||{})[id]||0; }
 function recW(id){ const w=recFlag(id); return w===1?3:w===-1?0.34:1; }
 let PICK_WFN=null;
+// v45 (diagnostic only): how many picks in the last generate() had to allow a recent exercise
+// because nothing fresh fit. Lets audit.js tell a designed rotation fallback from a bug.
+let PICK_REPEAT_FALLBACK=0;
 function exReadinessFactor(e,focusMuscles,r){
   // Was: if(fset.has(m)) return 1 — meant readiness was IGNORED for the current focus's
   // own muscles, i.e. exactly the muscles being trained that day. Red chest on a push day
@@ -1526,7 +1529,7 @@ function exReadinessFactor(e,focusMuscles,r){
   let factor=1; (e.primary||[]).forEach(m=>{ factor*=pen(m); });
   (e.secondary||[]).forEach(m=>{ const f=pen(m); factor*=(1-(1-f)*0.5); });
   return Math.max(0.02,factor); }
-function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filter(e=>!recent.has(e.id)); const pool=fresh.length?fresh:arr;
+function pickFrom(arr,recent){ if(!arr.length) return null; const fresh=arr.filter(e=>!recent.has(e.id)); const pool=fresh.length?fresh:arr; if(!fresh.length) PICK_REPEAT_FALLBACK++;
   const wf=PICK_WFN||(e=>recW(e.id));
   let tot=0; const wts=pool.map(e=>{ const w=Math.max(0.0001,wf(e)); tot+=w; return w; }); if(tot<=0) return pool[Math.floor(Math.random()*pool.length)];
   let r=Math.random()*tot; for(let i=0;i<pool.length;i++){ r-=wts[i]; if(r<=0) return pool[i]; } return pool[pool.length-1]; }
@@ -1575,13 +1578,40 @@ function simFamilyOf(id){ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g
 // triceps isolations (~9% / ~40%), Lower days 3+ glute isolations (100%). User asked for
 // rows / triceps / rear-delt-upper-back / glutes capped at 2.
 const JOB_CAP=2;
+// v45: an exercise can do more than one job (close-grip bench is a triceps exercise, a
+// barbell press AND a bench-press variant), and some jobs cap lower than JOB_CAP. User saw
+// Smith incline + push press + close-grip bench back to back, then 2 more triceps moves:
+// close-grip was in no job, so 3 barbell presses / 2 bench variants / 3 triceps moves passed
+// (measured on 16-27% of Push days).
+const JOB_CAPS={bench_variant:1,press:3};
 const JOB_GROUPS={
   rows:["bb_row","pendlay","bb_pause_row","cs_row","db_row","lm_row","inverted_row","trap_row","low_row"],
-  triceps_iso:["pushdown","pushdown_bar","pushdown_rev","oh_ext","cable_oh_ext","skull","kickback_tri","tricep_dips","bench_dip"],
+  triceps:["cgbp","pushdown","pushdown_bar","pushdown_rev","oh_ext","cable_oh_ext","skull","kickback_tri","tricep_dips","bench_dip"],
   reardelt_upperback:["face_pull","rear_fly","band_pull_apart","iyt_raise","bb_bb_shrug"],
-  glute_iso:["hip_thrust","kickback","pull_through","cable_abduction","cable_adduction"]};
-function jobOf(id){ for(const j in JOB_GROUPS) if(JOB_GROUPS[j].includes(id)) return j; return null; }
-function generate(focusKey,duration,mode){
+  glute_iso:["hip_thrust","kickback","pull_through","cable_abduction","cable_adduction"],
+  barbell_press:["bb_bench","bb_incl","bb_decl","bb_floor_press_bb","cgbp","bb_ohp","bb_seated_ohp","bb_push_press"],
+  bench_variant:["bb_bench","bb_incl","bb_decl","bb_floor_press_bb","cgbp","db_bench","db_incl"]};
+// "press" is derived (isPress), not listed: at most 3 pressing lifts per session, so the order
+// can always keep them from running 3 in a row (4 presses on 60-min Push days could not be).
+function jobsOf(id){ const j=Object.keys(JOB_GROUPS).filter(k=>JOB_GROUPS[k].includes(id)); if(isPress(exById(id))) j.push("press"); return j; }
+function jobOf(id){ const j=jobsOf(id); return j.length?j[0]:null; } // first job, for callers that want one label
+function jobCap(j){ return JOB_CAPS[j]!=null?JOB_CAPS[j]:JOB_CAP; }
+// true when adding e to list keeps every one of e's jobs within its cap
+function jobsOK(list,e){ return jobsOf(e.id).every(j=>list.filter(x=>x&&jobsOf(x.id).includes(j)).length<jobCap(j)); }
+// v45: "press" for the no-3-in-a-row rule — pushing lifts that aren't isolations. Cable upright
+// row is tagged vert_push but is a pull, so it doesn't count.
+function isPress(e){ return !!e&&(e.pattern==="horiz_push"||e.pattern==="vert_push")&&e.role!=="isolation"&&e.id!=="cable_upright"; }
+function pressRun(defs){ let run=0,mx=0; defs.forEach(e=>{ run=isPress(e)?run+1:0; mx=Math.max(mx,run); }); return mx; }
+// v45: planner/plan values saved before Legs merged into Lower. boot() only migrated plain
+// string plan values; the planner stores {am,pm} objects, so "legs_quad"/"legs_post" stayed,
+// matched no focus, and the Today screen silently ignored those days (Thu never Lower).
+const LEGACY_FOCUS={legs_quad:"lower",legs_post:"lower"};
+function migratePlanFoci(plan){ let changed=false; if(!plan) return false;
+  Object.keys(plan).forEach(k=>{ const v=plan[k];
+    if(typeof v==="string"){ if(LEGACY_FOCUS[v]){ plan[k]=LEGACY_FOCUS[v]; changed=true; } }
+    else if(v&&typeof v==="object") ["am","pm"].forEach(sl=>{ if(LEGACY_FOCUS[v[sl]]){ v[sl]=LEGACY_FOCUS[v[sl]]; changed=true; } }); });
+  return changed; }
+function generate(focusKey,duration,mode){ PICK_REPEAT_FALLBACK=0;
   const f=FOCI[focusKey], owned=ownedCaps();
   const blocked=new Set(STATE.settings.blocked||[]);
   const pinned=new Set(STATE.settings.pinned||[]);
@@ -1684,7 +1714,7 @@ function generate(focusKey,duration,mode){
   const patLimit=sCount>=8?3:2;
   const patOK=e=>e.role==="core"||e.pattern==="core"||patCount(e.pattern)<patLimit;
   // v43: per-session JOB cap (JOB_GROUPS) — hard through every tier, the top-up and grow.
-  const jobOK=e=>{ const j=jobOf(e.id); return !j||chosen.filter(x=>jobOf(x.id)===j).length<JOB_CAP; };
+  const jobOK=e=>jobsOK(chosen,e);
   // CORE FUNCTION variety. Every core exercise shares pattern "core", so patOK/patVariety
   // above are explicitly exempt for them — which meant a core day had NO variety control at
   // all and could stack 4-6 movements doing the same job (measured: sessions of 6 with only
@@ -1727,6 +1757,10 @@ function generate(focusKey,duration,mode){
   // pinned non-compounds (accessories/isolation/core) — capped like anything else
   pool.filter(e=>pinned.has(e.id)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&!chosen.includes(e))
       .forEach(e=>{ if(chosen.length<sCount&&(e.role!=="compound"||compCount()<compCap)) add(e); });
+  // v45: a Lower day always gets a quad accessory next to its main squat — at 45 min the fill
+  // only found room for one 25% of the time (v44 fix was verified at 60 min only).
+  if(focusKey==="lower"&&chosen.length<sCount&&chosen.filter(e=>(e.primary||[]).includes("quads")).length<2){
+    add(pickFrom(pool.filter(e=>!chosen.includes(e)&&(e.primary||[]).includes("quads")&&e.role!=="compound"&&!simBlocked.has(e.id)&&jobOK(e)&&muscleOK(e)),recent)); }
   // fill
   let guard=0;
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
@@ -1852,6 +1886,24 @@ function orderGroupsEfficient(groups){
       if(swapWith>=0){ const tmp=ordered[li]; ordered[li]=ordered[swapWith]; ordered[swapWith]=tmp; }
     }
   }
+  // v45: no 3 pressing lifts in a row (user: incline + push press + close-grip back to back).
+  // Runs AFTER the core-last guarantee (run before it, that swap undid the fix ~2% of the time).
+  // 1) inside the group where the run reaches 3, put its non-press items first — a circuit
+  //    alternates its items each round, and grouping already made them non-competing;
+  // 2) else pull a later all-non-press group forward to just before it, if it doesn't
+  //    pre-fatigue a compound at/after that point and doesn't leave a core group last.
+  const coreG=g=>g.items.some(id=>{ const e=exById(id); return e&&(e.primary||[]).includes("core"); });
+  for(let guard=0;guard<8;guard++){ let run=0, hit=-1;
+    for(let gi=0;gi<ordered.length&&hit<0;gi++) for(const id of ordered[gi].items){ run=isPress(exById(id))?run+1:0; if(run>=3){ hit=gi; break; } }
+    if(hit<0) break;
+    const g=ordered[hit]; const np=g.items.filter(id=>!isPress(exById(id)));
+    if(np.length&&isPress(exById(g.items[0]))){ ordered[hit]={...g,items:np.concat(g.items.filter(id=>isPress(exById(id))))}; continue; }
+    const laterComps=[].concat(...ordered.slice(hit).map(x=>x.items)).map(exById).filter(e=>e&&e.role==="compound");
+    const safe=x=>x.items.every(id=>{ const e=exById(id); return e&&!isPress(e)&&!laterComps.some(c=>(e.primary||[]).some(m=>(c.primary||[]).concat(c.secondary||[]).includes(m))); });
+    let from=-1; for(let j=hit+1;j<ordered.length;j++){ if(!safe(ordered[j])) continue;
+      if(j===ordered.length-1&&ordered.length>1&&coreG(ordered[j-1])&&!coreG(ordered[j])) continue; from=j; break; }
+    if(from<0) break;
+    const [mv]=ordered.splice(from,1); ordered.splice(hit,0,mv); }
   return ordered;
 }
 function normalizeGroupSets(w){
@@ -1985,6 +2037,22 @@ function swapCandidates(exData,w){
   // exercises (cap is 4), and a core-function cap violation was traced to the same root
   // cause. "Other" = every exercise in this workout except the slot being replaced.
   const otherAll=w.exercises.map(e=>exById(e.id)).filter(o=>o&&o.id!==exData.id);
+  // v45: swaps follow the generator's rules — job caps, no hinge on Pull, pairing (no two
+  // compounds in a group, nothing that pre-fatigues a compound), order (no exercise before a
+  // compound that uses its muscle), no 3 presses in a row, and rotation (last session of this
+  // focus) preferred. Was: the top suggestion broke rotation on 25-38% of simulated swaps.
+  const order=[]; (w.groups||[]).forEach(g=>g.items.forEach(id=>order.push(id))); const pos=order.indexOf(exData.id);
+  const muscOf=o=>(o.primary||[]).concat(o.secondary||[]);
+  const before=order.slice(0,pos).map(exById).filter(Boolean), after=order.slice(pos+1).map(exById).filter(Boolean);
+  const comps=otherAll.filter(o=>o.role==="compound");
+  const ruleOK=e=>{ if(!jobsOK(otherAll,e)) return false;
+    if(w.focus==="pull"&&e.pattern==="hinge") return false;
+    if(e.role==="compound"){ if(others.some(o=>o.role==="compound")) return false;
+      if(before.concat(others).some(o=>o.role!=="compound"&&(o.primary||[]).some(m=>muscOf(e).includes(m)))) return false; }
+    else { if(after.some(o=>o.role==="compound"&&(e.primary||[]).some(m=>muscOf(o).includes(m)))) return false;
+      if(others.some(o=>o.role==="compound")&&comps.some(c=>(e.primary||[]).some(m=>muscOf(c).includes(m)))) return false; }
+    const seq=order.map(id=>id===exData.id?e:exById(id)).filter(Boolean); return pressRun(seq)<3; };
+  const lastSame=recentSameFocusIds(w.focus);
   const MUSCLE_CAP=4;
   const muscleCount={}; otherAll.forEach(o=>{ const p=(o.primary||[])[0]; if(p) muscleCount[p]=(muscleCount[p]||0)+1; });
   // Skip for core: every core exercise shares primary="core" by design, so a normal
@@ -2006,9 +2074,10 @@ function swapCandidates(exData,w){
   // real, deliberate fallback — not a random unrelated muscle), and only an empty list
   // if even that's exhausted.
   const focusMuscles=(FOCI[w.focus]||{}).muscles||[];
-  let cands=EXERCISES.filter(e=>baseFilter(e)&&focusMuscles.length&&(e.primary||[]).some(m=>focusMuscles.includes(m)));
+  let cands=EXERCISES.filter(e=>baseFilter(e)&&ruleOK(e)&&focusMuscles.length&&(e.primary||[]).some(m=>focusMuscles.includes(m)));
+  { const fresh=cands.filter(e=>!lastSame.has(e.id)); if(fresh.length) cands=fresh; } // rotation, unless nothing fresh fits
   let fellBackToCore=false;
-  if(!cands.length){ cands=EXERCISES.filter(e=>baseFilter(e)&&(e.primary||[]).includes("core")); fellBackToCore=cands.length>0; }
+  if(!cands.length){ cands=EXERCISES.filter(e=>baseFilter(e)&&ruleOK(e)&&(e.primary||[]).includes("core")); fellBackToCore=cands.length>0; }
   const bm=new Set([...base.primary,...(base.secondary||[])]);
   function score(e){ let s=0; if(e.pattern===base.pattern)s+=3; if(e.role===base.role)s+=1; e.primary.forEach(m=>{if(bm.has(m))s+=2;}); e.secondary.forEach(m=>{if(bm.has(m))s+=1;}); return s; }
   function why(e){ if(fellBackToCore) return "core — no "+(w.focus||"matching")+" options left"; const sh=e.primary.filter(m=>bm.has(m)).map(m=>MUSCLE_LABEL[m]); return (e.pattern===base.pattern?"same movement":sh.length?sh.join("/"):e.role); }
@@ -2236,7 +2305,9 @@ function fitToDuration(w,duration,isCoreFocus){
     if(!cand) break;
     const grp=(w.groups||[]).find(g=>g.items.includes(cand.id));
     const mem=grp?grp.items.map(id=>w.exercises.find(e=>e.id===id)).filter(Boolean):[cand];
-    mem.forEach(e=>{ const work=e.sets.filter(s=>!s.drop); if(work.length>2) e.sets.splice(e.sets.indexOf(work[work.length-1]),1); });
+    // v45: keep the "N ×" label in step with the trimmed set count (only grouped exercises were
+    // relabeled, in normalizeGroupSets; a straight-set trim left e.g. "4 × 3–5" over 3 sets).
+    mem.forEach(e=>{ const work=e.sets.filter(s=>!s.drop); if(work.length>2){ e.sets.splice(e.sets.indexOf(work[work.length-1]),1); const n=work.length-1; const m=String(e.scheme||"").match(/^(\d+)(\s*×\s*.+)$/); if(m&&+m[1]!==n) e.scheme=n+m[2]; } });
   }
   // Core is protected from the trim above on purpose, but that has a side effect: if grow
   // temporarily pushed the session past the size where a 2nd/3rd core exercise gets added,
@@ -2997,7 +3068,7 @@ function importData(json){
     if(d.settings.exNotes) STATE.settings.exNotes=Object.assign(STATE.settings.exNotes||{},d.settings.exNotes);
     if(d.settings.restOverrides) STATE.settings.restOverrides=Object.assign(STATE.settings.restOverrides||{},d.settings.restOverrides);
     if(d.settings.feat) STATE.settings.feat=Object.assign(STATE.settings.feat||{},d.settings.feat);
-    if(d.settings.plan){ STATE.settings.plan=STATE.settings.plan||{}; Object.keys(d.settings.plan).forEach(k=>{ let v=d.settings.plan[k]; if(typeof v==="string") v=v?{pm:v}:{}; STATE.settings.plan[k]=v; }); }
+    if(d.settings.plan){ STATE.settings.plan=STATE.settings.plan||{}; Object.keys(d.settings.plan).forEach(k=>{ let v=d.settings.plan[k]; if(typeof v==="string") v=v?{pm:v}:{}; STATE.settings.plan[k]=v; }); migratePlanFoci(STATE.settings.plan); }
     if(Array.isArray(d.settings.injuries)) STATE.settings.injuries=[...new Set([...(STATE.settings.injuries||[]),...d.settings.injuries])];
   }
   if(Array.isArray(d.templates)&&d.templates.length){ const have=new Set((STATE.templates||[]).map(t=>t.id)); d.templates.forEach(t=>{ if(t&&t.id&&!have.has(t.id)) STATE.templates.push(t); }); pTpl(); }

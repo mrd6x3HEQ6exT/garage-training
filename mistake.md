@@ -2,12 +2,38 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): zero-from-unproven-check > removed-option-backfill-unchecked > fixed-history-sim > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): verified-at-wrong-settings > shell-mangled-code > zero-from-unproven-check > removed-option-backfill-unchecked > fixed-history-sim > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: verified-at-wrong-settings
+IF: about to claim a fix holds "every X day" / "always"
+WHAT: v44 claimed "every Lower day has 2 quad exercises" — verified only at 60 min. The user
+     runs Lower at 45 (_durPicked=true), where 25% still had 1. Every v40-v44 sim also used a
+     hand-typed weekly plan (push/pull/lower/core); the user's real planner had pre-merge
+     names (legs_quad/legs_post) the app silently ignored, so their actual week had almost no
+     leg work. And v43 left close-grip bench out of every job, so incline + push press +
+     close-grip + 2 triceps moves passed all checks — the user found it mid-workout.
+WHY: tested the settings I assumed, not the ones in the user's backup
+RESULT: a claim the user's own sessions contradicted
+FIX: verify against the user's real settings (duration, _durPicked, planner, goal) — that is
+     what audit.js now does by default — and say which settings a claim was checked at.
+     When adding a job/family, sweep the library for near-members (bench variants, presses).
+
+---
+TAG: shell-mangled-code
+IF: passing code containing backslashes (regex \d \s) through node -e, sed or a heredoc on
+     Windows Git Bash
+WHAT: twice the regex lost its backslashes in transit (/^(\d+)/ became /^(d+)/), silently
+     matching nothing — once in an audit check, once in a shipped-candidate app edit
+     (caught only because a test kept failing)
+WHY: MSYS/Windows argument handling strips backslashes; the edit "succeeded"
+FIX: write code to a file with the Write/Edit tool, never through node -e/sed; then grep the
+     result for the exact expected text before running anything.
 
 ---
 TAG: zero-from-unproven-check

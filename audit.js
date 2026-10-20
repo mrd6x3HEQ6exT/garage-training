@@ -50,8 +50,10 @@ async function __audit(){
   const musc=d=>new Set([...(d.primary||[]),...(d.secondary||[])]);
   const flat=w=>{ const o=[]; (w.groups||[]).forEach(g=>g.items.forEach(id=>o.push(id))); w.exercises.forEach(e=>{ if(!o.includes(e.id)) o.push(e.id); }); return o; };
   const CHECKS=[
-    {id:"job_cap",kind:"RULE",label:"more than "+JOB_CAP+" of one job (rows / triceps iso / rear-delt+upper-back / glute iso)",
-      fn:w=>{ const c={}; w.exercises.forEach(e=>{ const j=jobOf(e.id); if(j) c[j]=(c[j]||0)+1; }); const b=Object.keys(c).filter(j=>c[j]>JOB_CAP); return b.length?b.map(j=>j+"×"+c[j]).join(","):null; }},
+    {id:"job_cap",kind:"RULE",label:"over a job cap (rows / triceps / rear-delt+upper-back / glute iso / barbell presses ≤2; bench variants ≤1; presses ≤3)",
+      fn:w=>{ const c={}; w.exercises.forEach(e=>{ jobsOf(e.id).forEach(j=>{ c[j]=(c[j]||0)+1; }); }); const b=Object.keys(c).filter(j=>c[j]>jobCap(j)); return b.length?b.map(j=>j+"×"+c[j]).join(","):null; }},
+    {id:"press_run",kind:"RULE",label:"3 pressing lifts in a row",
+      fn:w=>{ const o=flat(w).map(D); return pressRun(o)>=3?o.filter(Boolean).map(x=>x.id+(isPress(x)?"*":"")).join(","):null; }},
     {id:"family_dup",kind:"RULE",label:"two exercises from one family",
       fn:w=>{ const ids=w.exercises.map(e=>e.id); for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++) if(simFamilyOf(ids[i]).includes(ids[j])) return ids[i]+"+"+ids[j]; return null; }},
     {id:"muscle_cap",kind:"RULE",label:"more than 4 exercises on one primary muscle",
@@ -76,13 +78,15 @@ async function __audit(){
       fn:(w,c)=>{ const e=w.exercises.find(e=>(c.blocked||[]).includes(e.id)); return e?e.id:null; }},
     {id:"injury_flag",kind:"RULE",label:"exercise flagged by your injury settings",
       fn:w=>{ const e=w.exercises.find(e=>{ const d=D(e.id); return d&&exInjuryHits(d).length; }); return e?e.id:null; }},
-    {id:"repeat",kind:"RULE",label:"repeats a non-(+) exercise from the last session of this type",
-      fn:(w,c)=>{ if(!c.prevIds) return null; const e=w.exercises.find(e=>c.prevIds.includes(e.id)&&(c.plus||{})[e.id]!==1); return e?e.id:null; }},
+    {id:"repeat",kind:"RULE",label:"repeats a non-(+) exercise from the last session of this type (with fresh options available)",
+      fn:(w,c)=>{ if(!c.prevIds||c.fallback) return null; const e=w.exercises.find(e=>c.prevIds.includes(e.id)&&(c.plus||{})[e.id]!==1); return e?e.id:null; }},
+    {id:"repeat_fallback",kind:"INFO",label:"repeat allowed because nothing fresh fit the caps (designed fallback — watch the rate)",
+      fn:(w,c)=>{ if(!c.prevIds||!c.fallback) return null; const e=w.exercises.find(e=>c.prevIds.includes(e.id)&&(c.plus||{})[e.id]!==1); return e?e.id:null; }},
     {id:"musthave",kind:"COACH",label:"day missing its main movement (chest press / vertical pull + row / squat + hamstrings)",
       fn:(w,c)=>{ const d=w.exercises.map(e=>D(e.id)).filter(Boolean); const has=f=>d.some(f);
         if(c.focus==="push"&&!has(x=>x.pattern==="horiz_push"&&x.role==="compound")) return "no chest press";
         if(c.focus==="pull"&&!has(x=>x.pattern==="vert_pull")) return "no vertical pull";
-        if(c.focus==="pull"&&!has(x=>jobOf(x.id)==="rows")) return "no row";
+        if(c.focus==="pull"&&!has(x=>jobsOf(x.id).includes("rows"))) return "no row";
         if(c.focus==="lower"&&!has(x=>x.pattern==="squat")) return "no squat";
         if(c.focus==="lower"&&!has(x=>(x.primary||[]).includes("hams"))) return "no hamstring work";
         return null; }},
@@ -98,6 +102,8 @@ async function __audit(){
   const antiext=EXERCISES.filter(e=>e.cfx==="antiext").slice(0,3).map(e=>e.id);
   const FIX={
     job_cap:[mk("pull",45,[["pulldown"],["bb_row"],["db_row"],["lm_row"]]),ctx0("pull",45)],
+    // the user's real Push session, 2026-10-19 (Smith incline, push press, close-grip bench, ...)
+    press_run:[mk("push",45,[["bb_incl"],["bb_push_press"],["cgbp"],["pushdown_bar","lat_raise"],["cable_oh_ext"]]),ctx0("push",45)],
     family_dup:[mk("push",45,[["bb_bench"],["db_bench"]]),ctx0("push",45)],
     muscle_cap:[mk("pull",45,[["pulldown"],["bb_row"],["db_row"],["low_row"],["sa_pulldown"]]),ctx0("pull",45)],
     compound_cap:[mk("push",45,[["bb_bench"],["bb_ohp"],["dips"]]),ctx0("push",45)],
@@ -111,6 +117,7 @@ async function __audit(){
     banned:[mk("push",45,[["bb_ohp"]]),ctx0("push",45,{blocked:["bb_ohp"]})],
     injury_flag:[mk("push",45,[["bb_ohp"]]),ctx0("push",45),"shoulder"],
     repeat:[mk("push",45,[["db_ohp"]]),ctx0("push",45,{prevIds:["db_ohp"]})],
+    repeat_fallback:[mk("push",45,[["db_ohp"]]),ctx0("push",45,{prevIds:["db_ohp"],fallback:1})],
     musthave:[mk("push",45,[["lat_raise"],["pushdown"]]),ctx0("push",45)],
     same_muscle_circuit:[mk("push",45,[["pushdown","skull"]]),ctx0("push",45)],
   };
@@ -146,7 +153,7 @@ async function __audit(){
       if((w.exercises||[]).length){
         const r=F(f); r.n++; r.dur[dur]=(r.dur[dur]||0)+1; r.size+=w.exercises.length; r.est+=estimateSessionSec(w)/60;
         const prev=STATE.workouts.find(x=>!x.ref&&x.focus===f&&(x.exercises||[]).length);
-        const ctx={focus:f,dur,prevIds:prev?prev.exercises.map(e=>e.id):null,plus,blocked};
+        const ctx={focus:f,dur,prevIds:prev?prev.exercises.map(e=>e.id):null,plus,blocked,fallback:(typeof PICK_REPEAT_FALLBACK!=="undefined"?PICK_REPEAT_FALLBACK:0)};
         CHECKS.forEach(c=>{ const h=c.fn(w,ctx); if(h){ r.hits[c.id]=(r.hits[c.id]||0)+1; if(!r.ex[c.id]) r.ex[c.id]=h+"   ["+flat(w).join(",")+"]"; } });
         if(rnd()<A.swap){ const idx=Math.floor(rnd()*w.exercises.length); const old=w.exercises[idx]; const cands=swapCandidates({id:old.id},w);
           if(cands.length){ const ne=cands[0].ex; r.swaps++;
@@ -212,7 +219,7 @@ async function parentMain(){
   Object.keys(planUse).sort().forEach(k=>{ const t=Object.values(planUse[k]).reduce((x,y)=>x+y,0); const s=Object.entries(planUse[k]).sort((a,b)=>b[1]-a[1]).map(([f,n])=>f+" "+pct(n,t)+"%").join(", "); const pf=k.split(" ")[2];
     P("  "+k.padEnd(18)+"→ "+s+(pf&&!s.startsWith(pf+" 100%")?"   ← planner value '"+pf+"' is not a current focus; app falls back to its own pick":"")); });
   let ruleFail=0;
-  P("\nSESSION CHECKS  (% of sessions; RULE = confirmed, COACH = draft, report-only)");
+  P("\nSESSION CHECKS  (% of sessions; RULE = confirmed, fails the run; COACH = draft and INFO = designed behaviour to watch, both report-only)");
   Object.keys(foci).sort().forEach(f=>{ const a=foci[f]; const durs=Object.keys(a.dur).map(k=>k+" min").join("/");
     P("\n  "+f.toUpperCase()+"  sessions="+a.n+"  duration "+durs+"  avg size "+(a.size/a.n).toFixed(1)+"  raw estimate "+(a.est/a.n).toFixed(0)+" min  distinct exercises/run "+Math.round(a.distinct));
     let any=false; checks.forEach(c=>{ const h=a.hits[c.id]||0; if(!h) return; any=true; if(c.kind==="RULE") ruleFail+=h;

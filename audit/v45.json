@@ -1,0 +1,73 @@
+{
+ "build": "v45",
+ "backupBuild": "v39",
+ "args": {
+  "weeks": 52,
+  "runs": 3,
+  "seed": 1,
+  "skip": 0.1,
+  "swap": 0.1
+ },
+ "rates": {
+  "pull": {
+   "job_cap": 0,
+   "press_run": 0,
+   "family_dup": 0,
+   "muscle_cap": 0,
+   "compound_cap": 0,
+   "core_fx": 0,
+   "two_comp_group": 0,
+   "prefatigue": 0,
+   "drop_nonload": 0,
+   "reps_range": 0,
+   "hinge_on_pull": 0,
+   "lower_quads": 0,
+   "banned": 0,
+   "injury_flag": 0,
+   "repeat": 0,
+   "repeat_fallback": 1,
+   "musthave": 0,
+   "same_muscle_circuit": 10
+  },
+  "lower": {
+   "job_cap": 0,
+   "press_run": 0,
+   "family_dup": 0,
+   "muscle_cap": 0,
+   "compound_cap": 0,
+   "core_fx": 0,
+   "two_comp_group": 0,
+   "prefatigue": 0,
+   "drop_nonload": 0,
+   "reps_range": 0,
+   "hinge_on_pull": 0,
+   "lower_quads": 0,
+   "banned": 0,
+   "injury_flag": 0,
+   "repeat": 0,
+   "repeat_fallback": 0,
+   "musthave": 22,
+   "same_muscle_circuit": 5
+  },
+  "push": {
+   "job_cap": 0,
+   "press_run": 0,
+   "family_dup": 0,
+   "muscle_cap": 0,
+   "compound_cap": 0,
+   "core_fx": 0,
+   "two_comp_group": 0,
+   "prefatigue": 0,
+   "drop_nonload": 0,
+   "reps_range": 0,
+   "hinge_on_pull": 0,
+   "lower_quads": 0,
+   "banned": 0,
+   "injury_flag": 0,
+   "repeat": 0,
+   "repeat_fallback": 0,
+   "musthave": 0,
+   "same_muscle_circuit": 64
+  }
+ }
+}
