@@ -1,0 +1,62 @@
+RACK & ROLL COACHING AUDIT — build v46
+data: your backup (app build v39, 46 logged sessions) | 3 runs × 52 weeks | seed 1 | skip 0.1 | swap 0.1
+assumes: you train the planner's slots and accept the app's suggested focus; skipped/swapped sessions as above
+self-test: all 18 checks fire on their known-bad fixture and stay quiet on the known-good one
+
+WEEKLY PLAN AS THE APP RESOLVES IT
+  Fri am ski        → ski 100%
+  Fri pm lower      → lower 100%
+  Mon am bike       → bike 100%
+  Mon pm push       → push 100%
+  Sat am sledS      → sledS 100%
+  Thu am bike       → bike 100%
+  Thu pm lower      → lower 100%
+  Tue am ski        → ski 100%
+  Tue pm pull       → pull 100%
+  Wed am bike       → bike 100%
+
+SESSION CHECKS  (% of sessions; RULE = confirmed, fails the run; COACH = draft and INFO = designed behaviour to watch, both report-only)
+
+  LOWER  sessions=273  duration 45 min  avg size 7.0  raw estimate 42 min  distinct exercises/run 47
+      0%  no check fired
+    after 28 simulated swaps: repeat 32% (e.g. ghr→nordic: nordic); musthave 18% (e.g. bb_calf_raise→superman: calves); lower_quads 4% (e.g. trap_squat→pull_through: quads×1)
+
+  PULL  sessions=141  duration 45 min  avg size 6.9  raw estimate 43 min  distinct exercises/run 49
+      4%  INFO  repeat allowed because nothing fresh fit the caps (designed fallback — watch the rate)
+           e.g. cable_upright   [bb_row,ng_pulldown,decline_situp,cable_upright,iyt_raise,hammer]
+    after 11 simulated swaps: repeat 9% (e.g. iyt_raise→bb_bb_shrug: bb_bb_shrug)
+
+  PUSH  sessions=144  duration 45 min  avg size 6.9  raw estimate 43 min  distinct exercises/run 51
+      0%  no check fired
+    after 19 simulated swaps: repeat 21% (e.g. db_fly_floor→incline_db_fly: incline_db_fly)
+
+WEEKLY VOLUME vs COACHING.md  (hard sets/week: primary = 1, secondary = 0.5; outside target = WARN, never fails the run)
+  glutes     18.3   WARN high (target 8–16)      (busiest weeks ~23, weeks with none: 1%)
+  back       16.7   ok (10–18)                   (busiest weeks ~21, weeks with none: 0%)
+  shoulders  14.0   ok (8–16)                    (busiest weeks ~18, weeks with none: 1%)
+  core       13.6   ok (10–16)                   (busiest weeks ~16, weeks with none: 0%)
+  quads      13.2   ok (10–16)                   (busiest weeks ~17, weeks with none: 1%)
+  hams       11.1   ok (8–14)                    (busiest weeks ~14, weeks with none: 1%)
+  triceps     7.3   ok (6–12)                    (busiest weeks ~10, weeks with none: 8%)
+  biceps      6.5   ok (6–12)                    (busiest weeks ~8, weeks with none: 10%)
+  chest       5.9   WARN low (target 8–14)       (busiest weeks ~8, weeks with none: 8%)
+  calves      5.2   WARN low (target 6–10)       (busiest weeks ~6, weeks with none: 1%)
+  erectors    2.8   WARN low (target 3–8)        (busiest weeks ~4, weeks with none: 3%)
+  push:pull  1.17   ok (0.8–1.2)
+  quads:hams 1.19   ok (0.8–1.2)
+  volume/balance warnings: 4
+
+OTHER
+  never generated (available, not banned): cgbp, bench_dip, tricep_dips, back_ext
+  load progression (exercises done 4+ times, first vs last quarter): up 39%, flat 12%, down 49%
+  first-time loaded exercises with no planned weight (you type it once): 14 per run
+  skipped sessions (simulated): 53 per run
+
+CHANGE vs v45 (percentage points)
+  pull  repeat_fallback     1% → 4%
+  pull  same_muscle_circuit 10% → 0%
+  lower musthave            22% → 0%
+  lower same_muscle_circuit 5% → 0%
+  push  same_muscle_circuit 64% → 0%
+
+RESULT: PASS — no RULE check fired on your plan

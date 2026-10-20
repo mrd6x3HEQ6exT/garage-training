@@ -2,14 +2,6 @@ QUEUE — approved work not yet built. Newest first. Check alongside mistake.md 
 any build session. Remove an item once it ships (note the build number).
 
 ---
-REMIND USER — 2026-10-19 — write the coaching standard together (user asked to be reminded)
-The user approved this for later. Draft a short checklist for the user to edit: weekly hard
-sets per muscle (e.g. 10–20 chest/back/quads), push:pull and quad:ham balance, per-day
-must-haves and never-haves, ordering/pairing rules, rep ranges for their goal, standing
-preferences (+ picks, bans, knee, no hinges on Pull, job caps of 2). Once agreed, wire it into
-audit.js: weekly volume becomes graded instead of report-only, and COACH checks the user
-confirms become RULE. Raise this at the start of the next Rack & Roll session.
----
 SHIPPED v36 (pending on-device confirmation) — 2026-08-24 — screen lock re-activates after tapping Ungroup
 Reported: mid-workout, tapping Ungroup let the phone's lock screen come back on (the
 wake-lock stopped holding). Root-cause theory (from the original trace): the Wake Lock

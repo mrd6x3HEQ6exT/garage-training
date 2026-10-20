@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v45";
+const BUILD="v46";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -491,6 +491,16 @@ function migrateKettlebell(eq){
   eq.splice(Math.min(at,eq.length),0,{id:"kb",cat:"Free weights",name:"Adjustable kettlebell 8–24 kg",note:(loads[0]||"")+"–"+(loads[loads.length-1]||"")+" lb",caps:["kettlebell"],on,loads});
   return eq;
 }
+// v46: one-time preference cleanup the user approved: drop (+) on Barbell hip thrust; move (+)
+// from removed exercises to their current versions (pallof -> pallof_kneel, russian ->
+// decline_russian); delete every other id that no longer exists. Flag-guarded; importing an
+// old backup merges its recWeights back in (same caveat as the v40 ban reset).
+function migratePrefsV46(s){
+  if(!s||s._prefsV46) return false; const r=s.recWeights=s.recWeights||{};
+  if(r.hip_thrust===1) delete r.hip_thrust;
+  [["pallof","pallof_kneel"],["russian","decline_russian"]].forEach(([o,n])=>{ if(r[o]!=null){ if(r[n]==null) r[n]=r[o]; delete r[o]; } });
+  Object.keys(r).forEach(k=>{ if(!EXERCISES.some(e=>e.id===k)) delete r[k]; });
+  s._prefsV46=true; return true; }
 // v40: one-time reset of the banned list, at the user's request ("clear all banned
 // exercises"). 24 of the 30 saved ids pointed at exercises the scrubbed library no longer
 // has; the user chose to start the list fresh. Flag-guarded so bans made AFTER this build
@@ -889,16 +899,19 @@ const GOALS={
     // fixes. Cut to 6 at 45 min (7.5 min/exercise) per direct feedback, and scaled to other
     // durations on the assumption the same overshoot applies regardless of session length —
     // not separately measured at 30/60 min yet, so revisit once those are logged too.
-    minPerExercise:7.5,
-    // No embedded core exercise for push/pull/legs sessions under this goal — dedicated
-    // Core-focus days cover that instead, so all 6 slots go to the actual target muscles
-    // rather than one being spent on a single ab exercise every session.
-    skipCoreEmbed:true,
+    // v46: 7 per 45 min (was 7.5 min/exercise = 6). The 7th slot is the core exercise below —
+    // user chose core ON push/pull/lower days as an extra exercise (option B, 2026-10-19) so the
+    // target muscles keep their volume. Watch real session times (the 6-cap came from overruns).
+    minPerExercise:6.4,
+    // v46: was skipCoreEmbed:true ("Core-focus days cover it"). The user's planner has no Core
+    // day; the old Thu fallback to Core was the only core they got. Now every strength day
+    // embeds one core exercise.
+    skipCoreEmbed:false,
     // The per-set rest model doesn't have enough data to trust its own number yet (one
     // logged session) — direct feedback says the real thing runs close to the target
     // duration once exercise count is right, so show that instead of a shaky derivation.
     pinEstimateToDuration:true,
-    scheme:{compound:["10–12",60],accessory:["15–20",45],isolation:["10–12",40],core:["12–20",35]}},
+    scheme:{compound:["6–10",60],accessory:["15–20",45],isolation:["10–12",40],core:["12–20",35]}}, // v46: big lifts 6–10 (COACHING.md: hold strength while cutting)
 };
 function goalDef(){ return GOALS[STATE.settings.goal||"general"]||GOALS.general; }
 function feat(k){ return !!(STATE.settings.feat&&STATE.settings.feat[k]); }
@@ -1026,6 +1039,7 @@ async function boot(){
   if(Array.isArray(STATE.equipment)&&!STATE.equipment.some(g=>(g.caps||[]).includes("hangbar"))){ const hadPull=STATE.equipment.some(g=>(g.caps||[]).includes("pullupbar")&&g.on); STATE.equipment.push({id:"hangbar",cat:"Rack & bench",name:"Hanging bar (in rack)",note:"hanging core \u2014 blocks the bench",caps:["hangbar"],on:hadPull}); pEq(); }
   STATE.settings.blocked=(STATE.settings.blocked||[]).filter(x=>x!=="ghr_situp");
   if(migrateClearBans(STATE.settings)) pSet();
+  if(migratePrefsV46(STATE.settings)) pSet();
   STATE.settings.pinned=(STATE.settings.pinned||[]).filter(x=>x!=="ghr_situp");
   if(STATE.settings.recWeights) delete STATE.settings.recWeights.ghr_situp;
   if(STATE.current&&STATE.current.exercises&&STATE.current.exercises.some(e=>e.id==="ghr_situp")){ STATE.current.exercises=STATE.current.exercises.filter(e=>e.id!=="ghr_situp"); STATE.current.groups=(STATE.current.groups||[]).map(g=>({...g,items:g.items.filter(i=>i!=="ghr_situp")})).filter(g=>g.items.length); }
@@ -1597,6 +1611,28 @@ function jobsOf(id){ const j=Object.keys(JOB_GROUPS).filter(k=>JOB_GROUPS[k].inc
 function jobOf(id){ const j=jobsOf(id); return j.length?j[0]:null; } // first job, for callers that want one label
 function jobCap(j){ return JOB_CAPS[j]!=null?JOB_CAPS[j]:JOB_CAP; }
 // true when adding e to list keeps every one of e's jobs within its cap
+// v46: COACHING.md section 4 — what every Push / Pull / Lower day must contain (core is the
+// separate embedded exercise). Order = priority when a short session runs out of room.
+const _mhPri=(e,m)=>(e.primary||[]).includes(m);
+const MUST_HAVES={
+  push:[
+    {need:"chest press",ok:l=>l.some(e=>e.pattern==="horiz_push"&&e.role==="compound"),pick:e=>e.pattern==="horiz_push"&&e.role==="compound"},
+    {need:"overhead press",ok:l=>l.some(e=>e.pattern==="vert_push"&&isPress(e)),pick:e=>e.pattern==="vert_push"&&isPress(e)},
+    {need:"2nd chest exercise",ok:l=>l.filter(e=>_mhPri(e,"chest")).length>=2,pick:e=>_mhPri(e,"chest")&&e.role!=="compound"},
+    {need:"triceps",ok:l=>l.some(e=>_mhPri(e,"triceps")),pick:e=>_mhPri(e,"triceps")&&e.role!=="compound"},
+    {need:"side/rear delt",ok:l=>l.some(e=>_mhPri(e,"shoulders")&&!isPress(e)),pick:e=>_mhPri(e,"shoulders")&&!isPress(e)}],
+  pull:[
+    {need:"vertical pull",ok:l=>l.some(e=>e.pattern==="vert_pull"),pick:e=>e.pattern==="vert_pull"},
+    {need:"row",ok:l=>l.some(e=>jobsOf(e.id).includes("rows")),pick:e=>jobsOf(e.id).includes("rows")},
+    {need:"biceps",ok:l=>l.some(e=>_mhPri(e,"biceps")),pick:e=>_mhPri(e,"biceps")},
+    {need:"rear-delt/upper-back",ok:l=>l.some(e=>jobsOf(e.id).includes("reardelt_upperback")),pick:e=>jobsOf(e.id).includes("reardelt_upperback")}],
+  lower:[
+    {need:"squat",ok:l=>l.some(e=>e.pattern==="squat"),pick:e=>e.pattern==="squat"},
+    {need:"hamstring hinge",ok:l=>l.some(e=>e.pattern==="hinge"&&_mhPri(e,"hams")),pick:e=>e.pattern==="hinge"&&_mhPri(e,"hams")},
+    {need:"2nd quad exercise",ok:l=>l.filter(e=>_mhPri(e,"quads")).length>=2,pick:e=>_mhPri(e,"quads")&&e.role!=="compound"},
+    {need:"calves",ok:l=>l.some(e=>_mhPri(e,"calves")),pick:e=>_mhPri(e,"calves")},
+    // not a listed must-have: the mechanism for the quads:hams 1.0 target (user, 2026-10-19)
+    {need:"2nd hamstring exercise",ok:l=>l.filter(e=>_mhPri(e,"hams")).length>=2,pick:e=>_mhPri(e,"hams")&&e.role!=="compound"}]};
 function jobsOK(list,e){ return jobsOf(e.id).every(j=>list.filter(x=>x&&jobsOf(x.id).includes(j)).length<jobCap(j)); }
 // v45: "press" for the no-3-in-a-row rule — pushing lifts that aren't isolations. Cable upright
 // row is tagged vert_push but is a pull, so it doesn't count.
@@ -1757,10 +1793,12 @@ function generate(focusKey,duration,mode){ PICK_REPEAT_FALLBACK=0;
   // pinned non-compounds (accessories/isolation/core) — capped like anything else
   pool.filter(e=>pinned.has(e.id)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&!chosen.includes(e))
       .forEach(e=>{ if(chosen.length<sCount&&(e.role!=="compound"||compCount()<compCap)) add(e); });
-  // v45: a Lower day always gets a quad accessory next to its main squat — at 45 min the fill
-  // only found room for one 25% of the time (v44 fix was verified at 60 min only).
-  if(focusKey==="lower"&&chosen.length<sCount&&chosen.filter(e=>(e.primary||[]).includes("quads")).length<2){
-    add(pickFrom(pool.filter(e=>!chosen.includes(e)&&(e.primary||[]).includes("quads")&&e.role!=="compound"&&!simBlocked.has(e.id)&&jobOK(e)&&muscleOK(e)),recent)); }
+  // v46: per-focus must-haves from COACHING.md (user-approved 2026-10-19), filled in priority
+  // order when missing and there is room (one slot kept for the embedded core exercise). All
+  // caps still apply. Replaces the v45 Lower quad guarantee (now the "2nd quad" must-have).
+  if(!isCore&&MUST_HAVES[focusKey]){ const room=()=>chosen.length<(goalDef().skipCoreEmbed?sCount:sCount-1);
+    for(const mh of MUST_HAVES[focusKey]){ if(!room()) break; if(mh.ok(chosen)) continue;
+      add(pickFrom(pool.filter(e=>!chosen.includes(e)&&mh.pick(e)&&!simBlocked.has(e.id)&&jobOK(e)&&muscleOK(e)&&patOK(e)&&(e.role!=="compound"||compCount()<compCap)),recent)); } }
   // fill
   let guard=0;
   while(chosen.length<(isCore?sCount:sCount-1)&&guard++<60){
@@ -1882,7 +1920,7 @@ function orderGroupsEfficient(groups){
   if(ordered.length>1){ const li=ordered.length-1;
     const hasCore=g=>g.items.some(id=>{ const e=exById(id); return e&&(e.primary||[]).includes("core"); });
     if(hasCore(ordered[li])){
-      let swapWith=-1; for(let j=li-1;j>=0;j--){ if(!hasCore(ordered[j])){ swapWith=j; break; } }
+      let swapWith=-1; for(let j=li-1;j>=0;j--){ if(!hasCore(ordered[j])&&!ordered[j].items.some(id=>{ const e=exById(id); return e&&e.role==="compound"; })){ swapWith=j; break; } } // v46: never swap a compound group to the end (deadlift landed last, after GHR work)
       if(swapWith>=0){ const tmp=ordered[li]; ordered[li]=ordered[swapWith]; ordered[swapWith]=tmp; }
     }
   }
@@ -2012,13 +2050,16 @@ function groupExercises(list,mode){
     const head=remaining.shift(); const g=[head]; let stn=exStations(head);
     const prim=e=>new Set(e.primary||[]);
     const overlaps=(e)=>g.some(m=>{ const p=prim(m); return (e.primary||[]).some(x=>p.has(x)); });
+    // v46: user forbids two exercises on the same main muscle in one circuit (was allowed as a
+    // fallback; 64% of Push days). Core-with-core still allowed so Core days can circuit.
+    const overlapsNC=(e)=>g.some(m=>{ const p=prim(m); return (e.primary||[]).some(x=>x!=="core"&&p.has(x)); });
     if(!head._dropPct){
       // pass 1: prefer partners hitting DIFFERENT primary muscles (real circuit alternation)
       for(let i=0;i<remaining.length&&g.length<size;){ const c=remaining[i];
         if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&compatOK(g,c)&&!overlaps(c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
       // pass 2: fill leftovers even if muscles overlap (better grouped than orphaned)
       for(let i=0;i<remaining.length&&g.length<size;){ const c=remaining[i];
-        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&compatOK(g,c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
+        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&compatOK(g,c)&&!overlapsNC(c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
     }
     groups.push({type:g.length>1?(mode==="circuit"?"circuit":"superset"):"straight",items:g.map(e=>e.id)});
   }
@@ -2046,6 +2087,10 @@ function swapCandidates(exData,w){
   const before=order.slice(0,pos).map(exById).filter(Boolean), after=order.slice(pos+1).map(exById).filter(Boolean);
   const comps=otherAll.filter(o=>o.role==="compound");
   const ruleOK=e=>{ if(!jobsOK(otherAll,e)) return false;
+    // v46: COACHING.md §6 — no two exercises on the same main muscle in one circuit; and the
+    // session compound cap (was unenforced: a swap made 3 compounds on 9% of simulated swaps)
+    if(others.some(o=>(o.primary||[]).some(m=>m!=="core"&&(e.primary||[]).includes(m)))) return false;
+    if(e.role==="compound"&&w.focus!=="core"&&otherAll.filter(o=>o.role==="compound").length>=((w.duration||45)>=45?2:1)) return false;
     if(w.focus==="pull"&&e.pattern==="hinge") return false;
     if(e.role==="compound"){ if(others.some(o=>o.role==="compound")) return false;
       if(before.concat(others).some(o=>o.role!=="compound"&&(o.primary||[]).some(m=>muscOf(e).includes(m)))) return false; }
@@ -2075,6 +2120,10 @@ function swapCandidates(exData,w){
   // if even that's exhausted.
   const focusMuscles=(FOCI[w.focus]||{}).muscles||[];
   let cands=EXERCISES.filter(e=>baseFilter(e)&&ruleOK(e)&&focusMuscles.length&&(e.primary||[]).some(m=>focusMuscles.includes(m)));
+  // v46: keep every COACHING.md must-have the session has now (swap a curl for a curl), unless
+  // nothing fits — then offer the rest rather than an empty list.
+  { const nowDefs=w.exercises.map(x=>exById(x.id)).filter(Boolean); const mh=(MUST_HAVES[w.focus]||[]).filter(m=>m.ok(nowDefs));
+    const keepM=cands.filter(e=>mh.every(m=>m.ok(otherAll.concat([e])))); if(keepM.length) cands=keepM; }
   { const fresh=cands.filter(e=>!lastSame.has(e.id)); if(fresh.length) cands=fresh; } // rotation, unless nothing fresh fits
   let fellBackToCore=false;
   if(!cands.length){ cands=EXERCISES.filter(e=>baseFilter(e)&&ruleOK(e)&&(e.primary||[]).includes("core")); fellBackToCore=cands.length>0; }
@@ -2293,8 +2342,15 @@ function fitToDuration(w,duration,isCoreFocus){
     // It can still go via the generic non-compound fallback below as a genuine last
     // resort, but only once isolation and accessory are both fully exhausted.
     let idx=-1;
-    for(const role of ["isolation","accessory"]){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role===role){ idx=i; break; } } if(idx>=0) break; }
-    if(idx<0){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role!=="compound"){ idx=i; break; } } }
+    // v46: skip exercises whose removal would break a COACHING.md must-have or drop the day's
+    // only core exercise (trimming the last isolation was removing the curl / lateral raise
+    // the must-haves had just added — 1-2% of Pull/Push days). Falls through to set trimming.
+    const keep=i=>{ const defs=w.exercises.map(e=>exById(e.id)); const rest=defs.filter((d,j)=>j!==i&&d); const all=defs.filter(Boolean);
+      if((MUST_HAVES[w.focus]||[]).some(m=>m.ok(all)&&!m.ok(rest))) return true;
+      const cr=d=>d&&(d.primary||[]).includes("core");
+      return !isCoreFocus&&!goalDef().skipCoreEmbed&&cr(defs[i])&&!rest.some(cr); };
+    for(const role of ["isolation","accessory"]){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role===role&&!keep(i)){ idx=i; break; } } if(idx>=0) break; }
+    if(idx<0){ for(let i=w.exercises.length-1;i>=0;i--){ if(w.exercises[i].role!=="compound"&&!keep(i)){ idx=i; break; } } }
     if(idx<0) break;
     w.exercises.splice(idx,1); regroup();
   }

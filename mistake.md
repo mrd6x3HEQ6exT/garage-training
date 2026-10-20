@@ -422,6 +422,10 @@ RESULT: still failed in 65-95% of affected sessions despite the "fix"; caught
      only by full sweep, not the smaller spot-check right after
 FIX: check every later pipeline step that mutates the same data for whether it
      can undo an earlier guarantee — reapply after the LAST mutation, not the first.
+RECURRED (v45, v46): the core-last swap undid the no-3-presses order fix; fitToDuration's
+     "drop the last isolation" removed the curl / lateral raise the v46 must-haves had just
+     added (1-2% of Pull/Push), and the core-last swap moved a deadlift behind GHR work.
+     Each caught by audit.js. Any new guarantee: add an audit RULE for it in the same build.
 
 ---
 TAG: soft-weight-not-a-ceiling

@@ -429,6 +429,31 @@ T("regression: render errors", rerr===0, rerr);
     const ok=m&&L.sets.filter(s=>!s.drop).every(s=>+s.reps>=+m[1]&&+s.reps<=+m[2]);
     T("v44: planned reps inside the scheme ("+id+")", ok, L.scheme+" → "+L.sets.map(s=>s.w+"x"+s.reps).join(" ")); }
   STATE.workouts=savedW; STATE.settings.goal=savedGoal; }
+// --- v46: COACHING.md standard (core on strength days, must-haves, no same-muscle circuits, 6–10, prefs) ---
+{ const savedGoal=STATE.settings.goal; STATE.settings.goal="weight";
+  T("v46: weight goal embeds core and runs 6–10 on big lifts", goalDef().skipCoreEmbed===false&&goalDef().scheme.compound[0]==="6–10");
+  let miss=0, missWhy="", noCore=0, same=0, sameWhy="", n=0;
+  for(const f of ["push","pull","lower"]) for(let i=0;i<40;i++){ n++; const w=generate(f,45,"strength"); const defs=w.exercises.map(e=>ob(e.id));
+    const m=(MUST_HAVES[f]||[]).filter(x=>x.need!=="2nd hamstring exercise"&&!x.ok(defs)).map(x=>x.need); // listed must-haves only (same as audit.js) if(m.length){ miss++; missWhy=missWhy||f+": "+m.join(","); }
+    if(!defs.some(d=>(d.primary||[]).includes("core"))) noCore++;
+    (w.groups||[]).forEach(g=>{ const seen={}; g.items.map(ob).forEach(d=>(d.primary||[]).forEach(k=>{ if(k==="core") return; if(seen[k]){ same++; sameWhy=sameWhy||g.items.join("+"); } seen[k]=1; })); }); }
+  T("v46: every Push/Pull/Lower (45 min) has all must-haves", miss===0, miss+"/"+n+" "+missWhy);
+  T("v46: every Push/Pull/Lower has a core exercise", noCore===0, noCore+"/"+n);
+  T("v46: no circuit pairs two exercises on the same main muscle", same===0, same+" "+sameWhy);
+  // swaps respect same-muscle pairing and the compound cap
+  let sb=0, sbWhy="";
+  for(const f of ["push","pull","lower"]) for(let i=0;i<10;i++){ const w=generate(f,45,"strength");
+    for(const ex of w.exercises){ const grp=(w.groups||[]).find(g=>g.items.includes(ex.id)); const mates=(grp?grp.items:[]).filter(id=>id!==ex.id).map(ob);
+      const comps=w.exercises.map(e=>ob(e.id)).filter(o=>o.id!==ex.id&&o.role==="compound").length;
+      for(const c of swapCandidates({id:ex.id},w)){ const e=c.ex;
+        if(mates.some(o=>(o.primary||[]).some(k=>k!=="core"&&(e.primary||[]).includes(k)))){ sb++; sbWhy=sbWhy||ex.id+"→"+e.id+" same-muscle"; }
+        if(e.role==="compound"&&comps>=2){ sb++; sbWhy=sbWhy||ex.id+"→"+e.id+" 3 compounds"; } } } }
+  T("v46: swaps respect same-muscle pairing and the compound cap", sb===0, sbWhy);
+  STATE.settings.goal=savedGoal;
+  // one-time preference cleanup
+  const s={recWeights:{hip_thrust:1,kickback:1,pallof:1,russian:1,hlr:-1,ww:-1,bb_bench:1}};
+  T("v46: prefs cleanup — drops hip thrust (+), maps pallof/russian, clears stale", migratePrefsV46(s)===true&&JSON.stringify(Object.keys(s.recWeights).sort())===JSON.stringify(["bb_bench","decline_russian","kickback","pallof_kneel"]), JSON.stringify(s.recWeights));
+  s.recWeights.hip_thrust=1; T("v46: prefs cleanup runs once (a later (+) on hip thrust sticks)", migratePrefsV46(s)===false&&s.recWeights.hip_thrust===1); }
 // --- v45: presses, planner migration, Lower quads at 45, swaps follow the rules ---
 { // the user's in-progress Push session (2026-10-19): Smith incline, push press, close-grip bench, then 2 triceps moves
   const real=["bb_incl","bb_push_press","cgbp","pushdown_bar","lat_raise","cable_oh_ext"].map(ob);

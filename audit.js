@@ -17,10 +17,12 @@
    swap suggestion, follows the "try N lb today" overload hint, and logs reps around the plan
    (-2..+3). Each run is a separate child process with its own seeded Math.random and clock.
 
+   Standard: COACHING.md (user-approved 2026-10-19) — must-haves, pairing and the weekly targets.
    Check kinds:
      RULE  — confirmed by the user or enforced by design; any hit on the user's plan = exit 1.
-     COACH — draft coaching checks; reported, never fail the run, until the coaching standard
-             (queue.md) is agreed. Weekly volume is report-only for the same reason.
+     COACH — draft checks not (yet) in COACHING.md; reported, never fail the run.
+     INFO  — designed behaviour worth watching (e.g. the rotation fallback rate).
+     Weekly volume and balance are graded against COACHING.md as WARN (user's choice), never fail.
    Every check must fire on its own known-bad fixture (self-test) before its 0% is trusted —
    see mistake.md: zero-from-unproven-check. */
 const ARGV=process.argv.slice(2);
@@ -82,16 +84,14 @@ async function __audit(){
       fn:(w,c)=>{ if(!c.prevIds||c.fallback) return null; const e=w.exercises.find(e=>c.prevIds.includes(e.id)&&(c.plus||{})[e.id]!==1); return e?e.id:null; }},
     {id:"repeat_fallback",kind:"INFO",label:"repeat allowed because nothing fresh fit the caps (designed fallback — watch the rate)",
       fn:(w,c)=>{ if(!c.prevIds||!c.fallback) return null; const e=w.exercises.find(e=>c.prevIds.includes(e.id)&&(c.plus||{})[e.id]!==1); return e?e.id:null; }},
-    {id:"musthave",kind:"COACH",label:"day missing its main movement (chest press / vertical pull + row / squat + hamstrings)",
-      fn:(w,c)=>{ const d=w.exercises.map(e=>D(e.id)).filter(Boolean); const has=f=>d.some(f);
-        if(c.focus==="push"&&!has(x=>x.pattern==="horiz_push"&&x.role==="compound")) return "no chest press";
-        if(c.focus==="pull"&&!has(x=>x.pattern==="vert_pull")) return "no vertical pull";
-        if(c.focus==="pull"&&!has(x=>jobsOf(x.id).includes("rows"))) return "no row";
-        if(c.focus==="lower"&&!has(x=>x.pattern==="squat")) return "no squat";
-        if(c.focus==="lower"&&!has(x=>(x.primary||[]).includes("hams"))) return "no hamstring work";
-        return null; }},
-    {id:"same_muscle_circuit",kind:"COACH",label:"circuit (no compound) pairs two exercises on the same main muscle",
-      fn:(w,c)=>{ if(c.focus==="core") return null; for(const g of (w.groups||[])){ const ds=g.items.map(D).filter(Boolean); if(ds.some(x=>x.role==="compound")) continue; const p={}; for(const x of ds){ const k=(x.primary||[])[0]; if(p[k]) return g.items.join("+"); p[k]=1; } } return null; }},
+    // COACHING.md §4 — read from the app's own MUST_HAVES (single source of truth), plus core.
+    {id:"musthave",kind:"RULE",label:"missing a must-have (COACHING.md §4)",
+      fn:(w,c)=>{ const d=w.exercises.map(e=>D(e.id)).filter(Boolean); const list=(typeof MUST_HAVES!=="undefined"&&MUST_HAVES[c.focus])||[];
+        const miss=list.filter(m=>m.need!=="2nd hamstring exercise"&&!m.ok(d)).map(m=>m.need);
+        if(["push","pull","lower"].includes(c.focus)&&!d.some(x=>(x.primary||[]).includes("core"))) miss.push("core");
+        return miss.length?miss.join(", "):null; }},
+    {id:"same_muscle_circuit",kind:"RULE",label:"circuit pairs two exercises on the same main muscle (COACHING.md §6)",
+      fn:(w,c)=>{ if(c.focus==="core") return null; for(const g of (w.groups||[])){ const ds=g.items.map(D).filter(Boolean); const p={}; for(const x of ds) for(const k of (x.primary||[])){ if(k==="core") continue; if(p[k]) return g.items.join("+"); p[k]=1; } } return null; }},
   ];
 
   // ---- self-test: each check must fire on its known-bad fixture, none on the known-good one ----
@@ -128,7 +128,7 @@ async function __audit(){
     let hit=null; try{ hit=c.fn(f[0],f[1]); }catch(e){ hit=null; selftest.push(c.id+": threw "+e.message); }
     STATE.settings.injuries=savedInj;
     if(!hit) selftest.push(c.id+": did NOT fire on its known-bad fixture"); }
-  const good=mk("push",45,[["bb_bench"],["db_ohp"],["pushdown","lat_raise"]]); const gctx=ctx0("push",45);
+  const good=mk("push",45,[["bb_bench"],["db_ohp"],["incline_db_fly","pushdown"],["lat_raise","cable_crunch"]]); const gctx=ctx0("push",45);
   STATE.settings.injuries=[];
   for(const c of CHECKS){ let hit=null; try{ hit=c.fn(good,gctx); }catch(e){} if(hit) selftest.push(c.id+": fired on the known-good session ("+hit+")"); }
   STATE.settings.injuries=savedInj;
@@ -227,12 +227,19 @@ async function parentMain(){
     if(!any) P("      0%  no check fired");
     const sw=Object.keys(a.swapHits); if(a.swaps) P("    after "+a.swaps+" simulated swaps: "+(sw.length?sw.map(k=>k+" "+pct(a.swapHits[k],a.swaps)+"% (e.g. "+a.swapEx[k]+")").join("; "):"no check fired"));
   });
-  P("\nWEEKLY VOLUME  (hard sets/week: primary = 1, secondary = 0.5; REPORT-ONLY until the coaching standard sets targets)");
-  const nWeeks=args.weeks*args.runs;
+  // COACHING.md §2–3 (user-approved 2026-10-19): weekly targets and balance. WARN only (answer 5).
+  const TARGETS={chest:[8,14],back:[10,18],shoulders:[8,16],biceps:[6,12],triceps:[6,12],quads:[10,16],hams:[8,14],glutes:[8,16],calves:[6,10],core:[10,16],erectors:[3,8]};
+  const RATIOS={"push:pull":[0.8,1.2],"quads:hams":[0.8,1.2]};
+  P("\nWEEKLY VOLUME vs COACHING.md  (hard sets/week: primary = 1, secondary = 0.5; outside target = WARN, never fails the run)");
+  const nWeeks=args.weeks*args.runs; let warns=0;
+  const status=(v,t)=>!t?"":v<t[0]?"WARN low (target "+t[0]+"–"+t[1]+")":v>t[1]?"WARN high (target "+t[0]+"–"+t[1]+")":"ok ("+t[0]+"–"+t[1]+")";
   Object.keys(weekly).sort((a,b)=>weekly[b].reduce((x,y)=>x+y,0)-weekly[a].reduce((x,y)=>x+y,0)).forEach(m=>{ const arr=weekly[m]; const avg=arr.reduce((x,y)=>x+y,0)/nWeeks; const s=[...arr].sort((x,y)=>x-y);
-    P("  "+m.padEnd(10)+avg.toFixed(1).padStart(5)+"   (busiest weeks ~"+(s[Math.floor(s.length*0.9)]||0).toFixed(0)+", weeks with none: "+pct(nWeeks-arr.length,nWeeks)+"%)"); });
+    const st=status(avg,TARGETS[m]); if(st.startsWith("WARN")) warns++;
+    P("  "+m.padEnd(10)+avg.toFixed(1).padStart(5)+"   "+st.padEnd(28)+" (busiest weeks ~"+(s[Math.floor(s.length*0.9)]||0).toFixed(0)+", weeks with none: "+pct(nWeeks-arr.length,nWeeks)+"%)"); });
   const sum=ms=>ms.reduce((t,m)=>t+(weekly[m]||[]).reduce((x,y)=>x+y,0),0)/nWeeks;
-  P("  push:pull  "+(sum(["chest","shoulders","triceps"])/Math.max(1,sum(["back","biceps"]))).toFixed(2)+"   quads:hams  "+(sum(["quads"])/Math.max(1,sum(["hams"]))).toFixed(2));
+  const rv={"push:pull":sum(["chest","shoulders","triceps"])/Math.max(1,sum(["back","biceps"])),"quads:hams":sum(["quads"])/Math.max(1,sum(["hams"]))};
+  for(const k in rv){ const st=status(+rv[k].toFixed(2),RATIOS[k]); if(st.startsWith("WARN")) warns++; P("  "+k.padEnd(10)+rv[k].toFixed(2).padStart(5)+"   "+st); }
+  P("  volume/balance warnings: "+warns);
   P("\nOTHER");
   P("  never generated (available, not banned): "+(never.length?never.join(", "):"none"));
   P("  load progression (exercises done 4+ times, first vs last quarter): up "+pct(prog.up,prog.n)+"%, flat "+pct(prog.flat,prog.n)+"%, down "+pct(prog.down,prog.n)+"%");
