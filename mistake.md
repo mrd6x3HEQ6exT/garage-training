@@ -2,12 +2,24 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): manual-by-exclusion > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): culprit-was-the-goal > manual-by-exclusion > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: culprit-was-the-goal
+IF: user reports "X doesn't work" and a tool/app shows up controlling X
+WHAT: user said "house lights don't work". In Use By showed Holiday Lights; I named
+     it the culprit and told the user to remove the light from it, twice. The user
+     WANTED the Holiday Lights display; that was the thing broken.
+WHY: assumed the expected behaviour (normal on/off light) instead of asking what
+     "work" meant; treated "app is attached" as "app is the cause".
+RESULT: two rounds of advice that would have dismantled the feature the user wanted
+FIX: before diagnosing, pin down what the user expects X to do. An app attached to
+     a device can be the intended controller, not the interference.
 
 ---
 TAG: manual-by-exclusion
