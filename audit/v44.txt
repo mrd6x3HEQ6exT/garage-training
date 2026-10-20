@@ -1,0 +1,63 @@
+RACK & ROLL COACHING AUDIT — build v44
+data: your backup (app build v39, 46 logged sessions) | 3 runs × 52 weeks | seed 1 | skip 0.1 | swap 0.1
+assumes: you train the planner's slots and accept the app's suggested focus; skipped/swapped sessions as above
+self-test: all 16 checks fire on their known-bad fixture and stay quiet on the known-good one
+
+WEEKLY PLAN AS THE APP RESOLVES IT
+  Fri am ski        → ski 100%
+  Fri pm legs_post  → metcon 51%, lower 43%, core 5%, push 1%   ← planner value 'legs_post' is not a current focus; app falls back to its own pick
+  Mon am bike       → bike 100%
+  Mon pm push       → push 100%
+  Sat am sledS      → sledS 100%
+  Thu am bike       → bike 100%
+  Thu pm legs_quad  → core 50%, metcon 50%   ← planner value 'legs_quad' is not a current focus; app falls back to its own pick
+  Tue am ski        → ski 100%
+  Tue pm pull       → pull 100%
+  Wed am bike       → bike 100%
+
+SESSION CHECKS  (% of sessions; RULE = confirmed, COACH = draft, report-only)
+
+  CORE  sessions=77  duration 45 min  avg size 6.0  raw estimate 20 min  distinct exercises/run 28
+      0%  no check fired
+    after 11 simulated swaps: no check fired
+
+  LOWER  sessions=60  duration 45 min  avg size 6.0  raw estimate 40 min  distinct exercises/run 23
+     25%  RULE  Lower day with fewer than 2 quad exercises
+           e.g. quads×1   [box_squat,bb_rdl,cable_adduction,bb_calf_raise,superman,kickback]
+     12%  COACH day missing its main movement (chest press / vertical pull + row / squat + hamstrings)
+           e.g. no hamstring work   [front_squat,seated_calf,rack_pull,kickback,spanish_squat,cable_abduction]
+      7%  COACH circuit (no compound) pairs two exercises on the same main muscle
+           e.g. trap_rdl+heel_squat+ghr   [bb_squat,hip_thrust,trap_rdl,heel_squat,ghr,bb_calf_raise]
+    after 7 simulated swaps: lower_quads 29% (e.g. bb_squat→front_squat: quads×1); repeat 29% (e.g. bb_squat→front_squat: front_squat); prefatigue 14% (e.g. hip_thrust→deadlift: back_ext before deadlift); musthave 29% (e.g. bb_squat→front_squat: no hamstring work); same_muscle_circuit 14% (e.g. cable_abduction→cable_adduction: lm_rdl+heel_squat+ghr)
+
+  PULL  sessions=140  duration 45 min  avg size 6.0  raw estimate 41 min  distinct exercises/run 28
+     19%  COACH circuit (no compound) pairs two exercises on the same main muscle
+           e.g. bb_bb_shrug+iyt_raise   [bb_row,pullup_wide,cable_upright,bb_bb_shrug,iyt_raise,conc_curl]
+    after 16 simulated swaps: prefatigue 13% (e.g. face_pull→iyt_raise: iyt_raise before ng_pulldown); repeat 38% (e.g. incline_curl→db_curl: db_curl); same_muscle_circuit 19% (e.g. pullup→chinup: trap_row+conc_curl+sa_pulldown); compound_cap 6% (e.g. sa_pulldown→pulldown: compounds×3); job_cap 6% (e.g. iyt_raise→db_row: rows×3)
+
+  PUSH  sessions=142  duration 45 min  avg size 6.0  raw estimate 41 min  distinct exercises/run 31
+     47%  COACH circuit (no compound) pairs two exercises on the same main muscle
+           e.g. band_pull_apart+iyt_raise+cable_yraise   [bb_incl,db_ohp,oh_ext,band_pull_apart,iyt_raise,cable_yraise]
+    after 16 simulated swaps: same_muscle_circuit 50% (e.g. iyt_raise→face_pull: band_pull_apart+face_pull+cable_yraise); musthave 6% (e.g. dips→cgbp: no chest press); repeat 25% (e.g. bb_seated_ohp→bb_ohp: bb_ohp)
+
+WEEKLY VOLUME  (hard sets/week: primary = 1, secondary = 0.5; REPORT-ONLY until the coaching standard sets targets)
+  back       15.1   (busiest weeks ~19, weeks with none: 3%)
+  shoulders  14.4   (busiest weeks ~20, weeks with none: 1%)
+  core        9.3   (busiest weeks ~18, weeks with none: 19%)
+  triceps     8.9   (busiest weeks ~13, weeks with none: 10%)
+  biceps      7.0   (busiest weeks ~9, weeks with none: 10%)
+  chest       5.7   (busiest weeks ~9, weeks with none: 9%)
+  glutes      4.7   (busiest weeks ~12, weeks with none: 40%)
+  quads       2.8   (busiest weeks ~9, weeks with none: 53%)
+  hams        2.4   (busiest weeks ~8, weeks with none: 49%)
+  calves      1.1   (busiest weeks ~3, weeks with none: 62%)
+  erectors    0.9   (busiest weeks ~5, weeks with none: 64%)
+  push:pull  1.31   quads:hams  1.18
+
+OTHER
+  never generated (available, not banned): none
+  load progression (exercises done 4+ times, first vs last quarter): up 52%, flat 22%, down 26%
+  first-time loaded exercises with no planned weight (you type it once): 14 per run
+  skipped sessions (simulated): 46 per run
+
+RESULT: FAIL — a RULE check fired on your plan
