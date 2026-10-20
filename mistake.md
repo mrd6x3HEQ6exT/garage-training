@@ -2,12 +2,24 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): removed-option-backfill-unchecked > fixed-history-sim > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): zero-from-unproven-check > removed-option-backfill-unchecked > fixed-history-sim > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: zero-from-unproven-check
+IF: an audit/sim check reports 0% (or a test passes) on something you expected to see
+WHAT: v43->v44 coaching audit: the "planned reps outside the scheme" check reported nothing,
+     though the sample session plainly had I-Y-T 5x10 vs 15-20. The regex had lost its
+     backslashes in a shell-quoted script and could never match. Same pass: per-set counting
+     gave ">100%" rates, and a guard (typeof jobOf) made a v42 regression test vacuously pass.
+WHY: trusted a clean result without proving the check can fire
+RESULT: caught only because a printed sample contradicted the zero
+FIX: every new check must be shown to FAIL on the known-bad case (old build, or a printed
+     example) before its zero is believed. Count once per session, not per set/group.
 
 ---
 TAG: removed-option-backfill-unchecked

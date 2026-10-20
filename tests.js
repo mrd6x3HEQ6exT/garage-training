@@ -404,6 +404,31 @@ T("regression: render errors", rerr===0, rerr);
   let rep=0; for(let i=0;i<40;i++){ const w=generate("push",45,"strength"); if(w.exercises.some(e=>e.id==="db_ohp"||e.id==="skull")) rep++; }
   T("rotation: generate() skips last push session's non-(+) lifts", rep===0, rep+"/40");
   STATE.workouts=savedW; STATE.settings.recWeights=savedR; }
+// --- v44 coaching fixes (circuit goal so grouping is exercised) ---
+{ const savedGoal=STATE.settings.goal; STATE.settings.goal="weight";
+  const DROP_LOADS=["dumbbells","barbell","plates","kettlebell","cable_low","cable_high","ezbar","landmine","trapbar"];
+  let badDrop=0, twoComp=0, preFat=0, quadShort=0, heel=0, spanish=0, n=0;
+  const musc=d=>new Set([...(d.primary||[]),...(d.secondary||[])]);
+  for(const [f,d] of [["push",45],["pull",45],["lower",60],["push",60],["pull",60]]) for(let i=0;i<40;i++){ n++;
+    const w=generate(f,d,"strength");
+    w.exercises.forEach(e=>{ const x=ob(e.id); if(x&&e.sets.some(s=>s.drop)&&!((x.metric||"reps")==="reps"&&(x.requires||[]).some(r=>DROP_LOADS.includes(r)))) badDrop++; });
+    (w.groups||[]).forEach(g=>{ const gd=g.items.map(ob).filter(Boolean); if(gd.filter(x=>x.role==="compound").length>1) twoComp++; });
+    const order=[]; (w.groups||[]).forEach(g=>g.items.forEach(id=>order.push(ob(id))));
+    if(order.some((x,i)=>x&&x.role==="compound"&&order.slice(0,i).some(y=>y&&y.role!=="compound"&&(y.primary||[]).some(m=>musc(x).has(m))))) preFat++;
+    if(f==="lower"){ const ids=w.exercises.map(e=>e.id); if(ids.filter(id=>(ob(id).primary||[]).includes("quads")).length<2) quadShort++; if(ids.includes("heel_squat")) heel++; if(ids.includes("spanish_squat")) spanish++; } }
+  T("v44: no drop set on a bodyweight/timed exercise", badDrop===0, badDrop+"/"+n);
+  T("v44: never two compounds in one circuit", twoComp===0, twoComp+"/"+n);
+  T("v44: nothing before a compound pre-fatigues its muscles", preFat===0, preFat+"/"+n);
+  T("v44: every Lower day has 2 quad exercises", quadShort===0, quadShort+"/40");
+  T("v44: both knee-friendly quad accessories get picked", heel>0&&spanish>0, "heel "+heel+" spanish "+spanish);
+  T("v44: quad accessories exist, with how-to; heel_squat keeps the logged id", !!ob("heel_squat")&&!!ob("spanish_squat")&&!!GUIDES.heel_squat&&!!GUIDES.spanish_squat);
+  // planned reps clamp: light lift whose weight can't move by 5 lb keeps reps inside the range
+  const savedW=STATE.workouts;
+  STATE.workouts=[{id:"r1",date:Date.now()-864e5,focus:"push",exercises:[{id:"iyt_raise",sets:[{w:"5",reps:"10",done:true},{w:"5",reps:"10",done:true},{w:"5",reps:"10",done:true}]},{id:"hammer",sets:[{w:"25",reps:"30",done:true}]}],conditioning:[],groups:[]}];
+  for(const id of ["iyt_raise","hammer"]){ const L=buildLoggable(ob(id)); const m=String(L.scheme).match(/(\d+)\s*[–-]\s*(\d+)/);
+    const ok=m&&L.sets.filter(s=>!s.drop).every(s=>+s.reps>=+m[1]&&+s.reps<=+m[2]);
+    T("v44: planned reps inside the scheme ("+id+")", ok, L.scheme+" → "+L.sets.map(s=>s.w+"x"+s.reps).join(" ")); }
+  STATE.workouts=savedW; STATE.settings.goal=savedGoal; }
 // --- v43 job caps: never more than JOB_CAP of one JOB_GROUPS job per session, any focus/duration ---
 { const worst={}; let n=0;
   for(const [f,d] of [["push",45],["push",60],["pull",45],["pull",60],["lower",60],["lower",45],["custom",60]]) for(let i=0;i<40;i++){ n++;

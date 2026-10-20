@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v43";
+const BUILD="v44";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -543,6 +543,10 @@ const EXERCISES=[
   X("bb_squat","Barbell back squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith back squat",prefCue:"Guided path with safeties — the setup that lets you actually train to failure alone.",cue:"Brace, hips and knees together, depth."}),
   X("front_squat","Barbell front squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith front squat",prefCue:"Bar in the front rack, guided path.",cue:"Elbows high, upright torso."}),
   X("trap_squat","Trap-bar squat","squat","compound",["quads"],["glutes","hams"],["trapbar"],["trapbar"],{cue:"Knees track over toes, tall finish."}),
+  // v44: knee-friendly quad accessories (user: Lower days had exactly 1 quad exercise).
+  // heel_squat reuses the id from the user's logged history so it links up.
+  X("heel_squat","Heel-elevated goblet squat","squat","accessory",["quads"],["glutes","core"],["dumbbells","wedge"],["dumbbells","wedge"],{cue:"Heels on the wedge, DB at the chest, sit straight down — knees forward, torso tall."}),
+  X("spanish_squat","Spanish squat","squat","accessory",["quads"],["glutes"],["resistancebands","bandanchor"],["resistancebands","bandanchor"],{cue:"Heavy band behind the knees, anchored low to the rack. Sit back into the band, shins vertical."}),
   X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes","erectors"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith deadlift",prefCue:"Stand on the blocks so the bar starts at true floor height — otherwise this is a block pull.",cue:"Neutral spine, push the floor away."}),
   X("trap_dl","Trap-bar deadlift","hinge","compound",["hams"],["quads","glutes","back","erectors"],["trapbar"],["trapbar"],{cue:"Hips and shoulders rise together."}),
   X("bb_rdl","Barbell RDL","hinge","compound",["hams"],["glutes","back","erectors"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith RDL",prefCue:"Hinge back, bar close, guided path.",cue:"Soft knees, push hips back, feel the stretch."}),
@@ -724,6 +728,8 @@ const GUIDES={
   front_squat:"Bar on the front delts, elbows high. Stay upright as you squat — more quad and core. Drive the elbows up out of the bottom.",
   trap_squat:"Stand inside the trap bar, hinge and squat to the handles, stand tall. Knees track over the toes.",
   lm_squat:"Hold the landmine bar end at the chest, heels can sit on the wedge. Squat down and drive up — easy on the back.",
+  heel_squat:"Heels up on the squat wedge, hold one dumbbell vertically at your chest. Sit straight down between your heels, letting the knees travel forward, torso tall. The raised heels shift the work to the quads with less hip and back demand.",
+  spanish_squat:"Loop a heavy band behind both knees and anchor it low to the rack in front of you. Step back until it's taut, then sit back into the band keeping your shins near vertical. The band holds the knees back, so the quads work hard with very little knee strain.",
   deadlift:"Bar over mid-foot, hinge and grip just outside the knees, flat back, chest up. Take the slack out, then push the floor away and stand tall, bar dragging up the legs. Don't round the lower back or jerk it off the floor.",
   trap_dl:"Stand in the trap bar, grip the handles, flat back. Drive through the floor; hips and shoulders rise together. The most beginner-friendly deadlift.",
   bb_rdl:"Start standing with the bar. Soft knees, push the hips back and slide the bar down the thighs until you feel a hamstring stretch, then drive the hips forward. It's a hinge, not a squat — keep the back flat.",
@@ -1544,6 +1550,7 @@ const SIM_GROUPS=[
   ["db_curl","cable_curl","hammer","incline_curl","conc_curl"],                 // biceps curls
   // --- LOWER ---
   ["bb_squat","front_squat","box_squat","trap_squat"],                          // barbell/trap squats (compound)
+  ["heel_squat","spanish_squat"],                                               // v44: knee-friendly quad accessories (1 per session, alongside a main squat)
   // lm_squat (landmine squat) removed from the library in v43 at the user's request; its
   // GUIDES entry stays so logged sessions that include it still show the how-to.
   ["deadlift","trap_dl","bb_rdl","rack_pull","trap_rdl","lm_rdl","good_morning"], // hinges/deadlifts
@@ -1759,7 +1766,11 @@ function generate(focusKey,duration,mode){
       for(let i=0;i<want&&cp.length;i++){ const pick=cp.splice(Math.floor(Math.random()*cp.length),1)[0]; conds.push(pick); } } }
 
   if(STATE.settings.experience!=="beginner"){
-    if(!goalDef().straight){ const iso=chosen.filter(e=>e.role==="isolation"); if(iso.length){ iso[iso.length-1]._tech="Drop set on the final set — strip ~30% and go to failure."; iso[iso.length-1]._dropPct=0.30; } }
+    // v44: only an isolation you can actually strip weight from gets the drop set (was: the last
+    // isolation, even a bodyweight/timed hold like the superman — 43% of Lower days).
+    const DROP_LOADS=["dumbbells","barbell","plates","kettlebell","cable_low","cable_high","ezbar","landmine","trapbar"];
+    const dropOK=e=>(e.metric||"reps")==="reps"&&(e.requires||[]).some(r=>DROP_LOADS.includes(r));
+    if(!goalDef().straight){ const iso=chosen.filter(e=>e.role==="isolation"&&dropOK(e)); if(iso.length){ iso[iso.length-1]._tech="Drop set on the final set — strip ~30% and go to failure."; iso[iso.length-1]._dropPct=0.30; } }
     const acc=chosen.filter(e=>e.role==="accessory"); if(acc.length&&Math.random()<.6) acc[0]._tech="Tempo: 3s down, 1s pause, drive up.";
   }
   let gmode=mode; const g=goalDef();
@@ -1827,7 +1838,7 @@ function groupStationRank(g){ let req=new Set(); let core=false; g.items.forEach
 }
 function orderGroupsEfficient(groups){
   const ordered=groups.map((g,i)=>{ const rank=groupStationRank(g); const roleMin=Math.min(...g.items.map(id=>{ const e=exById(id); return e?(_roleRank[e.role]??2):2; })); return {g,rank,roleMin,i}; })
-    .sort((a,b)=> a.rank-b.rank || a.roleMin-b.roleMin || a.i-b.i)
+    .sort((a,b)=> (a.roleMin===0?0:1)-(b.roleMin===0?0:1) || a.rank-b.rank || a.roleMin-b.roleMin || a.i-b.i) // v44: compound groups first
     .map(x=>x.g);
   // Rank 4 only pushes core ahead of cable (rank 5) — a session with no cable work has
   // nothing above core, so it lands last anyway by default, not by design. Guarantee it
@@ -1883,6 +1894,9 @@ function buildLoggable(e){
   for(let i=0;i<sc.sets;i++){ const src=psets?(psets[i]||psets[psets.length-1]):null;
     let w=src?src.w:"", rp=src?src.reps:"";
     if(src&&metric==="reps"&&!src.band){ const nw=scaleW(src.w,src.reps); if(nw!=null){ if(!scaledFrom) scaledFrom={w:src.w,reps:src.reps}; w=String(nw); rp=lo?String(lo):""; } }
+    // v44: keep planned reps inside the range even when the weight can't move (light DBs,
+    // bodyweight) — scaleW only resets reps when the weight changes by >=5 lb.
+    if(metric==="reps"&&rng&&rp!==""&&isFinite(+rp)&&+rp>0){ if(+rp<lo) rp=String(lo); else if(+rp>hi) rp=String(hi); }
     sets.push({w,reps:rp,done:false,band:src?(src.band||null):null}); }
   // Readiness previously had zero effect on prescribed load anywhere in the app — it only
   // changed the display color and the focus recommendation. If the exercise's primary
@@ -1930,6 +1944,17 @@ const IMPL_CAP={db:1,kb:2};
 function capOK(group,cand){ const im=implOf(cand); if(!im) return true; const cur=group.filter(e=>implOf(e)===im).length; return cur<(IMPL_CAP[im]||99); }
 function groupExercises(list,mode){
   const size=mode==="circuit"?3:2; const groups=[]; let remaining=[...list];
+  // v44: a big lift is paired only with work that doesn't compete with it. Never two compounds
+  // in one group, and nothing that pre-fatigues ANY compound's muscles (primary or secondary)
+  // shares a group with a compound — was: triceps extension in circuit A before the overhead
+  // press in B (63% of Push days), curls before rows (78% of Pull), pull-up + Pendlay row
+  // together (51% of Pull). Groups without a compound are unchanged.
+  const comps=list.filter(e=>e.role==="compound");
+  const musc=e=>new Set([...(e.primary||[]),...(e.secondary||[])]);
+  const preFat=e=>e.role!=="compound"&&comps.some(c=>(e.primary||[]).some(m=>musc(c).has(m)));
+  const compatOK=(g,c)=>{ const gComp=g.some(m=>m.role==="compound");
+    if(c.role==="compound") return !gComp&&!g.some(m=>preFat(m));
+    return !gComp||!preFat(c); };
   if(mode==="strength"){ const comp=remaining.filter(e=>e.role==="compound"); comp.forEach(e=>{ remaining=remaining.filter(x=>x!==e); groups.push({type:"straight",items:[e.id]}); }); }
   while(remaining.length){
     const head=remaining.shift(); const g=[head]; let stn=exStations(head);
@@ -1938,10 +1963,10 @@ function groupExercises(list,mode){
     if(!head._dropPct){
       // pass 1: prefer partners hitting DIFFERENT primary muscles (real circuit alternation)
       for(let i=0;i<remaining.length&&g.length<size;){ const c=remaining[i];
-        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&!overlaps(c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
+        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&compatOK(g,c)&&!overlaps(c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
       // pass 2: fill leftovers even if muscles overlap (better grouped than orphaned)
       for(let i=0;i<remaining.length&&g.length<size;){ const c=remaining[i];
-        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
+        if(!c._dropPct&&!stationConflict(stn,c)&&capOK(g,c)&&compatOK(g,c)){ stn=stn.concat(exStations(c)); g.push(remaining.splice(i,1)[0]); } else i++; }
     }
     groups.push({type:g.length>1?(mode==="circuit"?"circuit":"superset"):"straight",items:g.map(e=>e.id)});
   }
