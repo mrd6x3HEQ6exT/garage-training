@@ -2,12 +2,40 @@ MISTAKE LOG — self-check file, not for human reading. Newest first.
 Standing rule: before any build/code change, grep this file (tags below) as a
 visible tool call. Grep again before shipping. No visible tool call = not done.
 
-TAGS (newest first): partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
+TAGS (newest first): removed-option-backfill-unchecked > fixed-history-sim > partial-grep-full-count > test-duplicates-source-of-truth > over-merged-family > variety-cancelled-user-preference > bulk-delete-by-tag-collateral > no-coverage-audit > assumed-cost-negligible > claimed-exercises-without-checking > checked-queue-ignored-it > not-yet-means-next-build > scope-move-not-verified > dropped-open-item > unauthorized-build > repeat-wording-error > var-collision >
 core-day-heuristic > threshold-drift-after-input-change > two-formulas-diverge >
 n1-extrapolation > used-approx-not-authoritative-field > global-const-half-wired >
 built-not-tested-on-real-data > cap-extrapolated-no-data > wrong-role-in-formula >
 silent-reject-no-retry > rank-not-guarantee > guarantee-undone-downstream >
 soft-weight-not-a-ceiling > hard-cap-fallback-fires-always > misdiagnosed-twice
+
+---
+TAG: removed-option-backfill-unchecked
+IF: removing/excluding exercises from a focus, or adding a rule that shrinks the pool
+     (rotation, bans, "keep X off Y day")
+WHAT: v42 took hinges off Pull days and v41 added same-focus rotation. Checked that muscle
+     coverage held — never checked WHAT FILLS THE SLOTS that were freed. The top-up loop
+     after the core embed ignored patLimit, so the gap went to more horizontal pulls: 60-min
+     Pull days stacking 3+ rear-delt moves rose 15% -> 54%. User found it ("three row
+     workouts in a row?").
+WHY: audited the thing removed, not the thing that replaced it. Coverage ≠ composition.
+RESULT: shipped a regression the same day as the fix that caused it
+FIX: after shrinking any pool, run the composition audit (same-job counts, 3-in-a-row,
+     per pattern) at EVERY duration the focus can run (30/45/60), not just the user's
+     default — before vs after. Caps must hold in every tier incl. top-up and grow (v43
+     JOB_GROUPS/jobOK).
+
+---
+TAG: fixed-history-sim
+IF: measuring a rate with a sim that calls generate() repeatedly without logging sessions
+WHAT: reported "3+ rows on Pull: 17% -> 50% -> 46%" from 300 back-to-back generate() calls.
+     With rotation, every call excluded the SAME last-logged Pull session, so the numbers
+     described one history, not the long run. Sequential sim (log each session, weekly plan,
+     3 runs): ~13% across v40-v42 at 45 min. Told the user a wrong regression size.
+WHY: the sim didn't advance state that the code under test now depends on
+RESULT: overstated my own regression to the user; had to correct it next turn
+FIX: once selection depends on history (rotation, recency, readiness), measure with a
+     sequential sim that logs each generated session, and average several runs.
 
 ---
 TAG: partial-grep-full-count

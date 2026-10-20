@@ -404,6 +404,20 @@ T("regression: render errors", rerr===0, rerr);
   let rep=0; for(let i=0;i<40;i++){ const w=generate("push",45,"strength"); if(w.exercises.some(e=>e.id==="db_ohp"||e.id==="skull")) rep++; }
   T("rotation: generate() skips last push session's non-(+) lifts", rep===0, rep+"/40");
   STATE.workouts=savedW; STATE.settings.recWeights=savedR; }
+// --- v43 job caps: never more than JOB_CAP of one JOB_GROUPS job per session, any focus/duration ---
+{ const worst={}; let n=0;
+  for(const [f,d] of [["push",45],["push",60],["pull",45],["pull",60],["lower",60],["lower",45],["custom",60]]) for(let i=0;i<40;i++){ n++;
+    const c={}; generate(f,d,"strength").exercises.forEach(e=>{ const j=jobOf(e.id); if(j) c[j]=(c[j]||0)+1; });
+    for(const j in c) worst[j]=Math.max(worst[j]||0,c[j]); }
+  T("job caps: no job over JOB_CAP across "+n+" sessions", Object.values(worst).every(v=>v<=JOB_CAP), JSON.stringify(worst));
+  T("job caps: every JOB_GROUPS id exists in the library", Object.values(JOB_GROUPS).flat().every(id=>!!ob(id)), Object.values(JOB_GROUPS).flat().filter(id=>!ob(id)).join(",")); }
+// --- v43 landmine squat removed (guide kept for logged history); squats no longer a knee flag ---
+{ T("lm_squat: gone from the library", !ob("lm_squat"));
+  T("lm_squat: how-to kept for history", typeof GUIDES.lm_squat==="string"&&GUIDES.lm_squat.length>0);
+  const savedInj=STATE.settings.injuries; STATE.settings.injuries=["knee"];
+  T("knee: squats are not flagged", ["bb_squat","front_squat","box_squat","trap_squat"].every(id=>exInjuryHits(ob(id)).length===0));
+  T("knee: lunge pattern still flagged", exInjuryHits({pattern:"lunge",primary:["quads"],requires:[]}).includes("knee"));
+  STATE.settings.injuries=savedInj; }
 // --- v42 hinges stay off Pull days (still on Lower) ---
 { let pullHinge=0, lowerHinge=0;
   for(let i=0;i<60;i++){ if(generate("pull",45,"strength").exercises.some(e=>ob(e.id)&&ob(e.id).pattern==="hinge")) pullHinge++;

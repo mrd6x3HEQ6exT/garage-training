@@ -422,7 +422,7 @@ a.btn{text-decoration:none}
 const MEM={};
 const hasStore=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
 const LS=(()=>{ try{ const k="__rr_probe"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); return window.localStorage; }catch(e){ return null; } })();
-const BUILD="v42";
+const BUILD="v43";
 function lsGet(k){ if(!LS) return null; try{ const v=LS.getItem(k); return v!=null?JSON.parse(v):null; }catch(e){ return null; } }
 function lsSet(k,v){ if(!LS) return; try{ LS.setItem(k,JSON.stringify(v)); }catch(e){} }
 async function loadKey(k){
@@ -543,7 +543,6 @@ const EXERCISES=[
   X("bb_squat","Barbell back squat","squat","compound",["quads"],["glutes","core"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith back squat",prefCue:"Guided path with safeties — the setup that lets you actually train to failure alone.",cue:"Brace, hips and knees together, depth."}),
   X("front_squat","Barbell front squat","squat","compound",["quads"],["core","glutes"],["barbell","plates","rack"],["barbell","rack"],{prefEquip:"smith",prefName:"Smith front squat",prefCue:"Bar in the front rack, guided path.",cue:"Elbows high, upright torso."}),
   X("trap_squat","Trap-bar squat","squat","compound",["quads"],["glutes","hams"],["trapbar"],["trapbar"],{cue:"Knees track over toes, tall finish."}),
-  X("lm_squat","Landmine squat","squat","accessory",["quads"],["glutes","core"],["landmine"],["landmine"],{cue:"Hug the sleeve, heels on the wedge.",loadCap:"wedge"}),
   X("deadlift","Barbell deadlift","hinge","compound",["hams"],["back","glutes","erectors"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith deadlift",prefCue:"Stand on the blocks so the bar starts at true floor height — otherwise this is a block pull.",cue:"Neutral spine, push the floor away."}),
   X("trap_dl","Trap-bar deadlift","hinge","compound",["hams"],["quads","glutes","back","erectors"],["trapbar"],["trapbar"],{cue:"Hips and shoulders rise together."}),
   X("bb_rdl","Barbell RDL","hinge","compound",["hams"],["glutes","back","erectors"],["barbell","plates"],["barbell"],{prefEquip:"smith",prefName:"Smith RDL",prefCue:"Hinge back, bar close, guided path.",cue:"Soft knees, push hips back, feel the stretch."}),
@@ -923,7 +922,7 @@ function exInjuryHits(e){ const inj=STATE.settings.injuries||[]; if(!inj.length)
   if(inj.includes("wrist")&&((pat==="horiz_push"||pat==="vert_push")&&req.includes("barbell"))) out.push("wrist");
   if(inj.includes("lowback")&&(pat==="hinge"||(pat==="squat"&&req.includes("barbell")))) out.push("lowback");
   if(inj.includes("hip")&&(pat==="hinge"||pat==="squat"||pat==="lunge")) out.push("hip");
-  if(inj.includes("knee")&&(pat==="squat"||pat==="lunge")) out.push("knee");
+  if(inj.includes("knee")&&pat==="lunge") out.push("knee"); // v43: squats are NOT a knee flag (user wants squats; only split squats / lunges)
   return out; }
 function injFactor(e){ return (feat("injury")&&exInjuryHits(e).length)?0.10:1; }
 function schemeFor(role){ const base=SCHEME[role]||SCHEME.accessory; const g=goalDef(); if(g.scheme&&g.scheme[role]){ const a=g.scheme[role]; return {sets:base.sets,reps:a[0],rest:fmt(a[1]),restSec:a[1]}; } return base; }
@@ -1545,9 +1544,8 @@ const SIM_GROUPS=[
   ["db_curl","cable_curl","hammer","incline_curl","conc_curl"],                 // biceps curls
   // --- LOWER ---
   ["bb_squat","front_squat","box_squat","trap_squat"],                          // barbell/trap squats (compound)
-  // lm_squat deliberately NOT in the squat family: it is an accessory-role landmine
-  // movement, so the compound anchor always won the shared family slot and it never
-  // appeared once in 60 sessions.
+  // lm_squat (landmine squat) removed from the library in v43 at the user's request; its
+  // GUIDES entry stays so logged sessions that include it still show the how-to.
   ["deadlift","trap_dl","bb_rdl","rack_pull","trap_rdl","lm_rdl","good_morning"], // hinges/deadlifts
   ["nordic","ghr"],                                                             // GHR knee-flexion
   ["cable_abduction","cable_adduction"],                                        // hip abduction/adduction
@@ -1563,6 +1561,19 @@ const SIM_GROUPS=[
   ["kb_deadbug","kb_plank_pull","kb_around_world"],                             // KB floor/plank core
 ];
 function simFamilyOf(id){ const g=SIM_GROUPS.find(x=>x.includes(id)); return g?g.filter(x=>x!==id):[]; }
+// v43: JOB groups — exercises that do the same job, capped at JOB_CAP per session. Wider
+// than SIM_GROUPS (1 per family): a family is "redundant together", a job is "fine twice,
+// stacked at three". patLimit alone did not hold this: the top-up loop after the core embed
+// never checked it, so Pull days got 3 rows (~13% at 45 min, ~39% at 60), Push days 3
+// triceps isolations (~9% / ~40%), Lower days 3+ glute isolations (100%). User asked for
+// rows / triceps / rear-delt-upper-back / glutes capped at 2.
+const JOB_CAP=2;
+const JOB_GROUPS={
+  rows:["bb_row","pendlay","bb_pause_row","cs_row","db_row","lm_row","inverted_row","trap_row","low_row"],
+  triceps_iso:["pushdown","pushdown_bar","pushdown_rev","oh_ext","cable_oh_ext","skull","kickback_tri","tricep_dips","bench_dip"],
+  reardelt_upperback:["face_pull","rear_fly","band_pull_apart","iyt_raise","bb_bb_shrug"],
+  glute_iso:["hip_thrust","kickback","pull_through","cable_abduction","cable_adduction"]};
+function jobOf(id){ for(const j in JOB_GROUPS) if(JOB_GROUPS[j].includes(id)) return j; return null; }
 function generate(focusKey,duration,mode){
   const f=FOCI[focusKey], owned=ownedCaps();
   const blocked=new Set(STATE.settings.blocked||[]);
@@ -1665,6 +1676,8 @@ function generate(focusKey,duration,mode){
   const patCount=p=>chosen.filter(x=>x.pattern===p).length;
   const patLimit=sCount>=8?3:2;
   const patOK=e=>e.role==="core"||e.pattern==="core"||patCount(e.pattern)<patLimit;
+  // v43: per-session JOB cap (JOB_GROUPS) — hard through every tier, the top-up and grow.
+  const jobOK=e=>{ const j=jobOf(e.id); return !j||chosen.filter(x=>jobOf(x.id)===j).length<JOB_CAP; };
   // CORE FUNCTION variety. Every core exercise shares pattern "core", so patOK/patVariety
   // above are explicitly exempt for them — which meant a core day had NO variety control at
   // all and could stack 4-6 movements doing the same job (measured: sessions of 6 with only
@@ -1703,7 +1716,7 @@ function generate(focusKey,duration,mode){
     pool.filter(e=>pinned.has(e.id)&&hitsFocus(e)&&e.role==="compound"&&!chosen.includes(e))
         .forEach(e=>{ if(compCount()<compCap&&chosen.length<sCount) add(e); });
   }
-  if(!isCore){ for(const pat of f.anchors){ if(compCount()>=compCap||chosen.length>=Math.min(2,sCount)) break; let ac=pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)); const safe=ac.filter(injOK); if(safe.length) ac=safe; add(pickFrom(ac,recent)); } }
+  if(!isCore){ for(const pat of f.anchors){ if(compCount()>=compCap||chosen.length>=Math.min(2,sCount)) break; let ac=pool.filter(e=>e.pattern===pat&&e.role==="compound"&&!chosen.includes(e)&&jobOK(e)); const safe=ac.filter(injOK); if(safe.length) ac=safe; add(pickFrom(ac,recent)); } }
   // pinned non-compounds (accessories/isolation/core) — capped like anything else
   pool.filter(e=>pinned.has(e.id)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&!chosen.includes(e))
       .forEach(e=>{ if(chosen.length<sCount&&(e.role!=="compound"||compCount()<compCap)) add(e); });
@@ -1718,20 +1731,20 @@ function generate(focusKey,duration,mode){
       // same principle as the muscle cap: settle for fewer/repeat only as a true last resort.
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.primary.includes("core")&&!simBlocked.has(e.id));
       if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.secondary.includes("core")); }
-    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&stationOK(e)&&injOK(e));
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&injOK(e)); // relax STATION, keep injury filter
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)); // relax injury before muscle cap — muscle cap stays hard (user: no clustering)
+    else { cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&jobOK(e)&&stationOK(e)&&injOK(e));
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&jobOK(e)&&injOK(e)); // relax STATION, keep injury filter
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&jobOK(e)); // relax injury before muscle cap — muscle cap stays hard (user: no clustering)
       if(compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
       // muscleOK is kept as a hard requirement through every tier now. Previously the last
       // resort dropped it, which let a 5th exercise pile onto one muscle whenever the pool
       // was thin (common after unpinning bench). If honoring the cap leaves no candidates,
       // the loop settles for fewer exercises rather than clustering — same principle already
       // applied to the pattern limit above.
-      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&(compCount()<compCap||e.role!=="compound")); }
+      if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&patOK(e)&&muscleOK(e)&&jobOK(e)&&(compCount()<compCap||e.role!=="compound")); }
     const e=pickFrom(cands,recent); if(!e) break; add(e);
   }
   if(!isCore&&!goalDef().skipCoreEmbed&&chosen.length<sCount){ add(pickFrom(pool.filter(e=>e.role==="core"&&!chosen.includes(e)&&!simBlocked.has(e.id)),recent)); } // guaranteed ab work
-  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e));
+  guard=0; while(chosen.length<sCount&&guard++<60){ let cands=isCore?pool.filter(e=>!chosen.includes(e)&&(e.primary.includes("core")||e.secondary.includes("core"))):pool.filter(e=>!chosen.includes(e)&&e.role!=="core"&&hitsFocus(e)&&jobOK(e));
     if(!isCore&&compCount()>=compCap) cands=cands.filter(e=>e.role!=="compound");
     let fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&stationOK(e)&&cfxOK(e)&&injOK(e));
     if(!fresh.length) fresh=cands.filter(e=>!simBlocked.has(e.id)&&muscleOK(e)&&cfxOK(e)&&injOK(e)); // relax station, keep injury
@@ -1774,7 +1787,7 @@ function generate(focusKey,duration,mode){
     // than the one guaranteed core exercise, keeping it near ~20% instead of ~50%.
     const wantCore=!isCore&&!g.skipCoreEmbed&&chosen.length>=9&&coreCount()<Math.floor(chosen.length/5)&&coreCount()<3;
     let cands=wantCore?pool.filter(e=>!chosen.includes(e)&&e.role==="core"):[];
-    if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e)&&muscleOK(e)&&stationOK(e)&&cfxOK(e));
+    if(!cands.length) cands=pool.filter(e=>!chosen.includes(e)&&(isCore?((e.primary||[]).includes("core")||(e.secondary||[]).includes("core")):hitsFocus(e))&&patOK(e)&&muscleOK(e)&&jobOK(e)&&stationOK(e)&&cfxOK(e));
     // No relax-fallback here on purpose: fill (above) guarantees a viable minimum session
     // and is allowed to repeat a muscle if the pool forces it, but grow is pure padding —
     // once every remaining candidate would break the exposure caps, stop rather than force
